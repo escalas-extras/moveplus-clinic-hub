@@ -432,12 +432,11 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             </div>
           </div>
 
-          <Field label="3.6 Semiologia" wide><Textarea rows={3} {...register("semiologia")} /></Field>
-          <Field label="3.7 Testes específicos" wide><Textarea rows={3} {...register("testes_especificos")} /></Field>
+          <Field label="3.6 Testes específicos" wide><Textarea rows={3} {...register("testes_especificos")} /></Field>
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs uppercase">3.8 Avaliação da dor (EVA)</Label>
+              <Label className="text-xs uppercase">3.7 Avaliação da dor (EVA)</Label>
               <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
             </div>
             <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
@@ -446,11 +445,20 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div><Label className="text-xs uppercase">Peso (kg)</Label><Input type="number" step="0.1" {...register("peso", { valueAsNumber: true })} /></div>
-            <div><Label className="text-xs uppercase">Estatura (m)</Label><Input type="number" step="0.01" {...register("estatura", { valueAsNumber: true })} /></div>
-            <div><Label className="text-xs uppercase">IMC</Label><Input readOnly value={calcImc(watch("peso"), watch("estatura")) ?? ""} /></div>
-          </div>
+          {(() => {
+            const pesoStr = String(watch("peso") ?? "").replace(",", ".");
+            const estStr = String(watch("estatura") ?? "").replace(",", ".");
+            const peso = parseFloat(pesoStr);
+            const est = parseFloat(estStr);
+            const imc = !isNaN(peso) && !isNaN(est) && est > 0 ? (peso / (est * est)).toFixed(2) : "";
+            return (
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div><Label className="text-xs uppercase">Peso (kg)</Label><Input type="number" step="0.1" {...register("peso", { valueAsNumber: true })} /></div>
+                <div><Label className="text-xs uppercase">Estatura (m)</Label><Input type="number" step="0.01" {...register("estatura", { valueAsNumber: true })} /></div>
+                <div><Label className="text-xs uppercase">IMC</Label><Input readOnly value={imc} /></div>
+              </div>
+            );
+          })()}
         </div>
       </Section>
 
