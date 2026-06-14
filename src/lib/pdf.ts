@@ -108,27 +108,27 @@ export async function buildPdf(opts: {
   const logo = await loadLogoDataUrl();
 
   // Header (once, page 1)
+  const HEADER_H = 120;
+  const LOGO_SIZE = 90;
   const drawHeader = () => {
     doc.setFillColor(...C.brandSoft);
-    doc.rect(0, 0, W, 92, "F");
+    doc.rect(0, 0, W, HEADER_H, "F");
     if (logo) {
-      try { doc.addImage(logo, "JPEG", M, 20, 54, 54); } catch { /* ignore */ }
+      try { doc.addImage(logo, "JPEG", M, 15, LOGO_SIZE, LOGO_SIZE); } catch { /* ignore */ }
     }
-    const tx = logo ? M + 66 : M;
+    const tx = logo ? M + LOGO_SIZE + 14 : M;
     doc.setTextColor(...C.brand);
-    doc.setFontSize(15);
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text(c.nome_fantasia || "Move 60+", tx, 38);
+    doc.text(c.nome_fantasia || "Move 60+", tx, 48);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
+    doc.setFontSize(9);
     const lines = [
       c.razao_social,
       c.cnpj ? `CNPJ: ${c.cnpj}` : null,
-      c.endereco,
-      [c.cidade, c.estado].filter(Boolean).join(" - "),
       [c.telefones?.join(" · "), c.emails?.join(" · ")].filter(Boolean).join("  ·  "),
     ].filter(Boolean) as string[];
-    doc.text(lines, tx, 52);
+    doc.text(lines, tx, 66);
   };
   drawHeader();
 
