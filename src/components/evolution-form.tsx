@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Eye } from "lucide-react";
+import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
+import { buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 
 type FormInput = {
   professional_id: string;
