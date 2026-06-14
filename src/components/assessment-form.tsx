@@ -505,6 +505,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             <div className="space-y-2">
               {HABITOS_PERGUNTAS.map((q) => {
                 const cur = habitos[q.id] ?? { resposta: "", obs: "" };
+                const opts = (q.obsHint ?? "").split("/").map((s) => s.trim()).filter(Boolean);
                 return (
                   <div key={q.id} className="grid sm:grid-cols-[1fr_auto_2fr] gap-2 items-start p-2 rounded-md bg-muted/30">
                     <div className="text-sm">{q.label}</div>
@@ -512,7 +513,14 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
                       <Button type="button" size="sm" variant={cur.resposta === "sim" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "sim" } }))}>Sim</Button>
                       <Button type="button" size="sm" variant={cur.resposta === "nao" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "nao" } }))}>Não</Button>
                     </div>
-                    <Input placeholder={q.obsHint ?? "Observações"} value={cur.obs} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: e.target.value } }))} />
+                    {opts.length > 1 ? (
+                      <Select value={cur.obs} onValueChange={(v) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: v } }))}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                      </Select>
+                    ) : (
+                      <Input placeholder={q.obsHint ?? "Observações"} value={cur.obs} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: e.target.value } }))} />
+                    )}
                   </div>
                 );
               })}
