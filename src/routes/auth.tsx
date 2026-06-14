@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
@@ -18,7 +18,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  
   const [loading, setLoading] = useState(false);
 
   async function signIn(e: React.FormEvent) {
@@ -31,18 +31,8 @@ function AuthPage() {
     navigate({ to: "/app" });
   }
 
-  async function signUp(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name }, emailRedirectTo: `${window.location.origin}/app` },
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Conta criada. Você já pode entrar.");
-  }
+
+
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -75,42 +65,21 @@ function AuthPage() {
           <h2 className="text-2xl mb-1">Acesse sua conta</h2>
           <p className="text-sm text-muted-foreground mb-6">Painel profissional Move+.</p>
 
-          <Tabs defaultValue="signin">
-            <TabsList className="grid grid-cols-2 w-full mb-4">
-              <TabsTrigger value="signin">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Criar conta</TabsTrigger>
-            </TabsList>
-            <TabsContent value="signin">
-              <form className="space-y-4" onSubmit={signIn}>
-                <div className="space-y-2">
-                  <Label htmlFor="e">E-mail</Label>
-                  <Input id="e" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="p">Senha</Label>
-                  <Input id="p" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                <Button type="submit" disabled={loading} className="w-full">Entrar</Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="signup">
-              <form className="space-y-4" onSubmit={signUp}>
-                <div className="space-y-2">
-                  <Label htmlFor="n">Nome completo</Label>
-                  <Input id="n" required value={name} onChange={(e) => setName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="e2">E-mail</Label>
-                  <Input id="e2" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="p2">Senha</Label>
-                  <Input id="p2" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                <Button type="submit" disabled={loading} className="w-full">Criar conta</Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+          <form className="space-y-4" onSubmit={signIn}>
+            <div className="space-y-2">
+              <Label htmlFor="e">E-mail</Label>
+              <Input id="e" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="p">Senha</Label>
+              <Input id="p" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+            <Button type="submit" disabled={loading} className="w-full">Entrar</Button>
+          </form>
+          <p className="text-xs text-muted-foreground mt-4 text-center">
+            Novas contas são criadas apenas pelo administrador em Usuários.
+          </p>
+
         </Card>
       </div>
     </div>
