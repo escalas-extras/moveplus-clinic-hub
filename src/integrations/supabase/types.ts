@@ -14,16 +14,973 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          duracao_min: number
+          horario: string
+          id: string
+          observacao: string | null
+          patient_id: string
+          professional_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data: string
+          duracao_min?: number
+          horario: string
+          id?: string
+          observacao?: string | null
+          patient_id: string
+          professional_id: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          duracao_min?: number
+          horario?: string
+          id?: string
+          observacao?: string | null
+          patient_id?: string
+          professional_id?: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_modules: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          module_type: Database["public"]["Enums"]["assessment_module_type"]
+          payload: Json
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          module_type: Database["public"]["Enums"]["assessment_module_type"]
+          payload?: Json
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          module_type?: Database["public"]["Enums"]["assessment_module_type"]
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_modules_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_neuro: {
+        Row: {
+          assessment_id: string
+          clonus: string | null
+          consciencia: string | null
+          id: string
+          manobras_deficitarias: string | null
+          motricidade: string | null
+          reflexos: Json | null
+          sensibilidade: Json | null
+          testes: string | null
+          tonus: string | null
+          trofismo: string | null
+        }
+        Insert: {
+          assessment_id: string
+          clonus?: string | null
+          consciencia?: string | null
+          id?: string
+          manobras_deficitarias?: string | null
+          motricidade?: string | null
+          reflexos?: Json | null
+          sensibilidade?: Json | null
+          testes?: string | null
+          tonus?: string | null
+          trofismo?: string | null
+        }
+        Update: {
+          assessment_id?: string
+          clonus?: string | null
+          consciencia?: string | null
+          id?: string
+          manobras_deficitarias?: string | null
+          motricidade?: string | null
+          reflexos?: Json | null
+          sensibilidade?: Json | null
+          testes?: string | null
+          tonus?: string | null
+          trofismo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_neuro_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_ortho: {
+        Row: {
+          adm: Json | null
+          assessment_id: string
+          eva: number | null
+          fm_mmii: Json | null
+          fm_mmss: Json | null
+          goniometria: Json | null
+          id: string
+          perimetria: Json | null
+          testes_especificos: string | null
+        }
+        Insert: {
+          adm?: Json | null
+          assessment_id: string
+          eva?: number | null
+          fm_mmii?: Json | null
+          fm_mmss?: Json | null
+          goniometria?: Json | null
+          id?: string
+          perimetria?: Json | null
+          testes_especificos?: string | null
+        }
+        Update: {
+          adm?: Json | null
+          assessment_id?: string
+          eva?: number | null
+          fm_mmii?: Json | null
+          fm_mmss?: Json | null
+          goniometria?: Json | null
+          id?: string
+          perimetria?: Json | null
+          testes_especificos?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_ortho_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_postural: {
+        Row: {
+          anterior: string | null
+          assessment_id: string
+          foto_anterior: string | null
+          foto_lat_d: string | null
+          foto_lat_e: string | null
+          foto_posterior: string | null
+          id: string
+          lat_direita: string | null
+          lat_esquerda: string | null
+          posterior: string | null
+        }
+        Insert: {
+          anterior?: string | null
+          assessment_id: string
+          foto_anterior?: string | null
+          foto_lat_d?: string | null
+          foto_lat_e?: string | null
+          foto_posterior?: string | null
+          id?: string
+          lat_direita?: string | null
+          lat_esquerda?: string | null
+          posterior?: string | null
+        }
+        Update: {
+          anterior?: string | null
+          assessment_id?: string
+          foto_anterior?: string | null
+          foto_lat_d?: string | null
+          foto_lat_e?: string | null
+          foto_posterior?: string | null
+          id?: string
+          lat_direita?: string | null
+          lat_esquerda?: string | null
+          posterior?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_postural_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_vitals: {
+        Row: {
+          angina: string | null
+          assessment_id: string
+          ausculta_pulmonar: string | null
+          cianose: string | null
+          dispneia: string | null
+          edema: string | null
+          fc: string | null
+          fr: string | null
+          id: string
+          pa: string | null
+          pr: string | null
+          rr: string | null
+          secrecao: string | null
+          sincope: string | null
+          temperatura: number | null
+          tosse: string | null
+        }
+        Insert: {
+          angina?: string | null
+          assessment_id: string
+          ausculta_pulmonar?: string | null
+          cianose?: string | null
+          dispneia?: string | null
+          edema?: string | null
+          fc?: string | null
+          fr?: string | null
+          id?: string
+          pa?: string | null
+          pr?: string | null
+          rr?: string | null
+          secrecao?: string | null
+          sincope?: string | null
+          temperatura?: number | null
+          tosse?: string | null
+        }
+        Update: {
+          angina?: string | null
+          assessment_id?: string
+          ausculta_pulmonar?: string | null
+          cianose?: string | null
+          dispneia?: string | null
+          edema?: string | null
+          fc?: string | null
+          fr?: string | null
+          id?: string
+          pa?: string | null
+          pr?: string | null
+          rr?: string | null
+          secrecao?: string | null
+          sincope?: string | null
+          temperatura?: number | null
+          tosse?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_vitals_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: true
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          antecedentes_familiares: string | null
+          antecedentes_pessoais: string | null
+          condutas: string | null
+          coordenacao: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          diagnostico_clinico: string | null
+          diagnostico_fisio: string | null
+          equilibrio: string | null
+          estatura: number | null
+          exames_complementares: string | null
+          hma: string | null
+          id: string
+          imc: number | null
+          inspecao: string | null
+          locked_at: string | null
+          marcha: string | null
+          medicamentos: string | null
+          medico_responsavel: string | null
+          objetivos: string | null
+          palpacao: string | null
+          patient_id: string
+          peso: number | null
+          professional_id: string
+          queixa_principal: string | null
+          tipo: Database["public"]["Enums"]["assessment_type"]
+          tratamentos_realizados: string | null
+          updated_at: string
+        }
+        Insert: {
+          antecedentes_familiares?: string | null
+          antecedentes_pessoais?: string | null
+          condutas?: string | null
+          coordenacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          diagnostico_clinico?: string | null
+          diagnostico_fisio?: string | null
+          equilibrio?: string | null
+          estatura?: number | null
+          exames_complementares?: string | null
+          hma?: string | null
+          id?: string
+          imc?: number | null
+          inspecao?: string | null
+          locked_at?: string | null
+          marcha?: string | null
+          medicamentos?: string | null
+          medico_responsavel?: string | null
+          objetivos?: string | null
+          palpacao?: string | null
+          patient_id: string
+          peso?: number | null
+          professional_id: string
+          queixa_principal?: string | null
+          tipo?: Database["public"]["Enums"]["assessment_type"]
+          tratamentos_realizados?: string | null
+          updated_at?: string
+        }
+        Update: {
+          antecedentes_familiares?: string | null
+          antecedentes_pessoais?: string | null
+          condutas?: string | null
+          coordenacao?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          diagnostico_clinico?: string | null
+          diagnostico_fisio?: string | null
+          equilibrio?: string | null
+          estatura?: number | null
+          exames_complementares?: string | null
+          hma?: string | null
+          id?: string
+          imc?: number | null
+          inspecao?: string | null
+          locked_at?: string | null
+          marcha?: string | null
+          medicamentos?: string | null
+          medico_responsavel?: string | null
+          objetivos?: string | null
+          palpacao?: string | null
+          patient_id?: string
+          peso?: number | null
+          professional_id?: string
+          queixa_principal?: string | null
+          tipo?: Database["public"]["Enums"]["assessment_type"]
+          tratamentos_realizados?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_settings: {
+        Row: {
+          assinatura_padrao_url: string | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          created_at: string
+          emails: string[] | null
+          endereco: string | null
+          estado: string | null
+          id: string
+          logo_url: string | null
+          nome_fantasia: string
+          razao_social: string | null
+          rodape_institucional: string | null
+          telefones: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          assinatura_padrao_url?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string
+          emails?: string[] | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_fantasia: string
+          razao_social?: string | null
+          rodape_institucional?: string | null
+          telefones?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          assinatura_padrao_url?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string
+          emails?: string[] | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          logo_url?: string | null
+          nome_fantasia?: string
+          razao_social?: string | null
+          rodape_institucional?: string | null
+          telefones?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          emitido_em: string
+          id: string
+          patient_id: string
+          pdf_path: string | null
+          professional_id: string
+          referencia_id: string | null
+          tipo: Database["public"]["Enums"]["document_type"]
+        }
+        Insert: {
+          emitido_em?: string
+          id?: string
+          patient_id: string
+          pdf_path?: string | null
+          professional_id: string
+          referencia_id?: string | null
+          tipo: Database["public"]["Enums"]["document_type"]
+        }
+        Update: {
+          emitido_em?: string
+          id?: string
+          patient_id?: string
+          pdf_path?: string | null
+          professional_id?: string
+          referencia_id?: string | null
+          tipo?: Database["public"]["Enums"]["document_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evolutions: {
+        Row: {
+          conduta: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          evolucao_observada: string | null
+          hora: string
+          id: string
+          locked_at: string | null
+          patient_id: string
+          procedimentos: string | null
+          professional_id: string
+          proximos_objetivos: string | null
+          resposta_paciente: string | null
+          sessao_numero: number | null
+          updated_at: string
+        }
+        Insert: {
+          conduta?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          evolucao_observada?: string | null
+          hora?: string
+          id?: string
+          locked_at?: string | null
+          patient_id: string
+          procedimentos?: string | null
+          professional_id: string
+          proximos_objetivos?: string | null
+          resposta_paciente?: string | null
+          sessao_numero?: number | null
+          updated_at?: string
+        }
+        Update: {
+          conduta?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          evolucao_observada?: string | null
+          hora?: string
+          id?: string
+          locked_at?: string | null
+          patient_id?: string
+          procedimentos?: string | null
+          professional_id?: string
+          proximos_objetivos?: string | null
+          resposta_paciente?: string | null
+          sessao_numero?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evolutions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evolutions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_entries: {
+        Row: {
+          appointment_id: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
+          id: string
+          observacoes: string | null
+          patient_id: string
+          professional_id: string
+          status: Database["public"]["Enums"]["payment_status"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          appointment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          id?: string
+          observacoes?: string | null
+          patient_id: string
+          professional_id: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          appointment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          id?: string
+          observacoes?: string | null
+          patient_id?: string
+          professional_id?: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_entries_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_attachments: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          file_path: string
+          id: string
+          patient_id: string
+          tipo: Database["public"]["Enums"]["attachment_type"]
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          file_path: string
+          id?: string
+          patient_id: string
+          tipo?: Database["public"]["Enums"]["attachment_type"]
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          file_path?: string
+          id?: string
+          patient_id?: string
+          tipo?: Database["public"]["Enums"]["attachment_type"]
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_attachments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          contato_recado: string | null
+          cpf: string | null
+          created_at: string
+          created_by: string | null
+          data_nascimento: string | null
+          endereco: string | null
+          estado: string | null
+          estado_civil: string | null
+          id: string
+          naturalidade: string | null
+          nome_completo: string
+          observacoes: string | null
+          profissao: string | null
+          responsavel: string | null
+          rg: string | null
+          sexo: string | null
+          situacao: Database["public"]["Enums"]["entity_status"]
+          telefone: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          contato_recado?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_nascimento?: string | null
+          endereco?: string | null
+          estado?: string | null
+          estado_civil?: string | null
+          id?: string
+          naturalidade?: string | null
+          nome_completo: string
+          observacoes?: string | null
+          profissao?: string | null
+          responsavel?: string | null
+          rg?: string | null
+          sexo?: string | null
+          situacao?: Database["public"]["Enums"]["entity_status"]
+          telefone?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          contato_recado?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_nascimento?: string | null
+          endereco?: string | null
+          estado?: string | null
+          estado_civil?: string | null
+          id?: string
+          naturalidade?: string | null
+          nome_completo?: string
+          observacoes?: string | null
+          profissao?: string | null
+          responsavel?: string | null
+          rg?: string | null
+          sexo?: string | null
+          situacao?: Database["public"]["Enums"]["entity_status"]
+          telefone?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      professionals: {
+        Row: {
+          conselho: string | null
+          created_at: string
+          especialidade: string | null
+          id: string
+          nome: string
+          profile_id: string | null
+          profissao: string
+          registro: string | null
+          situacao: Database["public"]["Enums"]["entity_status"]
+          updated_at: string
+        }
+        Insert: {
+          conselho?: string | null
+          created_at?: string
+          especialidade?: string | null
+          id?: string
+          nome: string
+          profile_id?: string | null
+          profissao: string
+          registro?: string | null
+          situacao?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Update: {
+          conselho?: string | null
+          created_at?: string
+          especialidade?: string | null
+          id?: string
+          nome?: string
+          profile_id?: string | null
+          profissao?: string
+          registro?: string | null
+          situacao?: Database["public"]["Enums"]["entity_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professionals_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      receipts: {
+        Row: {
+          created_at: string
+          data: string
+          financial_entry_id: string
+          forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
+          id: string
+          numero: number
+          patient_id: string
+          pdf_path: string | null
+          professional_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          financial_entry_id: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          id?: string
+          numero?: number
+          patient_id: string
+          pdf_path?: string | null
+          professional_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          financial_entry_id?: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          id?: string
+          numero?: number
+          patient_id?: string
+          pdf_path?: string | null
+          professional_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_financial_entry_id_fkey"
+            columns: ["financial_entry_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "admin"
+        | "physiotherapist"
+        | "psychologist"
+        | "nutritionist"
+        | "occupational_therapist"
+        | "speech_therapist"
+        | "physical_educator"
+        | "physician"
+        | "other"
+      appointment_status: "agendado" | "confirmado" | "realizado" | "cancelado"
+      assessment_module_type:
+        | "geral"
+        | "traumato_ortopedica"
+        | "neurologica"
+        | "cardiorrespiratoria"
+        | "postural"
+        | "geriatrica"
+        | "pediatrica"
+        | "esportiva"
+        | "rpg"
+        | "pilates"
+        | "dor_cronica"
+        | "funcional"
+        | "personalizada"
+      assessment_type: "avaliacao" | "reavaliacao"
+      attachment_type: "exame" | "foto" | "outro"
+      document_type:
+        | "avaliacao"
+        | "reavaliacao"
+        | "evolucao"
+        | "relatorio"
+        | "declaracao"
+        | "recibo"
+        | "termo"
+        | "encaminhamento"
+        | "laudo"
+      entity_status: "ativo" | "inativo"
+      payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
+      payment_status: "pago" | "pendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +1107,50 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "admin",
+        "physiotherapist",
+        "psychologist",
+        "nutritionist",
+        "occupational_therapist",
+        "speech_therapist",
+        "physical_educator",
+        "physician",
+        "other",
+      ],
+      appointment_status: ["agendado", "confirmado", "realizado", "cancelado"],
+      assessment_module_type: [
+        "geral",
+        "traumato_ortopedica",
+        "neurologica",
+        "cardiorrespiratoria",
+        "postural",
+        "geriatrica",
+        "pediatrica",
+        "esportiva",
+        "rpg",
+        "pilates",
+        "dor_cronica",
+        "funcional",
+        "personalizada",
+      ],
+      assessment_type: ["avaliacao", "reavaliacao"],
+      attachment_type: ["exame", "foto", "outro"],
+      document_type: [
+        "avaliacao",
+        "reavaliacao",
+        "evolucao",
+        "relatorio",
+        "declaracao",
+        "recibo",
+        "termo",
+        "encaminhamento",
+        "laudo",
+      ],
+      entity_status: ["ativo", "inativo"],
+      payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
+      payment_status: ["pago", "pendente"],
+    },
   },
 } as const
