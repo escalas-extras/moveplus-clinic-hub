@@ -30,6 +30,7 @@ function PatientPage() {
   const [evoOpen, setEvoOpen] = useState(false);
   const [avalOpen, setAvalOpen] = useState(false);
   const [linkedEvoFor, setLinkedEvoFor] = useState<string | null>(null);
+  const [editAssessment, setEditAssessment] = useState<any | null>(null);
 
   const patient = useQuery({
     queryKey: ["patient", id],
