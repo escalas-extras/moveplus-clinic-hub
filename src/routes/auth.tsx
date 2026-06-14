@@ -1,3 +1,4 @@
+import logoAsset from "@/assets/logo.jpg.asset.json";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,11 +118,5 @@ function AuthPage() {
 }
 
 function LogoMark() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 64 64" fill="none" aria-hidden>
-      <circle cx="32" cy="14" r="5" fill="#d24a2a" />
-      <path d="M14 50 C18 30, 28 26, 32 22" stroke="#2f7a3a" strokeWidth="6" strokeLinecap="round" />
-      <path d="M50 48 C46 32, 38 28, 34 22" stroke="#e09a3a" strokeWidth="6" strokeLinecap="round" />
-    </svg>
-  );
+  return <img src={logoAsset.url} alt="Move 60+" className="h-12 w-auto" />;
 }
