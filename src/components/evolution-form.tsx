@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Eye } from "lucide-react";
+import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
+import { buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 
 type FormInput = {
   professional_id: string;
@@ -31,10 +34,12 @@ type PainRow = { local: string; repouso: string; movimento: string; fatores: str
 export function EvolutionForm({
   patientId,
   assessmentId,
+  patient,
   onDone,
 }: {
   patientId: string;
   assessmentId?: string;
+  patient?: any;
   onDone: () => void;
 }) {
   const today = new Date();
@@ -48,6 +53,7 @@ export function EvolutionForm({
   const [dor, setDor] = useState<PainRow[]>([
     { local: "", repouso: "", movimento: "", fatores: "", impacto: "" },
   ]);
+  const [pdfPreview, setPdfPreview] = useState<ReturnType<typeof buildEvolutionPdfOpts> | null>(null);
 
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
     defaultValues: {
@@ -100,6 +106,24 @@ export function EvolutionForm({
   });
 
   const professional_id = watch("professional_id");
+
+  const openPreview = () => {
+    const v = watch();
+    const prof = profs.data?.find((p) => p.id === v.professional_id);
+    const preview: any = {
+      ...v,
+      professionals: prof,
+      eva,
+      sinais_vitais: sv,
+      avaliacao_algica: dor.filter((r) => r.local || r.repouso || r.movimento || r.fatores || r.impacto),
+      pa: sv.pa,
+      fc: sv.fc,
+      fr: sv.fr,
+      spo2: sv.spo2,
+      nivel_consciencia: sv.nivel_consciencia || null,
+    };
+    setPdfPreview(buildEvolutionPdfOpts(preview, patient));
+  };
 
   return (
     <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-4">
@@ -212,7 +236,18 @@ export function EvolutionForm({
       <div><Label className="text-xs uppercase">Conduta / próximos passos</Label><Textarea rows={2} {...register("conduta")} /></div>
       <div><Label className="text-xs uppercase">Próximos objetivos</Label><Textarea rows={2} {...register("proximos_objetivos")} /></div>
       <div><Label className="text-xs uppercase">Observações gerais</Label><Textarea rows={2} {...register("observacoes_gerais")} /></div>
-      <div className="flex justify-end"><Button type="submit" disabled={save.isPending || !professional_id}>{save.isPending ? "Salvando…" : "Registrar evolução"}</Button></div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={openPreview}>
+          <Eye className="h-4 w-4 mr-1" />Pré-visualizar
+        </Button>
+        <Button type="submit" disabled={save.isPending || !professional_id}>{save.isPending ? "Salvando…" : "Registrar evolução"}</Button>
+      </div>
+      <PdfPreviewDialog
+        open={!!pdfPreview}
+        onOpenChange={(o) => !o && setPdfPreview(null)}
+        pdfOpts={pdfPreview}
+        title="Pré-visualização do PDF"
+      />
     </form>
   );
 }
