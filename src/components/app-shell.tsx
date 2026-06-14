@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Mobile top bar */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-14 border-b bg-sidebar flex items-center justify-between px-4">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-16 border-b bg-sidebar flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Logo />
           <span className="font-semibold">Move 60+</span>
@@ -70,7 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 pt-14 lg:pt-0">
+      <main className="flex-1 min-w-0 pt-16 lg:pt-0">
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
       </main>
     </div>
@@ -96,5 +96,5 @@ function NavItem({ to, exact, icon: Icon, label, onClick }: { to: string; exact?
 }
 
 function Logo() {
-  return <img src={logoAsset.url} alt="Move 60+" className="h-8 w-auto" />;
+  return <img src={logoAsset.url} alt="Move 60+" className="h-12 w-auto" />;
 }
