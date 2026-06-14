@@ -1,6 +1,6 @@
 import logoAsset from "@/assets/logo.jpg.asset.json";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
@@ -13,6 +13,7 @@ const nav = [
   { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true },
   { to: "/app/profissionais", label: "Profissionais", icon: UserCog, adminOnly: true },
+  { to: "/app/usuarios", label: "Usuários", icon: ShieldCheck, adminOnly: true },
   { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
 ];
 
