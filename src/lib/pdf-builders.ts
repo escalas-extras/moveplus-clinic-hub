@@ -145,23 +145,10 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
     .slice()
     .sort((x, y) => (x.data < y.data ? -1 : 1));
 
-  const apresentacaoOpts = [
-    { key: "deambulando", label: "Deambulando" },
-    { key: "apoio", label: "Com apoio" },
-    { key: "cadeirante", label: "Cadeirante" },
-    { key: "hospitalizado", label: "Hospitalizado" },
-    { key: "orientado", label: "Orientado" },
-  ];
-  const inspecaoOpts = [
-    { key: "edema", label: "Edema" },
-    { key: "hematoma", label: "Hematoma" },
-    { key: "atrofia", label: "Atrofia muscular" },
-    { key: "cicatriz", label: "Cicatriz" },
-    { key: "deformidade", label: "Deformidade" },
-    { key: "alteracao_cor", label: "Alteração de cor" },
-  ];
-  const aSet: Set<string> = new Set(a.apresentacao || []);
-  const iSet: Set<string> = new Set(a.inspecao_flags || []);
+  const APRESENTACAO_OPTS = ["Deambulando", "Deambulando com apoio/auxílio", "Cadeira de rodas", "Internado", "Orientado"];
+  const INSPECAO_OPTS = ["Normal", "Edema", "Cicatrização incompleta", "Eritemas", "Outros"];
+  const aArr: string[] = Array.isArray(a.apresentacao) ? a.apresentacao : [];
+  const iArr: string[] = Array.isArray(a.inspecao_flags) ? a.inspecao_flags : [];
 
   return {
     title: `${isReaval ? "Reavaliação" : "Avaliação"} Fisioterapêutica`,
@@ -183,10 +170,6 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
               ["Profissão", p?.profissao ?? "—"],
               ["Naturalidade", p?.naturalidade ?? "—"],
               ["Telefone", p?.telefone ?? "—"],
-              ["Cidade / Estado", [p?.cidade, p?.estado].filter(Boolean).join(" - ") || "—"],
-              ["Bairro", p?.bairro ?? "—"],
-              ["Endereço residencial", p?.endereco ?? "—"],
-              ["Endereço comercial", p?.endereco_comercial ?? "—"],
               ["Profissional", a.professionals?.nome ?? "—"],
             ],
           },
