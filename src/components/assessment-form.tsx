@@ -187,8 +187,13 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         <div className="sm:col-span-2"><Label className="text-xs uppercase">Condutas terapêuticas</Label><Textarea rows={2} {...register("condutas")} /></div>
       </section>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={save.isPending || !professional_id}>{save.isPending ? "Salvando…" : "Criar avaliação"}</Button>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)}>
+          {save.isPending ? "Salvando…" : "Salvar rascunho"}
+        </Button>
+        <Button type="button" disabled={save.isPending || !professional_id} onClick={() => submit(true)}>
+          Finalizar avaliação
+        </Button>
       </div>
     </form>
   );
