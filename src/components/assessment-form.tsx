@@ -379,11 +379,13 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         )}
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">
-            {save.isPending ? "Salvando…" : "Salvar rascunho"}
+            {save.isPending ? "Salvando…" : isEdit ? "Salvar alterações" : "Salvar rascunho"}
           </Button>
-          <Button type="button" disabled={save.isPending} onClick={() => submit(true)} className="flex-1 sm:flex-none">
-            Finalizar avaliação
-          </Button>
+          {(!isEdit || assessment?.status !== "finalizada") && (
+            <Button type="button" disabled={save.isPending} onClick={() => submit(true)} className="flex-1 sm:flex-none">
+              Finalizar avaliação
+            </Button>
+          )}
         </div>
       </div>
     </form>
