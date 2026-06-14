@@ -446,16 +446,18 @@ export async function buildPdf(opts: {
   const decorOpacity = 0.25; // transparência sutil
   const GState = (doc as any).GState;
   const normalFooterY = H - 64;
-  const normalSigY = normalFooterY - 30;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     let fy = normalFooterY;
-    let sigY = normalSigY;
+    let sigY = H - 94;
 
     if (i === pageCount && opts.professional) {
-      // Move assinatura mais próxima do conteúdo na última página para evitar espaço vazio
+      // Move assinatura mais próxima do conteúdo na última página para evitar espaço vazio,
+      // respeitando limites para não sobrepor o conteúdo nem sair da página.
       const desiredSigY = lastPageEndY + 30;
-      sigY = Math.min(normalSigY, Math.max(H - 140, desiredSigY));
+      const minSigY = H - 140;
+      const maxSigY = H - 66;
+      sigY = Math.min(maxSigY, Math.max(minSigY, desiredSigY));
       fy = sigY + 30;
     }
 
@@ -468,7 +470,7 @@ export async function buildPdf(opts: {
     // Rodapé: faixa oliva transparente em toda a largura
     doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
-    const barY = fy < normalFooterY - 1 ? fy + 34 : H - BAR_H;
+    const barY = fy < normalFooterY - 1 ? Math.min(fy + 34, H - BAR_H) : H - BAR_H;
     doc.rect(0, barY, W, BAR_H, "F");
     doc.setGState(new GState({ opacity: 1 })); // reset
 
