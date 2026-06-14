@@ -260,7 +260,7 @@ function PatientPage() {
                           <CheckCircle2 className="h-4 w-4 mr-1" />Finalizar
                         </Button>
                       )}
-                      {isAdmin && (
+                      {(isAdmin || a.status !== "finalizada") && (
                         <Button size="sm" variant="outline" onClick={() => setEditAssessment(a)}>
                           <Pencil className="h-4 w-4 mr-1" />Editar
                         </Button>
