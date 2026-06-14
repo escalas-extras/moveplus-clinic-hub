@@ -110,11 +110,13 @@ function PacientesPage() {
             </thead>
             <tbody className="divide-y">
               {list.data.map((p) => (
-                <tr key={p.id} className="hover:bg-muted/40">
+                <tr
+                  key={p.id}
+                  className="hover:bg-muted/40 cursor-pointer"
+                  onClick={() => navigate({ to: "/app/pacientes/$id", params: { id: p.id } })}
+                >
                   <td className="px-4 py-3">
-                    <Link to="/app/pacientes/$id" params={{ id: p.id }} className="font-medium hover:underline">
-                      {p.nome_completo}
-                    </Link>
+                    <span className="font-medium">{p.nome_completo}</span>
                     <div className="text-xs text-muted-foreground md:hidden">{p.cpf ?? "Sem CPF"}</div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell tabular-nums">{p.cpf ?? "—"}</td>
@@ -125,11 +127,30 @@ function PacientesPage() {
                       {p.situacao}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Abrir prontuário"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate({ to: "/app/pacientes/$id", params: { id: p.id } });
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </td>
                   {isAdmin && (
                     <td className="px-4 py-3 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Excluir paciente">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            title="Excluir paciente"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
