@@ -151,9 +151,9 @@ export async function buildPdf(opts: {
   doc.line(M, y, W - M, y);
   y += 14;
 
-  // Page-break helper
+  // Page-break helper (replaceable per-block to close borders properly)
   let pageY = y;
-  const ensure = (need: number) => {
+  let ensure: (need: number) => void = (need: number) => {
     if (y + need > H - 80) {
       doc.addPage();
       y = M + 8;
@@ -174,9 +174,9 @@ export async function buildPdf(opts: {
   }
 
   function renderBlock(block: PdfBlock) {
-    // Measure block first by rendering to a sandbox? Simpler: draw title bar then children with running y, then draw outer border at the end.
-    const startY = y;
     ensure(40);
+
+    let segStartY = y;
 
     // Title bar
     const titleH = 20;
@@ -187,10 +187,22 @@ export async function buildPdf(opts: {
     doc.setFontSize(9.5);
     doc.text(block.title.toUpperCase(), M + 10, y + 13);
     y += titleH;
-
-    // Inner content area starts here
-    const innerTop = y;
     y += 10;
+
+    // Use a block-scoped ensure that closes the border on page breaks
+    const prevEnsure = ensure;
+    ensure = (need: number) => {
+      if (y + need > H - 80) {
+        // close current segment border
+        doc.setDrawColor(...C.border);
+        doc.setLineWidth(0.5);
+        doc.rect(M, segStartY, contentW, y - segStartY, "S");
+        doc.addPage();
+        y = M + 8;
+        pageY = y;
+        segStartY = y;
+      }
+    };
 
     for (const ch of block.children) {
       renderContent(ch);
@@ -198,14 +210,12 @@ export async function buildPdf(opts: {
     }
     y += 4;
 
-    // Outer border around (titleY..y)
+    // Outer border around final segment
     doc.setDrawColor(...C.border);
     doc.setLineWidth(0.5);
-    doc.rect(M, startY, contentW, y - startY, "S");
-    // light fill behind inner area
-    // (skip fill — border alone keeps document clean and printable)
-    void innerTop;
+    doc.rect(M, segStartY, contentW, y - segStartY, "S");
 
+    ensure = prevEnsure;
     y += 10;
   }
 
