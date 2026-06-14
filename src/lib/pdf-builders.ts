@@ -201,7 +201,7 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
           {
             kind: "checks" as const,
             label: "Apresentação do paciente",
-            items: apresentacaoOpts.map((o) => ({ label: o.label, checked: aSet.has(o.key) })),
+            items: APRESENTACAO_OPTS.map((o) => ({ label: o, checked: aArr.includes(o) })),
           },
           {
             kind: "grid" as const,
@@ -214,10 +214,9 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
           {
             kind: "checks" as const,
             label: "Inspeção",
-            items: inspecaoOpts.map((o) => ({ label: o.label, checked: iSet.has(o.key) })),
+            items: INSPECAO_OPTS.map((o) => ({ label: o, checked: iArr.includes(o) })),
           },
           { kind: "paragraph" as const, label: "Palpação / observações", text: a.palpacao || a.inspecao || "—" },
-          { kind: "paragraph" as const, label: "Semiologia", text: a.semiologia || "—" },
           { kind: "paragraph" as const, label: "Testes específicos", text: a.testes_especificos || "—" },
         ],
       },
