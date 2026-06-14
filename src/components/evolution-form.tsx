@@ -236,7 +236,18 @@ export function EvolutionForm({
       <div><Label className="text-xs uppercase">Conduta / próximos passos</Label><Textarea rows={2} {...register("conduta")} /></div>
       <div><Label className="text-xs uppercase">Próximos objetivos</Label><Textarea rows={2} {...register("proximos_objetivos")} /></div>
       <div><Label className="text-xs uppercase">Observações gerais</Label><Textarea rows={2} {...register("observacoes_gerais")} /></div>
-      <div className="flex justify-end"><Button type="submit" disabled={save.isPending || !professional_id}>{save.isPending ? "Salvando…" : "Registrar evolução"}</Button></div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={openPreview}>
+          <Eye className="h-4 w-4 mr-1" />Pré-visualizar
+        </Button>
+        <Button type="submit" disabled={save.isPending || !professional_id}>{save.isPending ? "Salvando…" : "Registrar evolução"}</Button>
+      </div>
+      <PdfPreviewDialog
+        open={!!pdfPreview}
+        onOpenChange={(o) => !o && setPdfPreview(null)}
+        pdfOpts={pdfPreview}
+        title="Pré-visualização do PDF"
+      />
     </form>
   );
 }
