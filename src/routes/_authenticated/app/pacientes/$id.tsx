@@ -14,6 +14,7 @@ import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
 import { toast } from "sonner";
 import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
+import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth, useRoles } from "@/lib/auth";
 
