@@ -37,6 +37,7 @@ export function EvolutionForm({
   onDone: () => void;
 }) {
   const today = new Date();
+  const [eva, setEva] = useState<number>(0);
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
     defaultValues: {
       data: today.toISOString().slice(0, 10),
@@ -62,6 +63,11 @@ export function EvolutionForm({
         data: v.data,
         hora: v.hora,
         sessao_numero: v.sessao_numero || null,
+        pa: v.pa || null,
+        fc: v.fc || null,
+        fr: v.fr || null,
+        spo2: v.spo2 || null,
+        eva,
         procedimentos: v.procedimentos || null,
         resposta_paciente: v.resposta_paciente || null,
         evolucao_observada: v.evolucao_observada || null,
