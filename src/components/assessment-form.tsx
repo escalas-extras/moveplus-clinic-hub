@@ -56,7 +56,7 @@ type FormInput = {
 
 export function AssessmentForm({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const [modules, setModules] = useState<ModuleType[]>(["geral"]);
-  const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
+  const { register, handleSubmit, setValue, watch, getValues } = useForm<FormInput>({
     defaultValues: { tipo: "avaliacao", data: new Date().toISOString().slice(0, 10) },
   });
 
@@ -69,7 +69,7 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
   });
 
   const save = useMutation({
-    mutationFn: async (v: FormInput) => {
+    mutationFn: async ({ v, finalize }: { v: FormInput; finalize: boolean }) => {
       const { data: u } = await supabase.auth.getUser();
       const imc = calcImc(v.peso, v.estatura);
       const { data: ins, error } = await supabase.from("assessments").insert({
@@ -98,6 +98,8 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         estatura: v.estatura || null,
         imc,
         created_by: u.user?.id,
+        status: (finalize ? "finalizada" : "rascunho") as any,
+        locked_at: finalize ? new Date().toISOString() : null,
       }).select("id").single();
       if (error) throw error;
       if (modules.length) {
@@ -107,15 +109,17 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         if (e2) throw e2;
       }
     },
-    onSuccess: () => { toast.success("Avaliação criada"); onDone(); },
+    onSuccess: (_d, vars) => { toast.success(vars.finalize ? "Avaliação finalizada" : "Rascunho salvo"); onDone(); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const professional_id = watch("professional_id");
   const tipo = watch("tipo");
 
+  const submit = (finalize: boolean) => handleSubmit((v) => save.mutate({ v, finalize }))();
+
   return (
-    <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-5">
+    <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-5">
       <section className="grid sm:grid-cols-3 gap-3">
         <div>
           <Label className="text-xs uppercase">Profissional *</Label>
@@ -183,8 +187,13 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         <div className="sm:col-span-2"><Label className="text-xs uppercase">Condutas terapêuticas</Label><Textarea rows={2} {...register("condutas")} /></div>
       </section>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={save.isPending || !professional_id}>{save.isPending ? "Salvando…" : "Criar avaliação"}</Button>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)}>
+          {save.isPending ? "Salvando…" : "Salvar rascunho"}
+        </Button>
+        <Button type="button" disabled={save.isPending || !professional_id} onClick={() => submit(true)}>
+          Finalizar avaliação
+        </Button>
       </div>
     </form>
   );

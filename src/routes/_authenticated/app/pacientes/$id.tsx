@@ -6,13 +6,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, FileDown, Lock } from "lucide-react";
+import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2 } from "lucide-react";
 import { calcAge, fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
 import { toast } from "sonner";
-import { generatePdf } from "@/lib/pdf";
+import { downloadPdf, previewPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -70,6 +70,29 @@ function PatientPage() {
       toast.success("Paciente atualizado");
       setEditOpen(false);
       qc.invalidateQueries({ queryKey: ["patient", id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const finalize = useMutation({
+    mutationFn: async (a: any) => {
+      const { error } = await supabase
+        .from("assessments")
+        .update({ status: "finalizada", locked_at: new Date().toISOString() })
+        .eq("id", a.id);
+      if (error) throw error;
+      await uploadAndRegisterPdf({
+        pdfOpts: buildAssessmentPdfOpts(a, patient.data),
+        folder: a.tipo === "reavaliacao" ? "reavaliacoes" : "avaliacoes",
+        tipo: a.tipo === "reavaliacao" ? "reavaliacao" : "avaliacao",
+        patientId: a.patient_id,
+        professionalId: a.professional_id,
+        referenciaId: a.id,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Avaliação finalizada e PDF arquivado");
+      qc.invalidateQueries({ queryKey: ["assessments", id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -158,10 +181,18 @@ function PatientPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => exportAssessmentPdf(a, p)}><FileDown className="h-4 w-4 mr-1" />PDF</Button>
-                    {!a.locked_at && <Button size="sm" variant="outline" onClick={() => lock.mutate({ table: "assessments", rowId: a.id })}><Lock className="h-4 w-4 mr-1" />Assinar</Button>}
-                    {a.locked_at && <span className="text-xs text-muted-foreground self-center">Assinada</span>}
+                  <div className="flex gap-2 flex-wrap">
+                    <span className={`text-xs self-center px-2 py-0.5 rounded-full ${a.status === "finalizada" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                      {a.status === "finalizada" ? "Finalizada" : "Rascunho"}
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => previewPdf(buildAssessmentPdfOpts(a, p))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
+                    <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
+                    {a.status !== "finalizada" && (
+                      <Button size="sm" onClick={() => finalize.mutate(a)} disabled={finalize.isPending}>
+                        <CheckCircle2 className="h-4 w-4 mr-1" />Finalizar
+                      </Button>
+                    )}
                   </div>
                 </div>
                 {a.queixa_principal && <p className="text-sm mt-3"><b>Queixa:</b> {a.queixa_principal}</p>}
@@ -189,8 +220,10 @@ function PatientPage() {
                     <div className="text-sm font-medium">{fmtDate(e.data)} · {String(e.hora).slice(0, 5)}</div>
                     <div className="text-xs text-muted-foreground">{e.professionals?.nome}</div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => exportEvolutionPdf(e, p)}><FileDown className="h-4 w-4 mr-1" />PDF</Button>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => previewPdf(buildEvolutionPdfOpts(e, p))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadPdf(buildEvolutionPdfOpts(e, p))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
+                    <Button size="sm" variant="outline" onClick={() => printPdf(buildEvolutionPdfOpts(e, p))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
                     {!e.locked_at && <Button size="sm" variant="outline" onClick={() => lock.mutate({ table: "evolutions", rowId: e.id })}><Lock className="h-4 w-4 mr-1" />Assinar</Button>}
                     {e.locked_at && <span className="text-xs text-muted-foreground self-center">Assinada</span>}
                   </div>
@@ -219,8 +252,8 @@ function Info({ label, value, className }: { label: string; value: any; classNam
   );
 }
 
-async function exportEvolutionPdf(e: any, p: any) {
-  await generatePdf({
+function buildEvolutionPdfOpts(e: any, p: any) {
+  return {
     title: `Evolução Clínica — ${fmtDate(e.data)}`,
     patientName: p.nome_completo,
     professional: e.professionals,
@@ -232,13 +265,13 @@ async function exportEvolutionPdf(e: any, p: any) {
       { title: "Conduta adotada", body: e.conduta || "—" },
       { title: "Próximos objetivos", body: e.proximos_objetivos || "—" },
     ],
-  });
+  };
 }
 
-async function exportAssessmentPdf(a: any, p: any) {
-  await generatePdf({
+function buildAssessmentPdfOpts(a: any, p: any) {
+  return {
     title: `${a.tipo === "reavaliacao" ? "Reavaliação" : "Avaliação"} Fisioterapêutica — ${fmtDate(a.data)}`,
-    patientName: p.nome_completo,
+    patientName: p?.nome_completo,
     professional: a.professionals,
     sections: [
       { title: "Diagnóstico clínico", body: a.diagnostico_clinico || "—" },
@@ -252,5 +285,5 @@ async function exportAssessmentPdf(a: any, p: any) {
       { title: "Objetivos terapêuticos", body: a.objetivos || "—" },
       { title: "Condutas", body: a.condutas || "—" },
     ],
-  });
+  };
 }
