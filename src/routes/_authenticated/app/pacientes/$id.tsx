@@ -301,7 +301,14 @@ function Info({ label, value, className }: { label: string; value: any; classNam
   );
 }
 
+function fmtYesNo(v: any) {
+  if (v === true) return "Sim";
+  if (v === false) return "Não";
+  return "—";
+}
+
 function buildEvolutionPdfOpts(e: any, p: any) {
+
   return {
     title: `Evolução Clínica`,
     subtitle: `${fmtDate(e.data)}${e.hora ? ` às ${String(e.hora).slice(0, 5)}` : ""}`,
