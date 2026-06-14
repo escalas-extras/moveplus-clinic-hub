@@ -432,7 +432,50 @@ function fmtYesNo(v: any) {
   return "—";
 }
 
+const PDF_HABITOS: { id: string; label: string }[] = [
+  { id: "atividade_fisica", label: "Realiza atividade física?" },
+  { id: "qualidade_sono", label: "Boa qualidade do sono?" },
+  { id: "alimentacao", label: "Alimentação saudável?" },
+  { id: "internacoes", label: "Internações recentes?" },
+  { id: "quedas", label: "Quedas nos últimos 12 meses?" },
+  { id: "cirurgia_previa", label: "Cirurgia prévia?" },
+  { id: "fadiga_dispneia", label: "Fadiga / dispneia?" },
+  { id: "angina", label: "Angina / aperto / queimação?" },
+  { id: "formigamento_mmii", label: "Formigamento em MMII?" },
+  { id: "sincope", label: "Quadro de síncope?" },
+  { id: "sequela_motora", label: "Sequela motora?" },
+  { id: "fumante", label: "Fumante?" },
+  { id: "alcool", label: "Bebida alcoólica / substâncias?" },
+  { id: "multidisciplinar", label: "Equipe multidisciplinar?" },
+  { id: "atividade_social", label: "Atividade social / lazer?" },
+  { id: "deambula", label: "Deambula?" },
+  { id: "auxiliar_marcha", label: "Auxiliar de marcha?" },
+  { id: "cadeirante_acamado", label: "Cadeirante / acamado?" },
+  { id: "esfincter", label: "Controle de esfíncter?" },
+  { id: "vertigem", label: "Vertigem?" },
+  { id: "visao", label: "Distúrbio de visão?" },
+  { id: "audicao", label: "Distúrbio de audição?" },
+  { id: "outros_tratamentos", label: "Outros tratamentos?" },
+];
+const PDF_SEGMENTOS = ["MSD", "MSE", "MID", "MIE", "Tronco", "Face"] as const;
+const PDF_POSTURA = [
+  { id: "cabeca", label: "Cabeça" },
+  { id: "ombros", label: "Ombros" },
+  { id: "mmss", label: "MMSS" },
+  { id: "coluna", label: "Coluna" },
+  { id: "pelve", label: "Pelve" },
+  { id: "mmii", label: "MMII" },
+  { id: "joelhos", label: "Joelhos" },
+  { id: "tornozelos", label: "Tornozelos" },
+  { id: "pes", label: "Pés" },
+];
+
 function buildEvolutionPdfOpts(e: any, p: any) {
+  const sv: Array<[string, string]> = [];
+  if (e.pa) sv.push(["PA", String(e.pa)]);
+  if (e.fc != null && e.fc !== "") sv.push(["FC", `${e.fc} bpm`]);
+  if (e.fr != null && e.fr !== "") sv.push(["FR", `${e.fr} irpm`]);
+  if (e.spo2 != null && e.spo2 !== "") sv.push(["SpO₂", `${e.spo2}%`]);
 
   return {
     title: `Evolução Clínica`,
@@ -454,6 +497,15 @@ function buildEvolutionPdfOpts(e: any, p: any) {
           },
         ],
       },
+      ...(sv.length || e.eva != null
+        ? [{
+            title: "Sinais vitais e dor",
+            children: [
+              ...(sv.length ? [{ kind: "grid" as const, rows: sv, columns: 2 as const }] : []),
+              { kind: "eva" as const, value: e.eva ?? null },
+            ],
+          }]
+        : []),
       {
         title: "Sessão",
         children: [
@@ -467,6 +519,89 @@ function buildEvolutionPdfOpts(e: any, p: any) {
       },
     ],
   };
+}
+
+function buildGeriatricChildren(a: any): any[] {
+  const children: any[] = [];
+
+  // Doenças previas
+  const doencas: any[] = Array.isArray(a.doencas_previas) ? a.doencas_previas : [];
+  const doencasRows = doencas
+    .filter((d) => d && (d.patologia || d.medicamento || d.observacao))
+    .map((d) => [d.patologia || "—", [d.medicamento && `Med.: ${d.medicamento}`, d.observacao && `Obs.: ${d.observacao}`].filter(Boolean).join(" · ") || "—"] as [string, string]);
+  if (doencasRows.length) {
+    children.push({ kind: "paragraph" as const, label: "Doenças preexistentes", text: "" });
+    children.push({ kind: "grid" as const, rows: doencasRows, columns: 2 as const });
+  }
+
+  // Sinais vitais
+  const sv = a.sinais_vitais || {};
+  const svRows: Array<[string, string]> = [];
+  const push = (k: string, v: any) => { if (v != null && String(v).trim() !== "") svRows.push([k, String(v)]); };
+  push("PA", sv.pa); push("FC", sv.fc); push("FR", sv.fr); push("PR", sv.pr); push("SpO₂", sv.spo2);
+  push("Ausculta", sv.ausculta); push("Tosse", sv.tosse); push("Secreção", sv.secrecao);
+  push("Tônus", sv.tonus); push("Trofismo", sv.trofismo); push("Clônus", sv.clonus);
+  push("Cintura (cm)", a.med_cintura); push("Quadril (cm)", a.med_quadril); push("ICQ", a.icq);
+  push("Nível de consciência", a.nivel_consciencia);
+  if (svRows.length) {
+    children.push({ kind: "paragraph" as const, label: "Sinais vitais e medidas", text: "" });
+    children.push({ kind: "grid" as const, rows: svRows, columns: 2 as const });
+  }
+
+  // Hábitos / anamnese
+  const habitos = a.habitos_anamnese || {};
+  const habitosRows: Array<[string, string]> = [];
+  for (const h of PDF_HABITOS) {
+    const v = habitos[h.id];
+    if (!v) continue;
+    const resp = v.resposta ? (v.resposta === "sim" ? "Sim" : v.resposta === "nao" ? "Não" : v.resposta) : "";
+    const obs = v.obs ? ` — ${v.obs}` : "";
+    if (resp || obs) habitosRows.push([h.label, `${resp}${obs}`]);
+  }
+  if (habitosRows.length) {
+    children.push({ kind: "paragraph" as const, label: "Hábitos e anamnese geriátrica", text: "" });
+    children.push({ kind: "grid" as const, rows: habitosRows, columns: 1 as const });
+  }
+
+  // Exame físico por segmento
+  const ef = a.exame_fisico || {};
+  const efRows: Array<[string, string]> = [];
+  for (const seg of PDF_SEGMENTOS) {
+    const v = ef[seg];
+    if (!v) continue;
+    const parts = [
+      v.fm && `FM: ${v.fm}`,
+      v.sens && `Sens.: ${v.sens}`,
+      v.edema && `Edema: ${v.edema}`,
+      v.adm && `ADM: ${v.adm}`,
+    ].filter(Boolean).join(" · ");
+    if (parts) efRows.push([seg, parts]);
+  }
+  if (efRows.length) {
+    children.push({ kind: "paragraph" as const, label: "Exame físico por segmento", text: "" });
+    children.push({ kind: "grid" as const, rows: efRows, columns: 1 as const });
+  }
+
+  // Postura
+  const post = a.postura_alinhamento || {};
+  const postRows: Array<[string, string]> = [];
+  for (const it of PDF_POSTURA) {
+    const v = post[it.id];
+    if (!v) continue;
+    const status = v.status ? (v.status === "normal" ? "Normal" : v.status === "alterado" ? "Alterado" : v.status) : "";
+    const obs = v.obs ? ` — ${v.obs}` : "";
+    if (status || obs) postRows.push([it.label, `${status}${obs}`]);
+  }
+  if (postRows.length) {
+    children.push({ kind: "paragraph" as const, label: "Avaliação postural", text: "" });
+    children.push({ kind: "grid" as const, rows: postRows, columns: 2 as const });
+  }
+
+  if (a.observacoes_gerais) {
+    children.push({ kind: "paragraph" as const, label: "Observações gerais", text: a.observacoes_gerais });
+  }
+
+  return children;
 }
 
 function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []) {
