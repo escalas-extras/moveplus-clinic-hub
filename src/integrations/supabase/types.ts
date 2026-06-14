@@ -337,6 +337,7 @@ export type Database = {
           peso: number | null
           professional_id: string
           queixa_principal: string | null
+          status: Database["public"]["Enums"]["assessment_status"]
           tipo: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados: string | null
           updated_at: string
@@ -368,6 +369,7 @@ export type Database = {
           peso?: number | null
           professional_id: string
           queixa_principal?: string | null
+          status?: Database["public"]["Enums"]["assessment_status"]
           tipo?: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados?: string | null
           updated_at?: string
@@ -399,6 +401,7 @@ export type Database = {
           peso?: number | null
           professional_id?: string
           queixa_principal?: string | null
+          status?: Database["public"]["Enums"]["assessment_status"]
           tipo?: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados?: string | null
           updated_at?: string
@@ -966,6 +969,7 @@ export type Database = {
         | "dor_cronica"
         | "funcional"
         | "personalizada"
+      assessment_status: "rascunho" | "finalizada"
       assessment_type: "avaliacao" | "reavaliacao"
       attachment_type: "exame" | "foto" | "outro"
       document_type:
@@ -1135,6 +1139,7 @@ export const Constants = {
         "funcional",
         "personalizada",
       ],
+      assessment_status: ["rascunho", "finalizada"],
       assessment_type: ["avaliacao", "reavaliacao"],
       attachment_type: ["exame", "foto", "outro"],
       document_type: [
