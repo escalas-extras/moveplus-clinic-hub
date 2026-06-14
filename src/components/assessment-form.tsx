@@ -137,6 +137,11 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   const [sinaisVitais, setSinaisVitais] = useState<Record<string, string>>(
     assessment?.sinais_vitais ?? { pa: "", fc: "", fr: "", pr: "", spo2: "", ausculta: "", tosse: "", secrecao: "", tonus: "", trofismo: "", clonus: "" }
   );
+  const [avaliacaoAlgica, setAvaliacaoAlgica] = useState<Array<{ local: string; repouso: string; movimento: string; fatores: string; impacto: string }>>(
+    Array.isArray(assessment?.avaliacao_algica) && assessment.avaliacao_algica.length
+      ? assessment.avaliacao_algica
+      : Array.from({ length: 5 }, () => ({ local: "", repouso: "", movimento: "", fatores: "", impacto: "" }))
+  );
 
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
     defaultValues: assessment
