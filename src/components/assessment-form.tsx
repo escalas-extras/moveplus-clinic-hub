@@ -585,13 +585,23 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
                 <tbody>
                   {SEGMENTOS.map((seg) => {
                     const r = exameFisico[seg] ?? { fm: "", sens: "", edema: "", adm: "" };
+                    const FM_OPTS = ["0 - Sem contração", "1 - Contração palpável", "2 - Move sem gravidade", "3 - Vence gravidade", "4 - Vence resistência parcial", "5 - Normal"];
+                    const SENS_OPTS = ["Normal", "Hipoestesia", "Anestesia", "Parestesia", "Hiperestesia"];
+                    const EDEMA_OPTS = ["Ausente", "+/4+", "2+/4+", "3+/4+", "4+/4+"];
+                    const ADM_OPTS = ["Preservada", "Leve limitação", "Moderada limitação", "Severa limitação"];
+                    const SelOpt = ({ value, opts, onChange }: { value: string; opts: string[]; onChange: (v: string) => void }) => (
+                      <Select value={value} onValueChange={onChange}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>{opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                      </Select>
+                    );
                     return (
                       <tr key={seg} className="border-t">
                         <td className="p-2 font-medium">{seg}</td>
-                        <td className="p-2"><Input value={r.fm} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, fm: e.target.value } }))} placeholder="0-5" /></td>
-                        <td className="p-2"><Input value={r.sens} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, sens: e.target.value } }))} /></td>
-                        <td className="p-2"><Input value={r.edema} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, edema: e.target.value } }))} /></td>
-                        <td className="p-2"><Input value={r.adm} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, adm: e.target.value } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.fm} opts={FM_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, fm: v } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.sens} opts={SENS_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, sens: v } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.edema} opts={EDEMA_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, edema: v } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.adm} opts={ADM_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, adm: v } }))} /></td>
                       </tr>
                     );
                   })}
