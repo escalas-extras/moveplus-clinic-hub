@@ -116,8 +116,10 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
   const professional_id = watch("professional_id");
   const tipo = watch("tipo");
 
+  const submit = (finalize: boolean) => handleSubmit((v) => save.mutate({ v, finalize }))();
+
   return (
-    <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-5">
+    <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-5">
       <section className="grid sm:grid-cols-3 gap-3">
         <div>
           <Label className="text-xs uppercase">Profissional *</Label>
