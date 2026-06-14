@@ -15,6 +15,10 @@ type FormInput = {
   data: string;
   hora: string;
   sessao_numero?: number | null;
+  pa?: string;
+  fc?: string;
+  fr?: string;
+  spo2?: string;
   procedimentos?: string;
   resposta_paciente?: string;
   evolucao_observada?: string;
