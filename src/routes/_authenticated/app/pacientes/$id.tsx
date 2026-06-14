@@ -6,13 +6,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, FileDown, Lock } from "lucide-react";
+import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2 } from "lucide-react";
 import { calcAge, fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
 import { toast } from "sonner";
-import { generatePdf } from "@/lib/pdf";
+import { downloadPdf, previewPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -70,6 +70,29 @@ function PatientPage() {
       toast.success("Paciente atualizado");
       setEditOpen(false);
       qc.invalidateQueries({ queryKey: ["patient", id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const finalize = useMutation({
+    mutationFn: async (a: any) => {
+      const { error } = await supabase
+        .from("assessments")
+        .update({ status: "finalizada", locked_at: new Date().toISOString() })
+        .eq("id", a.id);
+      if (error) throw error;
+      await uploadAndRegisterPdf({
+        pdfOpts: buildAssessmentPdfOpts(a, patient.data),
+        folder: a.tipo === "reavaliacao" ? "reavaliacoes" : "avaliacoes",
+        tipo: a.tipo === "reavaliacao" ? "reavaliacao" : "avaliacao",
+        patientId: a.patient_id,
+        professionalId: a.professional_id,
+        referenciaId: a.id,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Avaliação finalizada e PDF arquivado");
+      qc.invalidateQueries({ queryKey: ["assessments", id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
