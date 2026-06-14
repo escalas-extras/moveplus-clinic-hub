@@ -74,6 +74,25 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   const [inspecaoFlags, setInspecaoFlags] = useState<string[]>(assessment?.inspecao_flags ?? []);
   const [eva, setEva] = useState<number>(assessment?.eva ?? 0);
 
+  // Ficha geriátrica
+  const [doencasPrevias, setDoencasPrevias] = useState<Array<{ patologia: string; ativo: boolean; medicacao: string; observacao: string }>>(
+    assessment?.doencas_previas?.length
+      ? assessment.doencas_previas
+      : DOENCAS_PADRAO.map((p) => ({ patologia: p, ativo: false, medicacao: "", observacao: "" }))
+  );
+  const [habitos, setHabitos] = useState<Record<string, { resposta: "sim" | "nao" | ""; obs: string }>>(
+    assessment?.habitos_anamnese ?? Object.fromEntries(HABITOS_PERGUNTAS.map((h) => [h.id, { resposta: "", obs: "" }]))
+  );
+  const [exameFisico, setExameFisico] = useState<Record<string, { fm: string; sens: string; edema: string; adm: string }>>(
+    assessment?.exame_fisico ?? Object.fromEntries(SEGMENTOS.map((s) => [s, { fm: "", sens: "", edema: "", adm: "" }]))
+  );
+  const [postura, setPostura] = useState<Record<string, { status: "normal" | "alterada" | ""; obs: string }>>(
+    assessment?.postura_alinhamento ?? Object.fromEntries(POSTURA_ITENS.map((p) => [p.id, { status: "", obs: "" }]))
+  );
+  const [sinaisVitais, setSinaisVitais] = useState<Record<string, string>>(
+    assessment?.sinais_vitais ?? { pa: "", fc: "", fr: "", pr: "", spo2: "", ausculta: "", tosse: "", secrecao: "", tonus: "", trofismo: "", clonus: "" }
+  );
+
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
     defaultValues: assessment
       ? {
