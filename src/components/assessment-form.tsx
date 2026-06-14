@@ -56,7 +56,7 @@ type FormInput = {
 
 export function AssessmentForm({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const [modules, setModules] = useState<ModuleType[]>(["geral"]);
-  const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
+  const { register, handleSubmit, setValue, watch, getValues } = useForm<FormInput>({
     defaultValues: { tipo: "avaliacao", data: new Date().toISOString().slice(0, 10) },
   });
 
@@ -69,7 +69,7 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
   });
 
   const save = useMutation({
-    mutationFn: async (v: FormInput) => {
+    mutationFn: async ({ v, finalize }: { v: FormInput; finalize: boolean }) => {
       const { data: u } = await supabase.auth.getUser();
       const imc = calcImc(v.peso, v.estatura);
       const { data: ins, error } = await supabase.from("assessments").insert({
@@ -98,6 +98,8 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         estatura: v.estatura || null,
         imc,
         created_by: u.user?.id,
+        status: (finalize ? "finalizada" : "rascunho") as any,
+        locked_at: finalize ? new Date().toISOString() : null,
       }).select("id").single();
       if (error) throw error;
       if (modules.length) {
@@ -107,7 +109,7 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         if (e2) throw e2;
       }
     },
-    onSuccess: () => { toast.success("Avaliação criada"); onDone(); },
+    onSuccess: (_d, vars) => { toast.success(vars.finalize ? "Avaliação finalizada" : "Rascunho salvo"); onDone(); },
     onError: (e: any) => toast.error(e.message),
   });
 
