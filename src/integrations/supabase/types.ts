@@ -314,6 +314,7 @@ export type Database = {
           antecedentes_familiares: string | null
           antecedentes_pessoais: string | null
           apresentacao: string[]
+          avaliacao_algica: Json | null
           cirurgias: string | null
           condutas: string | null
           coordenacao: string | null
@@ -369,6 +370,7 @@ export type Database = {
           antecedentes_familiares?: string | null
           antecedentes_pessoais?: string | null
           apresentacao?: string[]
+          avaliacao_algica?: Json | null
           cirurgias?: string | null
           condutas?: string | null
           coordenacao?: string | null
@@ -424,6 +426,7 @@ export type Database = {
           antecedentes_familiares?: string | null
           antecedentes_pessoais?: string | null
           apresentacao?: string[]
+          avaliacao_algica?: Json | null
           cirurgias?: string | null
           condutas?: string | null
           coordenacao?: string | null
@@ -594,6 +597,7 @@ export type Database = {
       evolutions: {
         Row: {
           assessment_id: string | null
+          avaliacao_algica: Json | null
           conduta: string | null
           created_at: string
           created_by: string | null
@@ -604,20 +608,26 @@ export type Database = {
           fr: string | null
           hora: string
           id: string
+          inspecao: string | null
           intercorrencias: string | null
           locked_at: string | null
+          nivel_consciencia: string | null
+          observacoes_gerais: string | null
           pa: string | null
+          palpacao: string | null
           patient_id: string
           procedimentos: string | null
           professional_id: string
           proximos_objetivos: string | null
           resposta_paciente: string | null
           sessao_numero: number | null
+          sinais_vitais: Json | null
           spo2: string | null
           updated_at: string
         }
         Insert: {
           assessment_id?: string | null
+          avaliacao_algica?: Json | null
           conduta?: string | null
           created_at?: string
           created_by?: string | null
@@ -628,20 +638,26 @@ export type Database = {
           fr?: string | null
           hora?: string
           id?: string
+          inspecao?: string | null
           intercorrencias?: string | null
           locked_at?: string | null
+          nivel_consciencia?: string | null
+          observacoes_gerais?: string | null
           pa?: string | null
+          palpacao?: string | null
           patient_id: string
           procedimentos?: string | null
           professional_id: string
           proximos_objetivos?: string | null
           resposta_paciente?: string | null
           sessao_numero?: number | null
+          sinais_vitais?: Json | null
           spo2?: string | null
           updated_at?: string
         }
         Update: {
           assessment_id?: string | null
+          avaliacao_algica?: Json | null
           conduta?: string | null
           created_at?: string
           created_by?: string | null
@@ -652,15 +668,20 @@ export type Database = {
           fr?: string | null
           hora?: string
           id?: string
+          inspecao?: string | null
           intercorrencias?: string | null
           locked_at?: string | null
+          nivel_consciencia?: string | null
+          observacoes_gerais?: string | null
           pa?: string | null
+          palpacao?: string | null
           patient_id?: string
           procedimentos?: string | null
           professional_id?: string
           proximos_objetivos?: string | null
           resposta_paciente?: string | null
           sessao_numero?: number | null
+          sinais_vitais?: Json | null
           spo2?: string | null
           updated_at?: string
         }
