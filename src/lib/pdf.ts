@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime } from "./format";
+import logoAsset from "@/assets/logo.jpg.asset.json";
 
 type ClinicSettings = {
   nome_fantasia: string | null;
@@ -23,7 +24,25 @@ type Professional = {
 
 export type PdfSection = { title: string; body: string };
 
-export async function generatePdf(opts: {
+let cachedLogo: string | null | undefined;
+async function loadLogoDataUrl(): Promise<string | null> {
+  if (cachedLogo !== undefined) return cachedLogo;
+  try {
+    const res = await fetch(logoAsset.url);
+    const blob = await res.blob();
+    cachedLogo = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    cachedLogo = null;
+  }
+  return cachedLogo;
+}
+
+export async function buildPdf(opts: {
   title: string;
   patientName?: string;
   sections: PdfSection[];
@@ -43,11 +62,18 @@ export async function generatePdf(opts: {
 
   // Header
   doc.setFillColor(244, 247, 244);
-  doc.rect(0, 0, W, 78, "F");
+  doc.rect(0, 0, W, 88, "F");
+
+  const logo = await loadLogoDataUrl();
+  if (logo) {
+    try { doc.addImage(logo, "JPEG", M, 18, 52, 52); } catch { /* ignore */ }
+  }
+
+  const textX = logo ? M + 64 : M;
   doc.setTextColor(60, 80, 60);
-  doc.setFontSize(16);
+  doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
-  doc.text(c.nome_fantasia || "Move 60+", M, 36);
+  doc.text(c.nome_fantasia || "Move 60+", textX, 36);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const headerLines = [
@@ -57,10 +83,10 @@ export async function generatePdf(opts: {
     [c.cidade, c.estado].filter(Boolean).join(" - "),
     [c.telefones?.join(" · "), c.emails?.join(" · ")].filter(Boolean).join("  ·  "),
   ].filter(Boolean) as string[];
-  doc.text(headerLines, M, 52);
+  doc.text(headerLines, textX, 52);
 
   // Title
-  let y = 110;
+  let y = 118;
   doc.setTextColor(40, 50, 40);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -116,5 +142,59 @@ export async function generatePdf(opts: {
     doc.text(`Página ${i} de ${pageCount}`, W - M, fy + 38, { align: "right" });
   }
 
+  return doc;
+}
+
+export async function downloadPdf(opts: Parameters<typeof buildPdf>[0]) {
+  const doc = await buildPdf(opts);
   doc.save(`${opts.title.replace(/\s+/g, "_")}.pdf`);
+}
+
+export async function previewPdf(opts: Parameters<typeof buildPdf>[0]) {
+  const doc = await buildPdf(opts);
+  const url = URL.createObjectURL(doc.output("blob"));
+  window.open(url, "_blank");
+}
+
+export async function printPdf(opts: Parameters<typeof buildPdf>[0]) {
+  const doc = await buildPdf(opts);
+  const url = URL.createObjectURL(doc.output("blob"));
+  const w = window.open(url, "_blank");
+  if (w) {
+    w.addEventListener("load", () => { try { w.print(); } catch { /* noop */ } });
+  }
+}
+
+// Legacy alias
+export const generatePdf = downloadPdf;
+
+type DocFolder = "avaliacoes" | "reavaliacoes" | "evolucoes" | "relatorios" | "recibos" | "declaracoes" | "encaminhamentos" | "termos";
+type DocumentType = "avaliacao" | "reavaliacao" | "evolucao" | "relatorio" | "recibo" | "declaracao" | "encaminhamento" | "termo" | "laudo";
+
+export async function uploadAndRegisterPdf(opts: {
+  pdfOpts: Parameters<typeof buildPdf>[0];
+  folder: DocFolder;
+  tipo: DocumentType;
+  patientId: string;
+  professionalId: string;
+  referenciaId: string;
+}) {
+  const doc = await buildPdf(opts.pdfOpts);
+  const blob = doc.output("blob");
+  const path = `${opts.folder}/${opts.referenciaId}-${Date.now()}.pdf`;
+  const { error: upErr } = await supabase.storage.from("documents").upload(path, blob, {
+    contentType: "application/pdf",
+    upsert: true,
+  });
+  if (upErr) throw upErr;
+  const { error: insErr } = await supabase.from("documents").insert({
+    patient_id: opts.patientId,
+    professional_id: opts.professionalId,
+    tipo: opts.tipo,
+    referencia_id: opts.referenciaId,
+    pdf_path: path,
+    emitido_em: new Date().toISOString(),
+  });
+  if (insErr) throw insErr;
+  return path;
 }
