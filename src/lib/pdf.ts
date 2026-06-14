@@ -438,19 +438,25 @@ export async function buildPdf(opts: {
 
   // ---------- Footer on every page ----------
   const pageCount = doc.getNumberOfPages();
-  const BAR_H = 28.35; // ~1cm em pt
-  const TRI = 70; // tamanho do triângulo decorativo
+  const BAR_H = 9.45; // ~1/3 de 1cm em pt (mais sutil)
+  const TRI = 50; // triângulo decorativo reduzido
+  const decorOpacity = 0.25; // transparência sutil
+  const GState = (doc as any).GState;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     const fy = H - 64;
 
-    // Decoração: triângulo no canto superior direito (oliva)
+    // Decoração: triângulo no canto superior direito (oliva, transparente)
+    doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
     doc.triangle(W - TRI, 0, W, 0, W, TRI, "F");
+    doc.setGState(new GState({ opacity: 1 })); // reset
 
-    // Rodapé: faixa oliva de 1cm em toda a largura
+    // Rodapé: faixa oliva transparente em toda a largura
+    doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
     doc.rect(0, H - BAR_H, W, BAR_H, "F");
+    doc.setGState(new GState({ opacity: 1 })); // reset
 
     // Signature line on last page
     if (i === pageCount && opts.professional) {
