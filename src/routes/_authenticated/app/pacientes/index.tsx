@@ -103,6 +103,7 @@ function PacientesPage() {
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Idade</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Telefone</th>
                 <th className="px-4 py-3 font-medium">Situação</th>
+                {isAdmin && <th className="px-4 py-3 font-medium w-10"></th>}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -122,6 +123,31 @@ function PacientesPage() {
                       {p.situacao}
                     </span>
                   </td>
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Excluir paciente">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação remove permanentemente o paciente e todos os seus dados clínicos (avaliações, evoluções, anexos, agendamentos). Não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => remove.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Excluir definitivamente
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
