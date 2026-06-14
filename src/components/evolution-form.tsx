@@ -53,6 +53,7 @@ export function EvolutionForm({
   const [dor, setDor] = useState<PainRow[]>([
     { local: "", repouso: "", movimento: "", fatores: "", impacto: "" },
   ]);
+  const [pdfPreview, setPdfPreview] = useState<ReturnType<typeof buildEvolutionPdfOpts> | null>(null);
 
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
     defaultValues: {
