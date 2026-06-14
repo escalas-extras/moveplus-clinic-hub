@@ -438,9 +438,19 @@ export async function buildPdf(opts: {
 
   // ---------- Footer on every page ----------
   const pageCount = doc.getNumberOfPages();
+  const BAR_H = 28.35; // ~1cm em pt
+  const TRI = 70; // tamanho do triângulo decorativo
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     const fy = H - 64;
+
+    // Decoração: triângulo no canto superior direito (oliva)
+    doc.setFillColor(...C.olive);
+    doc.triangle(W - TRI, 0, W, 0, W, TRI, "F");
+
+    // Rodapé: faixa oliva de 1cm em toda a largura
+    doc.setFillColor(...C.olive);
+    doc.rect(0, H - BAR_H, W, BAR_H, "F");
 
     // Signature line on last page
     if (i === pageCount && opts.professional) {
@@ -473,7 +483,7 @@ export async function buildPdf(opts: {
     doc.setTextColor(...C.muted);
     doc.text(`Emitido em ${fmtDateTime(new Date())}`, M, fy + 14);
     doc.text(c.rodape_institucional || `${c.nome_fantasia ?? "Move 60+"} · ${[c.cidade, c.estado].filter(Boolean).join("/")}`, M, fy + 26);
-    doc.text(`Página ${i} de ${pageCount}`, W - M, fy + 26, { align: "right" });
+    doc.text(`Página ${i} de ${pageCount}`, W - M - 4, fy + 14, { align: "right" });
   }
 
   return doc;
