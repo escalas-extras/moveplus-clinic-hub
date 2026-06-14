@@ -15,6 +15,8 @@ export type PatientInput = {
   profissao?: string | null;
   naturalidade?: string | null;
   endereco?: string | null;
+  endereco_comercial?: string | null;
+  bairro?: string | null;
   cidade?: string | null;
   estado?: string | null;
   cep?: string | null;
@@ -76,7 +78,9 @@ export function PatientForm({
       </section>
 
       <section className="grid sm:grid-cols-2 gap-4">
-        <Field label="Endereço" className="sm:col-span-2"><Input {...register("endereco")} /></Field>
+        <Field label="Endereço residencial" className="sm:col-span-2"><Input {...register("endereco")} /></Field>
+        <Field label="Endereço comercial" className="sm:col-span-2"><Input {...register("endereco_comercial")} /></Field>
+        <Field label="Bairro"><Input {...register("bairro")} /></Field>
         <Field label="Cidade"><Input {...register("cidade")} /></Field>
         <Field label="Estado"><Input maxLength={2} {...register("estado")} /></Field>
         <Field label="CEP"><Input {...register("cep")} /></Field>
