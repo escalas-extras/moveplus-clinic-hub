@@ -116,6 +116,31 @@ function PatientPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deleteRecord = useMutation({
+    mutationFn: async ({ table, rowId }: { table: "assessments" | "evolutions"; rowId: string }) => {
+      const { error } = await supabase.from(table).delete().eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success("Registro excluído");
+      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deletePatient = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("patients").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Paciente excluído");
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      navigate({ to: "/app/pacientes" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (patient.isLoading) return <div className="text-sm text-muted-foreground">Carregando…</div>;
   if (!patient.data) return <div>Paciente não encontrado.</div>;
   const p = patient.data;
