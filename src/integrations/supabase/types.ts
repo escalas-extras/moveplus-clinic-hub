@@ -322,30 +322,40 @@ export type Database = {
           data: string
           diagnostico_clinico: string | null
           diagnostico_fisio: string | null
+          doencas_previas: Json | null
           equilibrio: string | null
           estatura: number | null
           eva: number | null
+          exame_fisico: Json | null
           exames_complementares: string | null
+          habitos_anamnese: Json | null
           habitos_vida: string | null
           historia_clinica: string | null
           hma: string | null
           hmp: string | null
+          icq: number | null
           id: string
           imc: number | null
           inspecao: string | null
           inspecao_flags: string[]
           locked_at: string | null
           marcha: string | null
+          med_cintura: number | null
+          med_quadril: number | null
           medicamentos: string | null
           medico_responsavel: string | null
+          nivel_consciencia: string | null
           objetivos: string | null
+          observacoes_gerais: string | null
           palpacao: string | null
           patient_id: string
           peso: number | null
+          postura_alinhamento: Json | null
           professional_id: string
           queixa_principal: string | null
           recursos_terapeuticos: string | null
           semiologia: string | null
+          sinais_vitais: Json | null
           status: Database["public"]["Enums"]["assessment_status"]
           tem_exames: boolean | null
           testes_especificos: string | null
@@ -367,30 +377,40 @@ export type Database = {
           data?: string
           diagnostico_clinico?: string | null
           diagnostico_fisio?: string | null
+          doencas_previas?: Json | null
           equilibrio?: string | null
           estatura?: number | null
           eva?: number | null
+          exame_fisico?: Json | null
           exames_complementares?: string | null
+          habitos_anamnese?: Json | null
           habitos_vida?: string | null
           historia_clinica?: string | null
           hma?: string | null
           hmp?: string | null
+          icq?: number | null
           id?: string
           imc?: number | null
           inspecao?: string | null
           inspecao_flags?: string[]
           locked_at?: string | null
           marcha?: string | null
+          med_cintura?: number | null
+          med_quadril?: number | null
           medicamentos?: string | null
           medico_responsavel?: string | null
+          nivel_consciencia?: string | null
           objetivos?: string | null
+          observacoes_gerais?: string | null
           palpacao?: string | null
           patient_id: string
           peso?: number | null
+          postura_alinhamento?: Json | null
           professional_id: string
           queixa_principal?: string | null
           recursos_terapeuticos?: string | null
           semiologia?: string | null
+          sinais_vitais?: Json | null
           status?: Database["public"]["Enums"]["assessment_status"]
           tem_exames?: boolean | null
           testes_especificos?: string | null
@@ -412,30 +432,40 @@ export type Database = {
           data?: string
           diagnostico_clinico?: string | null
           diagnostico_fisio?: string | null
+          doencas_previas?: Json | null
           equilibrio?: string | null
           estatura?: number | null
           eva?: number | null
+          exame_fisico?: Json | null
           exames_complementares?: string | null
+          habitos_anamnese?: Json | null
           habitos_vida?: string | null
           historia_clinica?: string | null
           hma?: string | null
           hmp?: string | null
+          icq?: number | null
           id?: string
           imc?: number | null
           inspecao?: string | null
           inspecao_flags?: string[]
           locked_at?: string | null
           marcha?: string | null
+          med_cintura?: number | null
+          med_quadril?: number | null
           medicamentos?: string | null
           medico_responsavel?: string | null
+          nivel_consciencia?: string | null
           objetivos?: string | null
+          observacoes_gerais?: string | null
           palpacao?: string | null
           patient_id?: string
           peso?: number | null
+          postura_alinhamento?: Json | null
           professional_id?: string
           queixa_principal?: string | null
           recursos_terapeuticos?: string | null
           semiologia?: string | null
+          sinais_vitais?: Json | null
           status?: Database["public"]["Enums"]["assessment_status"]
           tem_exames?: boolean | null
           testes_especificos?: string | null
@@ -568,17 +598,22 @@ export type Database = {
           created_at: string
           created_by: string | null
           data: string
+          eva: number | null
           evolucao_observada: string | null
+          fc: string | null
+          fr: string | null
           hora: string
           id: string
           intercorrencias: string | null
           locked_at: string | null
+          pa: string | null
           patient_id: string
           procedimentos: string | null
           professional_id: string
           proximos_objetivos: string | null
           resposta_paciente: string | null
           sessao_numero: number | null
+          spo2: string | null
           updated_at: string
         }
         Insert: {
@@ -587,17 +622,22 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: string
+          eva?: number | null
           evolucao_observada?: string | null
+          fc?: string | null
+          fr?: string | null
           hora?: string
           id?: string
           intercorrencias?: string | null
           locked_at?: string | null
+          pa?: string | null
           patient_id: string
           procedimentos?: string | null
           professional_id: string
           proximos_objetivos?: string | null
           resposta_paciente?: string | null
           sessao_numero?: number | null
+          spo2?: string | null
           updated_at?: string
         }
         Update: {
@@ -606,17 +646,22 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: string
+          eva?: number | null
           evolucao_observada?: string | null
+          fc?: string | null
+          fr?: string | null
           hora?: string
           id?: string
           intercorrencias?: string | null
           locked_at?: string | null
+          pa?: string | null
           patient_id?: string
           procedimentos?: string | null
           professional_id?: string
           proximos_objetivos?: string | null
           resposta_paciente?: string | null
           sessao_numero?: number | null
+          spo2?: string | null
           updated_at?: string
         }
         Relationships: [
