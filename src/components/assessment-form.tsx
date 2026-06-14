@@ -212,14 +212,22 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         <div className="sm:col-span-2"><Label className="text-xs uppercase">Condutas terapêuticas</Label><Textarea rows={2} {...register("condutas")} /></div>
       </section>
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)}>
-          {save.isPending ? "Salvando…" : "Salvar rascunho"}
-        </Button>
-        <Button type="button" disabled={save.isPending || !professional_id} onClick={() => submit(true)}>
-          Finalizar avaliação
-        </Button>
+      <div className="sticky bottom-0 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-t flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 z-10">
+        {missingFinalize.length > 0 && (
+          <p className="text-xs text-muted-foreground sm:mr-auto">
+            Para finalizar: <span className="text-destructive font-medium">{missingFinalize.join(", ")}</span>
+          </p>
+        )}
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">
+            {save.isPending ? "Salvando…" : "Salvar rascunho"}
+          </Button>
+          <Button type="button" disabled={save.isPending} onClick={() => submit(true)} className="flex-1 sm:flex-none">
+            Finalizar avaliação
+          </Button>
+        </div>
       </div>
+
     </form>
   );
 }
