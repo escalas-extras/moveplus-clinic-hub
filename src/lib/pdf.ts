@@ -440,12 +440,25 @@ export async function buildPdf(opts: {
 
   // ---------- Footer on every page ----------
   const pageCount = doc.getNumberOfPages();
+  const lastPageEndY = pageY;
   const BAR_H = 9.45; // ~1/3 de 1cm em pt (mais sutil)
   const TRI = 50; // triângulo decorativo reduzido
   const decorOpacity = 0.25; // transparência sutil
   const GState = (doc as any).GState;
+  const normalFooterY = H - 64;
+  const normalSigY = normalFooterY - 30;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    let fy = normalFooterY;
+    let sigY = normalSigY;
+
+    if (i === pageCount && opts.professional) {
+      // Move assinatura mais próxima do conteúdo na última página para evitar espaço vazio
+      const desiredSigY = lastPageEndY + 30;
+      sigY = Math.min(normalSigY, Math.max(H - 140, desiredSigY));
+      fy = sigY + 30;
+    }
+
     const fy = H - 64;
 
     // Decoração: triângulo no canto superior direito (oliva, transparente)
@@ -457,14 +470,14 @@ export async function buildPdf(opts: {
     // Rodapé: faixa oliva transparente em toda a largura
     doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
-    doc.rect(0, H - BAR_H, W, BAR_H, "F");
+    const barY = fy < normalFooterY - 1 ? fy + 34 : H - BAR_H;
+    doc.rect(0, barY, W, BAR_H, "F");
     doc.setGState(new GState({ opacity: 1 })); // reset
 
     // Signature line on last page
     if (i === pageCount && opts.professional) {
       const prof = opts.professional;
       const isFisio = prof.profissao?.toLowerCase().includes("fisio");
-      const sigY = fy - 30;
       doc.setDrawColor(...C.text);
       doc.setLineWidth(0.5);
       const sigW = 220;
