@@ -690,6 +690,9 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           </p>
         )}
         <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" onClick={openPreview} className="flex-1 sm:flex-none">
+            <Eye className="h-4 w-4 mr-1" />Pré-visualizar
+          </Button>
           <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">
             {save.isPending ? "Salvando…" : isEdit ? "Salvar alterações" : "Salvar rascunho"}
           </Button>
@@ -700,6 +703,12 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           )}
         </div>
       </div>
+      <PdfPreviewDialog
+        open={!!pdfPreview}
+        onOpenChange={(o) => !o && setPdfPreview(null)}
+        pdfOpts={pdfPreview}
+        title="Pré-visualização do PDF"
+      />
     </form>
   );
 
