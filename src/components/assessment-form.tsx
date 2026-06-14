@@ -585,11 +585,11 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
       </Section>
 
       {/* SEÇÃO 5 - PLANO TERAPÊUTICO */}
-      <Section title="4. Plano terapêutico">
+      <Section title="5. Plano terapêutico">
         <div className="grid sm:grid-cols-1 gap-3">
-          <Field label="4.1 Objetivos de tratamento"><Textarea rows={3} {...register("objetivos")} /></Field>
-          <Field label="4.2 Recursos terapêuticos"><Textarea rows={3} {...register("recursos_terapeuticos")} /></Field>
-          <Field label="4.3 Plano de tratamento"><Textarea rows={3} {...register("condutas")} /></Field>
+          <Field label="5.1 Objetivos de tratamento"><Textarea rows={3} {...register("objetivos")} /></Field>
+          <Field label="5.2 Recursos terapêuticos"><Textarea rows={3} {...register("recursos_terapeuticos")} /></Field>
+          <Field label="5.3 Plano de tratamento"><Textarea rows={3} {...register("condutas")} /></Field>
         </div>
       </Section>
 
