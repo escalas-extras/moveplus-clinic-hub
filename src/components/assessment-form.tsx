@@ -290,6 +290,32 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
     handleSubmit((v) => save.mutate({ v, finalize }))();
   };
 
+  const openPreview = () => {
+    const v = watch();
+    const prof = profs.data?.find((p) => p.id === v.professional_id);
+    const preview: any = {
+      ...v,
+      assessment_modules: modules.map((m) => ({ module_type: m })),
+      apresentacao,
+      inspecao_flags: inspecaoFlags,
+      eva,
+      doencas_previas: doencasPrevias,
+      habitos_anamnese: habitos,
+      exame_fisico: exameFisico,
+      postura_alinhamento: postura,
+      sinais_vitais: sinaisVitais,
+      avaliacao_algica: avaliacaoAlgica.filter((r) => r.local || r.repouso || r.movimento || r.fatores || r.impacto),
+      med_cintura: sinaisVitais.cintura ? Number(sinaisVitais.cintura) : null,
+      med_quadril: sinaisVitais.quadril ? Number(sinaisVitais.quadril) : null,
+      icq: sinaisVitais.cintura && sinaisVitais.quadril ? Number((Number(sinaisVitais.cintura) / Number(sinaisVitais.quadril)).toFixed(2)) : null,
+      nivel_consciencia: sinaisVitais.nivel_consciencia || null,
+      observacoes_gerais: sinaisVitais.observacoes_gerais || null,
+      professionals: prof,
+      status: "rascunho",
+    };
+    setPdfPreview(buildAssessmentPdfOpts(preview, patient, []));
+  };
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-6 pb-24">
       {/* SEÇÃO 1 - IDENTIFICAÇÃO */}
