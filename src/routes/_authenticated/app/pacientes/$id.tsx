@@ -704,12 +704,16 @@ function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []) {
           { kind: "paragraph" as const, label: "Testes específicos", text: a.testes_especificos || "—" },
         ],
       },
+      ...((() => {
+        const geri = buildGeriatricChildren(a);
+        return geri.length ? [{ title: "5. Ficha geriátrica", children: geri }] : [];
+      })()),
       {
-        title: "5. Avaliação da Dor (EVA)",
+        title: "6. Avaliação da Dor (EVA)",
         children: [{ kind: "eva" as const, value: a.eva ?? null }],
       },
       {
-        title: "6. Plano Terapêutico",
+        title: "7. Plano Terapêutico",
         children: [
           { kind: "highlight" as const, label: "Objetivos terapêuticos", text: a.objetivos || "—" },
           { kind: "highlight" as const, label: "Plano de tratamento", text: a.condutas || "—" },
@@ -718,7 +722,7 @@ function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []) {
       },
       ...(linked.length
         ? [{
-            title: "7. Evoluções Clínicas",
+            title: "8. Evoluções Clínicas",
             children: [{
               kind: "evolutions" as const,
               items: linked.map((e, idx) => ({
