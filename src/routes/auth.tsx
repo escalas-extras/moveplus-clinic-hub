@@ -31,18 +31,8 @@ function AuthPage() {
     navigate({ to: "/app" });
   }
 
-  async function signUp(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name }, emailRedirectTo: `${window.location.origin}/app` },
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Conta criada. Você já pode entrar.");
-  }
+
+
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
