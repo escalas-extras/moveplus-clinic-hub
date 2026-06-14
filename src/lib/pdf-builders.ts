@@ -76,7 +76,8 @@ function buildGeriatricChildren(a: any): any[] {
     if (!v) continue;
     const resp = v.resposta ? (v.resposta === "sim" ? "Sim" : v.resposta === "nao" ? "Não" : v.resposta) : "";
     const obs = v.obs ? ` — ${v.obs}` : "";
-    if (resp || obs) habitosRows.push([h.label, `${resp}${obs}`]);
+    const det = v.detalhe ? ` (${v.detalhe})` : "";
+    if (resp || obs || det) habitosRows.push([h.label, `${resp}${obs}${det}`]);
   }
   if (habitosRows.length) {
     children.push({ kind: "paragraph" as const, label: "Hábitos e anamnese geriátrica", text: "" });
