@@ -25,7 +25,7 @@ type Professional = {
 // ---------- Content primitives ----------
 
 export type PdfContent =
-  | { kind: "grid"; rows: Array<[string, string]>; columns?: 1 | 2 }
+  | { kind: "grid"; rows: Array<readonly [string, string] | string[]>; columns?: 1 | 2 }
   | { kind: "paragraph"; label?: string; text: string }
   | { kind: "highlight"; label: string; text: string }
   | { kind: "eva"; value: number | null }
