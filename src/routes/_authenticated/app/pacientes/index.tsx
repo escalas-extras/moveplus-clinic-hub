@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, FileText } from "lucide-react";
+import { Plus, Search, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
+import { useAuth, useRoles } from "@/lib/auth";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/")({
   component: PacientesPage,
@@ -19,6 +21,8 @@ function PacientesPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const { isAdmin } = useRoles(user?.id);
 
   const list = useQuery({
     queryKey: ["patients", q],
@@ -40,6 +44,18 @@ function PacientesPage() {
     onSuccess: () => {
       toast.success("Paciente cadastrado");
       setOpen(false);
+      qc.invalidateQueries({ queryKey: ["patients"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("patients").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Paciente excluído");
       qc.invalidateQueries({ queryKey: ["patients"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -87,6 +103,7 @@ function PacientesPage() {
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Idade</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Telefone</th>
                 <th className="px-4 py-3 font-medium">Situação</th>
+                {isAdmin && <th className="px-4 py-3 font-medium w-10"></th>}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -106,6 +123,31 @@ function PacientesPage() {
                       {p.situacao}
                     </span>
                   </td>
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Excluir paciente">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação remove permanentemente o paciente e todos os seus dados clínicos (avaliações, evoluções, anexos, agendamentos). Não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => remove.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Excluir definitivamente
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

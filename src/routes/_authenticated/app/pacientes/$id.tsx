@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,13 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2, Trash2 } from "lucide-react";
 import { calcAge, fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
 import { toast } from "sonner";
 import { downloadPdf, previewPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
+import { useAuth, useRoles } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -20,7 +22,10 @@ export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
 
 function PatientPage() {
   const { id } = useParams({ from: "/_authenticated/app/pacientes/$id" });
+  const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const { isAdmin } = useRoles(user?.id);
   const [editOpen, setEditOpen] = useState(false);
   const [evoOpen, setEvoOpen] = useState(false);
   const [avalOpen, setAvalOpen] = useState(false);
@@ -111,6 +116,31 @@ function PatientPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deleteRecord = useMutation({
+    mutationFn: async ({ table, rowId }: { table: "assessments" | "evolutions"; rowId: string }) => {
+      const { error } = await supabase.from(table).delete().eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success("Registro excluído");
+      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deletePatient = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("patients").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Paciente excluído");
+      qc.invalidateQueries({ queryKey: ["patients"] });
+      navigate({ to: "/app/pacientes" });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (patient.isLoading) return <div className="text-sm text-muted-foreground">Carregando…</div>;
   if (!patient.data) return <div>Paciente não encontrado.</div>;
   const p = patient.data;
@@ -127,13 +157,38 @@ function PatientPage() {
             </p>
           </div>
         </div>
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogTrigger asChild><Button variant="outline">Editar dados</Button></DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-            <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2 flex-wrap">
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogTrigger asChild><Button variant="outline">Editar dados</Button></DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
+              <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
+            </DialogContent>
+          </Dialog>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-1" />Excluir paciente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Remove permanentemente o paciente e todos os dados clínicos vinculados (avaliações, evoluções, anexos, agendamentos). Ação irreversível.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Excluir definitivamente
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="dados">
@@ -200,6 +255,29 @@ function PatientPage() {
                         <Button size="sm" onClick={() => finalize.mutate(a)} disabled={finalize.isPending}>
                           <CheckCircle2 className="h-4 w-4 mr-1" />Finalizar
                         </Button>
+                      )}
+                      {isAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4 mr-1" />Excluir
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir esta avaliação?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                A avaliação de {fmtDate(a.data)} será removida permanentemente. As evoluções vinculadas permanecerão, mas perderão o vínculo.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteRecord.mutate({ table: "assessments", rowId: a.id })} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                     </div>
                   </div>
@@ -274,6 +352,29 @@ function PatientPage() {
                     <Button size="sm" variant="outline" onClick={() => printPdf(buildEvolutionPdfOpts(e, p))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
                     {!e.locked_at && <Button size="sm" variant="outline" onClick={() => lock.mutate({ table: "evolutions", rowId: e.id })}><Lock className="h-4 w-4 mr-1" />Assinar</Button>}
                     {e.locked_at && <span className="text-xs text-muted-foreground self-center">Assinada</span>}
+                    {isAdmin && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4 mr-1" />Excluir
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir esta evolução?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              A evolução de {fmtDate(e.data)} será removida permanentemente.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteRecord.mutate({ table: "evolutions", rowId: e.id })} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 grid sm:grid-cols-2 gap-3 text-sm">
