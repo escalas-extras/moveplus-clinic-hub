@@ -303,78 +303,170 @@ function Info({ label, value, className }: { label: string; value: any; classNam
 
 function buildEvolutionPdfOpts(e: any, p: any) {
   return {
-    title: `Evolução Clínica — ${fmtDate(e.data)}`,
+    title: `Evolução Clínica`,
+    subtitle: `${fmtDate(e.data)}${e.hora ? ` às ${String(e.hora).slice(0, 5)}` : ""}`,
     patientName: p.nome_completo,
     professional: e.professionals,
-    sections: [
-      { title: "Data/Hora", body: `${fmtDate(e.data)} às ${String(e.hora).slice(0, 5)}` },
-      { title: "Conduta aplicada", body: e.procedimentos || "—" },
-      { title: "Estado de saúde do paciente", body: e.resposta_paciente || "—" },
-      { title: "Resultados obtidos", body: e.evolucao_observada || "—" },
-      { title: "Intercorrências", body: e.intercorrencias || "—" },
-      { title: "Conduta / próximos passos", body: e.conduta || "—" },
-      { title: "Próximos objetivos", body: e.proximos_objetivos || "—" },
+    blocks: [
+      {
+        title: "Identificação",
+        children: [
+          {
+            kind: "grid" as const,
+            rows: [
+              ["Paciente", p?.nome_completo ?? "—"],
+              ["Data / Hora", `${fmtDate(e.data)}${e.hora ? ` ${String(e.hora).slice(0, 5)}` : ""}`],
+              ["Profissional", e.professionals?.nome ?? "—"],
+              ["Registro", e.professionals?.registro ?? e.professionals?.conselho ?? "—"],
+            ],
+          },
+        ],
+      },
+      {
+        title: "Sessão",
+        children: [
+          { kind: "highlight" as const, label: "Conduta aplicada", text: e.procedimentos || "—" },
+          { kind: "paragraph" as const, label: "Estado de saúde do paciente", text: e.resposta_paciente || "—" },
+          { kind: "paragraph" as const, label: "Resultados observados", text: e.evolucao_observada || "—" },
+          { kind: "paragraph" as const, label: "Intercorrências", text: e.intercorrencias || "—" },
+          { kind: "paragraph" as const, label: "Próximos passos", text: e.conduta || "—" },
+          { kind: "paragraph" as const, label: "Próximos objetivos", text: e.proximos_objetivos || "—" },
+        ],
+      },
     ],
   };
 }
 
-function fmtYesNo(v: any) {
-  if (v === true) return "Sim";
-  if (v === false) return "Não";
-  return "—";
-}
+function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []) {
+  const isReaval = a.tipo === "reavaliacao";
+  const linked = allEvolutions
+    .filter((e) => e.assessment_id === a.id)
+    .slice()
+    .sort((x, y) => (x.data < y.data ? -1 : 1));
 
-function buildAssessmentPdfOpts(a: any, p: any) {
-  const ident = [
-    `Data da avaliação: ${fmtDate(a.data)}`,
-    `Nome: ${p?.nome_completo ?? "—"}`,
-    `Data de nascimento: ${fmtDate(p?.data_nascimento) ?? "—"}${calcAge(p?.data_nascimento) != null ? ` (${calcAge(p?.data_nascimento)} anos)` : ""}`,
-    `Sexo: ${p?.sexo ?? "—"}   ·   Estado civil: ${p?.estado_civil ?? "—"}`,
-    `Telefone: ${p?.telefone ?? "—"}`,
-    `Profissão: ${p?.profissao ?? "—"}   ·   Naturalidade: ${p?.naturalidade ?? "—"}`,
-    `Cidade: ${p?.cidade ?? "—"}   ·   Bairro: ${p?.bairro ?? "—"}`,
-    `Endereço residencial: ${p?.endereco ?? "—"}`,
-    `Endereço comercial: ${p?.endereco_comercial ?? "—"}`,
-    `Diagnóstico clínico: ${a.diagnostico_clinico ?? "—"}`,
-    `Diagnóstico fisioterapêutico: ${a.diagnostico_fisio ?? "—"}`,
-  ].join("\n");
+  const apresentacaoOpts = [
+    { key: "deambulando", label: "Deambulando" },
+    { key: "apoio", label: "Com apoio" },
+    { key: "cadeirante", label: "Cadeirante" },
+    { key: "hospitalizado", label: "Hospitalizado" },
+    { key: "orientado", label: "Orientado" },
+  ];
+  const inspecaoOpts = [
+    { key: "edema", label: "Edema" },
+    { key: "hematoma", label: "Hematoma" },
+    { key: "atrofia", label: "Atrofia muscular" },
+    { key: "cicatriz", label: "Cicatriz" },
+    { key: "deformidade", label: "Deformidade" },
+    { key: "alteracao_cor", label: "Alteração de cor" },
+  ];
+  const aSet: Set<string> = new Set(a.apresentacao || []);
+  const iSet: Set<string> = new Set(a.inspecao_flags || []);
 
   return {
-    title: `${a.tipo === "reavaliacao" ? "Reavaliação" : "Avaliação"} Fisioterapêutica — ${fmtDate(a.data)}`,
+    title: `${isReaval ? "Reavaliação" : "Avaliação"} Fisioterapêutica`,
+    subtitle: `Conforme Resolução COFFITO 414/2012 · Emitida em ${fmtDate(a.data)}`,
     patientName: p?.nome_completo,
     professional: a.professionals,
-    sections: [
-      // 1
-      { title: "1. Identificação", body: ident },
-      // 2
-      { title: "2.1 História clínica", body: a.historia_clinica || "—" },
-      { title: "2.2 Queixa principal", body: a.queixa_principal || "—" },
-      { title: "2.3 Hábitos de vida", body: a.habitos_vida || "—" },
-      { title: "2.4 HMA", body: a.hma || "—" },
-      { title: "2.5 HMP", body: a.hmp || "—" },
-      { title: "2.6 Antecedentes pessoais", body: a.antecedentes_pessoais || "—" },
-      { title: "2.7 Antecedentes familiares", body: a.antecedentes_familiares || "—" },
-      { title: "2.8 Tratamentos realizados", body: a.tratamentos_realizados || "—" },
-      // 3
-      { title: "3.1 Apresentação do paciente", body: (a.apresentacao && a.apresentacao.length ? a.apresentacao.join(", ") : "—") },
-      { title: "3.2 Exames complementares", body: `${fmtYesNo(a.tem_exames)}${a.exames_complementares ? `\n${a.exames_complementares}` : ""}` },
-      { title: "3.3 Uso de medicamentos", body: `${fmtYesNo(a.usa_medicamentos)}${a.medicamentos ? `\n${a.medicamentos}` : ""}` },
-      { title: "3.4 Cirurgias", body: `${fmtYesNo(a.teve_cirurgias)}${a.cirurgias ? `\n${a.cirurgias}` : ""}` },
+    blocks: [
       {
-        title: "3.5 Inspeção / Palpação",
-        body: [
-          a.inspecao_flags && a.inspecao_flags.length ? `Flags: ${a.inspecao_flags.join(", ")}` : null,
-          a.inspecao ? `Inspeção: ${a.inspecao}` : null,
-          a.palpacao ? `Palpação: ${a.palpacao}` : null,
-        ].filter(Boolean).join("\n") || "—",
+        title: "1. Identificação",
+        children: [
+          {
+            kind: "grid" as const,
+            rows: [
+              ["Nome", p?.nome_completo ?? "—"],
+              ["Data de avaliação", fmtDate(a.data)],
+              ["Data de nascimento", `${fmtDate(p?.data_nascimento)}${calcAge(p?.data_nascimento) != null ? `  (${calcAge(p?.data_nascimento)} anos)` : ""}`],
+              ["Sexo", p?.sexo ?? "—"],
+              ["Estado civil", p?.estado_civil ?? "—"],
+              ["Profissão", p?.profissao ?? "—"],
+              ["Naturalidade", p?.naturalidade ?? "—"],
+              ["Telefone", p?.telefone ?? "—"],
+              ["Cidade / Estado", [p?.cidade, p?.estado].filter(Boolean).join(" - ") || "—"],
+              ["Bairro", p?.bairro ?? "—"],
+              ["Endereço residencial", p?.endereco ?? "—"],
+              ["Endereço comercial", p?.endereco_comercial ?? "—"],
+              ["Profissional", a.professionals?.nome ?? "—"],
+            ],
+          },
+        ],
       },
-      { title: "3.6 Semiologia", body: a.semiologia || "—" },
-      { title: "3.7 Testes específicos", body: a.testes_especificos || "—" },
-      { title: "3.8 Avaliação da dor (EVA)", body: a.eva != null ? `${a.eva} / 10` : "—" },
-      // 4
-      { title: "4.1 Objetivos de tratamento", body: a.objetivos || "—" },
-      { title: "4.2 Recursos terapêuticos", body: a.recursos_terapeuticos || "—" },
-      { title: "4.3 Plano de tratamento", body: a.condutas || "—" },
+      {
+        title: "2. Diagnósticos",
+        children: [
+          { kind: "highlight" as const, label: "Diagnóstico clínico", text: a.diagnostico_clinico || "—" },
+          { kind: "highlight" as const, label: "Diagnóstico fisioterapêutico", text: a.diagnostico_fisio || "—" },
+        ],
+      },
+      {
+        title: "3. Avaliação Clínica (Anamnese)",
+        children: [
+          { kind: "highlight" as const, label: "Queixa principal", text: a.queixa_principal || "—" },
+          { kind: "paragraph" as const, label: "História da Moléstia Atual (HMA)", text: a.hma || "—" },
+          { kind: "paragraph" as const, label: "História da Moléstia Pregressa (HMP)", text: a.hmp || "—" },
+          { kind: "paragraph" as const, label: "História clínica", text: a.historia_clinica || "—" },
+          { kind: "paragraph" as const, label: "Hábitos de vida", text: a.habitos_vida || "—" },
+          { kind: "paragraph" as const, label: "Antecedentes pessoais", text: a.antecedentes_pessoais || "—" },
+          { kind: "paragraph" as const, label: "Antecedentes familiares", text: a.antecedentes_familiares || "—" },
+          { kind: "paragraph" as const, label: "Tratamentos realizados", text: a.tratamentos_realizados || "—" },
+        ],
+      },
+      {
+        title: "4. Exame Clínico / Físico",
+        children: [
+          {
+            kind: "checks" as const,
+            label: "Apresentação do paciente",
+            items: apresentacaoOpts.map((o) => ({ label: o.label, checked: aSet.has(o.key) })),
+          },
+          {
+            kind: "grid" as const,
+            rows: [
+              ["Exames complementares", fmtYesNo(a.tem_exames) + (a.exames_complementares ? `\n${a.exames_complementares}` : "")],
+              ["Uso de medicamentos", fmtYesNo(a.usa_medicamentos) + (a.medicamentos ? `\n${a.medicamentos}` : "")],
+              ["Cirurgias prévias", fmtYesNo(a.teve_cirurgias) + (a.cirurgias ? `\n${a.cirurgias}` : "")],
+            ],
+          },
+          {
+            kind: "checks" as const,
+            label: "Inspeção",
+            items: inspecaoOpts.map((o) => ({ label: o.label, checked: iSet.has(o.key) })),
+          },
+          { kind: "paragraph" as const, label: "Palpação / observações", text: a.palpacao || a.inspecao || "—" },
+          { kind: "paragraph" as const, label: "Semiologia", text: a.semiologia || "—" },
+          { kind: "paragraph" as const, label: "Testes específicos", text: a.testes_especificos || "—" },
+        ],
+      },
+      {
+        title: "5. Avaliação da Dor (EVA)",
+        children: [{ kind: "eva" as const, value: a.eva ?? null }],
+      },
+      {
+        title: "6. Plano Terapêutico",
+        children: [
+          { kind: "highlight" as const, label: "Objetivos terapêuticos", text: a.objetivos || "—" },
+          { kind: "highlight" as const, label: "Plano de tratamento", text: a.condutas || "—" },
+          { kind: "paragraph" as const, label: "Recursos terapêuticos", text: a.recursos_terapeuticos || "—" },
+        ],
+      },
+      ...(linked.length
+        ? [{
+            title: "7. Evoluções Clínicas",
+            children: [{
+              kind: "evolutions" as const,
+              items: linked.map((e, idx) => ({
+                data: fmtDate(e.data),
+                hora: e.hora,
+                index: idx + 1,
+                conduta: e.procedimentos,
+                resultado: e.evolucao_observada,
+                intercorrencias: e.intercorrencias,
+                proximos: e.conduta,
+              })),
+            }],
+          }]
+        : []),
     ],
   };
 }
+
