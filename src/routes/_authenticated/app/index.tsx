@@ -80,9 +80,9 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string; value: any; hint?: string }) {
-  return (
-    <Card className="p-5">
+function StatCard({ icon: Icon, label, value, hint, to }: { icon: any; label: string; value: any; hint?: string; to?: string }) {
+  const content = (
+    <Card className={cn("p-5", to && "hover:border-primary/60 hover:shadow-sm transition-colors cursor-pointer")}>
       <div className="flex items-start justify-between">
         <div>
           <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
@@ -94,5 +94,11 @@ function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string
         </div>
       </div>
     </Card>
+  );
+  if (!to) return content;
+  return (
+    <Link to={to} className="block">
+      {content}
+    </Link>
   );
 }
