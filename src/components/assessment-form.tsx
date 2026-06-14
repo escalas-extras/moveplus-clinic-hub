@@ -11,6 +11,9 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { calcImc, calcAge, fmtDate } from "@/lib/format";
+import { Eye } from "lucide-react";
+import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
+import { buildAssessmentPdfOpts } from "@/lib/pdf-builders";
 
 type ModuleType = "geral" | "traumato_ortopedica" | "neurologica" | "cardiorrespiratoria" | "postural" | "geriatrica" | "pediatrica" | "esportiva" | "rpg" | "pilates" | "dor_cronica" | "funcional" | "personalizada";
 
