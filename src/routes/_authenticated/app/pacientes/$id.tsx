@@ -471,11 +471,33 @@ const PDF_POSTURA = [
 ];
 
 function buildEvolutionPdfOpts(e: any, p: any) {
-  const sv: Array<[string, string]> = [];
-  if (e.pa) sv.push(["PA", String(e.pa)]);
-  if (e.fc != null && e.fc !== "") sv.push(["FC", `${e.fc} bpm`]);
-  if (e.fr != null && e.fr !== "") sv.push(["FR", `${e.fr} irpm`]);
-  if (e.spo2 != null && e.spo2 !== "") sv.push(["SpO₂", `${e.spo2}%`]);
+  const svObj = e.sinais_vitais || {};
+  const svRows: Array<[string, string]> = [];
+  const pushSv = (k: string, v: any) => { if (v != null && String(v).trim() !== "") svRows.push([k, String(v)]); };
+  pushSv("PA", svObj.pa ?? e.pa);
+  pushSv("FC", svObj.fc ?? e.fc);
+  pushSv("FR", svObj.fr ?? e.fr);
+  pushSv("PR", svObj.pr);
+  pushSv("SpO₂", svObj.spo2 ?? e.spo2);
+  pushSv("Ausculta", svObj.ausculta);
+  pushSv("Tosse", svObj.tosse);
+  pushSv("Secreção", svObj.secrecao);
+  pushSv("Tônus", svObj.tonus);
+  pushSv("Trofismo", svObj.trofismo);
+  pushSv("Clônus", svObj.clonus);
+  pushSv("Nível de consciência", e.nivel_consciencia ?? svObj.nivel_consciencia);
+
+  const dor: any[] = Array.isArray(e.avaliacao_algica) ? e.avaliacao_algica : [];
+  const dorRows = dor
+    .filter((r) => r && (r.local || r.repouso || r.movimento || r.fatores || r.impacto))
+    .map((r, i) => [
+      `${i + 1}. ${r.local || "—"}`,
+      [
+        (r.repouso || r.movimento) && `Repouso ${r.repouso || "—"} / Movim. ${r.movimento || "—"}`,
+        r.fatores && `Fatores: ${r.fatores}`,
+        r.impacto && `Impacto AVDs: ${r.impacto}`,
+      ].filter(Boolean).join(" · ") || "—",
+    ] as [string, string]);
 
   return {
     title: `Evolução Clínica`,
@@ -497,12 +519,30 @@ function buildEvolutionPdfOpts(e: any, p: any) {
           },
         ],
       },
-      ...(sv.length || e.eva != null
+      ...(svRows.length
         ? [{
-            title: "Sinais vitais e dor",
+            title: "Sinais vitais",
+            children: [{ kind: "grid" as const, rows: svRows, columns: 2 as const }],
+          }]
+        : []),
+      ...(e.inspecao || e.palpacao
+        ? [{
+            title: "Inspeção / Palpação",
             children: [
-              ...(sv.length ? [{ kind: "grid" as const, rows: sv, columns: 2 as const }] : []),
+              ...(e.inspecao ? [{ kind: "paragraph" as const, label: "Inspeção", text: e.inspecao }] : []),
+              ...(e.palpacao ? [{ kind: "paragraph" as const, label: "Palpação", text: e.palpacao }] : []),
+            ],
+          }]
+        : []),
+      ...(dorRows.length || e.eva != null
+        ? [{
+            title: "Avaliação álgica",
+            children: [
               { kind: "eva" as const, value: e.eva ?? null },
+              ...(dorRows.length ? [
+                { kind: "paragraph" as const, label: "Locais de dor", text: "" },
+                { kind: "grid" as const, rows: dorRows, columns: 1 as const },
+              ] : []),
             ],
           }]
         : []),
@@ -515,6 +555,7 @@ function buildEvolutionPdfOpts(e: any, p: any) {
           { kind: "paragraph" as const, label: "Intercorrências", text: e.intercorrencias || "—" },
           { kind: "paragraph" as const, label: "Próximos passos", text: e.conduta || "—" },
           { kind: "paragraph" as const, label: "Próximos objetivos", text: e.proximos_objetivos || "—" },
+          ...(e.observacoes_gerais ? [{ kind: "paragraph" as const, label: "Observações gerais", text: e.observacoes_gerais }] : []),
         ],
       },
     ],
