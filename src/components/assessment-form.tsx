@@ -432,12 +432,11 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             </div>
           </div>
 
-          <Field label="3.6 Semiologia" wide><Textarea rows={3} {...register("semiologia")} /></Field>
-          <Field label="3.7 Testes específicos" wide><Textarea rows={3} {...register("testes_especificos")} /></Field>
+          <Field label="3.6 Testes específicos" wide><Textarea rows={3} {...register("testes_especificos")} /></Field>
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs uppercase">3.8 Avaliação da dor (EVA)</Label>
+              <Label className="text-xs uppercase">3.7 Avaliação da dor (EVA)</Label>
               <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
             </div>
             <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
@@ -446,11 +445,20 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div><Label className="text-xs uppercase">Peso (kg)</Label><Input type="number" step="0.1" {...register("peso", { valueAsNumber: true })} /></div>
-            <div><Label className="text-xs uppercase">Estatura (m)</Label><Input type="number" step="0.01" {...register("estatura", { valueAsNumber: true })} /></div>
-            <div><Label className="text-xs uppercase">IMC</Label><Input readOnly value={calcImc(watch("peso"), watch("estatura")) ?? ""} /></div>
-          </div>
+          {(() => {
+            const pesoStr = String(watch("peso") ?? "").replace(",", ".");
+            const estStr = String(watch("estatura") ?? "").replace(",", ".");
+            const peso = parseFloat(pesoStr);
+            const est = parseFloat(estStr);
+            const imc = !isNaN(peso) && !isNaN(est) && est > 0 ? (peso / (est * est)).toFixed(2) : "";
+            return (
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div><Label className="text-xs uppercase">Peso (kg)</Label><Input type="number" step="0.1" {...register("peso", { valueAsNumber: true })} /></div>
+                <div><Label className="text-xs uppercase">Estatura (m)</Label><Input type="number" step="0.01" {...register("estatura", { valueAsNumber: true })} /></div>
+                <div><Label className="text-xs uppercase">IMC</Label><Input readOnly value={imc} /></div>
+              </div>
+            );
+          })()}
         </div>
       </Section>
 
@@ -497,6 +505,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             <div className="space-y-2">
               {HABITOS_PERGUNTAS.map((q) => {
                 const cur = habitos[q.id] ?? { resposta: "", obs: "" };
+                const opts = (q.obsHint ?? "").split("/").map((s) => s.trim()).filter(Boolean);
                 return (
                   <div key={q.id} className="grid sm:grid-cols-[1fr_auto_2fr] gap-2 items-start p-2 rounded-md bg-muted/30">
                     <div className="text-sm">{q.label}</div>
@@ -504,7 +513,14 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
                       <Button type="button" size="sm" variant={cur.resposta === "sim" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "sim" } }))}>Sim</Button>
                       <Button type="button" size="sm" variant={cur.resposta === "nao" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "nao" } }))}>Não</Button>
                     </div>
-                    <Input placeholder={q.obsHint ?? "Observações"} value={cur.obs} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: e.target.value } }))} />
+                    {opts.length > 1 ? (
+                      <Select value={cur.obs} onValueChange={(v) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: v } }))}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                      </Select>
+                    ) : (
+                      <Input placeholder={q.obsHint ?? "Observações"} value={cur.obs} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: e.target.value } }))} />
+                    )}
                   </div>
                 );
               })}
@@ -577,13 +593,23 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
                 <tbody>
                   {SEGMENTOS.map((seg) => {
                     const r = exameFisico[seg] ?? { fm: "", sens: "", edema: "", adm: "" };
+                    const FM_OPTS = ["0 - Sem contração", "1 - Contração palpável", "2 - Move sem gravidade", "3 - Vence gravidade", "4 - Vence resistência parcial", "5 - Normal"];
+                    const SENS_OPTS = ["Normal", "Hipoestesia", "Anestesia", "Parestesia", "Hiperestesia"];
+                    const EDEMA_OPTS = ["Ausente", "+/4+", "2+/4+", "3+/4+", "4+/4+"];
+                    const ADM_OPTS = ["Preservada", "Leve limitação", "Moderada limitação", "Severa limitação"];
+                    const SelOpt = ({ value, opts, onChange }: { value: string; opts: string[]; onChange: (v: string) => void }) => (
+                      <Select value={value} onValueChange={onChange}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>{opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                      </Select>
+                    );
                     return (
                       <tr key={seg} className="border-t">
                         <td className="p-2 font-medium">{seg}</td>
-                        <td className="p-2"><Input value={r.fm} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, fm: e.target.value } }))} placeholder="0-5" /></td>
-                        <td className="p-2"><Input value={r.sens} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, sens: e.target.value } }))} /></td>
-                        <td className="p-2"><Input value={r.edema} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, edema: e.target.value } }))} /></td>
-                        <td className="p-2"><Input value={r.adm} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, adm: e.target.value } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.fm} opts={FM_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, fm: v } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.sens} opts={SENS_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, sens: v } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.edema} opts={EDEMA_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, edema: v } }))} /></td>
+                        <td className="p-2"><SelOpt value={r.adm} opts={ADM_OPTS} onChange={(v) => setExameFisico((m) => ({ ...m, [seg]: { ...r, adm: v } }))} /></td>
                       </tr>
                     );
                   })}
