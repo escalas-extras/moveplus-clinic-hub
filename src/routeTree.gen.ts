@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppUsuariosRouteImport } from './routes/_authenticated/app/usuarios'
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
 import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app/configuracoes'
@@ -39,6 +40,12 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/app/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppUsuariosRoute =
+  AuthenticatedAppUsuariosRouteImport.update({
+    id: '/app/usuarios',
+    path: '/app/usuarios',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppProfissionaisRoute =
   AuthenticatedAppProfissionaisRouteImport.update({
     id: '/app/profissionais',
@@ -82,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
+  '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
   '/app/pacientes/': typeof AuthenticatedAppPacientesIndexRoute
@@ -93,6 +101,7 @@ export interface FileRoutesByTo {
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
+  '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
   '/app/pacientes': typeof AuthenticatedAppPacientesIndexRoute
@@ -106,6 +115,7 @@ export interface FileRoutesById {
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
+  '/_authenticated/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
   '/_authenticated/app/pacientes/': typeof AuthenticatedAppPacientesIndexRoute
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/financeiro'
     | '/app/profissionais'
+    | '/app/usuarios'
     | '/app/'
     | '/app/pacientes/$id'
     | '/app/pacientes/'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/financeiro'
     | '/app/profissionais'
+    | '/app/usuarios'
     | '/app'
     | '/app/pacientes/$id'
     | '/app/pacientes'
@@ -142,6 +154,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/configuracoes'
     | '/_authenticated/app/financeiro'
     | '/_authenticated/app/profissionais'
+    | '/_authenticated/app/usuarios'
     | '/_authenticated/app/'
     | '/_authenticated/app/pacientes/$id'
     | '/_authenticated/app/pacientes/'
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/usuarios': {
+      id: '/_authenticated/app/usuarios'
+      path: '/app/usuarios'
+      fullPath: '/app/usuarios'
+      preLoaderRoute: typeof AuthenticatedAppUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/profissionais': {
@@ -233,6 +253,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
+  AuthenticatedAppUsuariosRoute: typeof AuthenticatedAppUsuariosRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppPacientesIdRoute: typeof AuthenticatedAppPacientesIdRoute
   AuthenticatedAppPacientesIndexRoute: typeof AuthenticatedAppPacientesIndexRoute
@@ -243,6 +264,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
+  AuthenticatedAppUsuariosRoute: AuthenticatedAppUsuariosRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppPacientesIdRoute: AuthenticatedAppPacientesIdRoute,
   AuthenticatedAppPacientesIndexRoute: AuthenticatedAppPacientesIndexRoute,
