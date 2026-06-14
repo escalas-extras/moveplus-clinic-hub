@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileDown, Printer, Loader2 } from "lucide-react";
-import { buildPdf, downloadPdf, printPdf } from "@/lib/pdf";
+import { buildPdf } from "@/lib/pdf";
 
 type PdfOpts = Parameters<typeof buildPdf>[0];
 
@@ -19,6 +19,8 @@ export function PdfPreviewDialog({
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const docRef = useRef<any>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     let revoke: string | null = null;
@@ -28,6 +30,7 @@ export function PdfPreviewDialog({
       setLoading(true);
       try {
         const doc = await buildPdf(pdfOpts);
+        docRef.current = doc;
         const blobUrl = URL.createObjectURL(doc.output("blob"));
         if (cancelled) {
           URL.revokeObjectURL(blobUrl);
@@ -44,8 +47,37 @@ export function PdfPreviewDialog({
       cancelled = true;
       if (revoke) URL.revokeObjectURL(revoke);
       setUrl(null);
+      docRef.current = null;
     };
   }, [open, pdfOpts]);
+
+  const handleDownload = () => {
+    const doc = docRef.current;
+    const filename = `${(pdfOpts?.title || "documento").replace(/\s+/g, "_")}.pdf`;
+    if (doc) {
+      try { doc.save(filename); return; } catch { /* fallback */ }
+    }
+    if (url) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  };
+
+  const handlePrint = () => {
+    const frame = iframeRef.current;
+    if (frame?.contentWindow) {
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+        return;
+      } catch { /* fallback below */ }
+    }
+    if (url) window.open(url, "_blank");
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -53,23 +85,11 @@ export function PdfPreviewDialog({
         <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle>{title || pdfOpts?.title || "Pré-visualização do PDF"}</DialogTitle>
           <div className="flex gap-2 mr-8">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!pdfOpts}
-              onClick={() => pdfOpts && downloadPdf(pdfOpts)}
-            >
-              <FileDown className="h-4 w-4 mr-1" />
-              Baixar
+            <Button size="sm" variant="outline" disabled={!url} onClick={handleDownload}>
+              <FileDown className="h-4 w-4 mr-1" />Baixar
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!pdfOpts}
-              onClick={() => pdfOpts && printPdf(pdfOpts)}
-            >
-              <Printer className="h-4 w-4 mr-1" />
-              Imprimir
+            <Button size="sm" variant="outline" disabled={!url} onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-1" />Imprimir
             </Button>
           </div>
         </DialogHeader>
@@ -81,6 +101,7 @@ export function PdfPreviewDialog({
             </div>
           ) : (
             <iframe
+              ref={iframeRef}
               src={url}
               title="Pré-visualização do PDF"
               className="w-full h-full border-0"
