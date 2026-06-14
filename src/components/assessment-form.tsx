@@ -231,6 +231,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         exame_fisico: exameFisico,
         postura_alinhamento: postura,
         sinais_vitais: sinaisVitais,
+        avaliacao_algica: avaliacaoAlgica.filter((r) => r.local || r.repouso || r.movimento || r.fatores || r.impacto),
         med_cintura: sinaisVitais.cintura ? Number(sinaisVitais.cintura) : null,
         med_quadril: sinaisVitais.quadril ? Number(sinaisVitais.quadril) : null,
         icq: sinaisVitais.cintura && sinaisVitais.quadril ? Number((Number(sinaisVitais.cintura) / Number(sinaisVitais.quadril)).toFixed(2)) : null,
