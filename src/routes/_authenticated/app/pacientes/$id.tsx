@@ -13,7 +13,8 @@ import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
 import { toast } from "sonner";
-import { downloadPdf, previewPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
+import { downloadPdf, printPdf, uploadAndRegisterPdf, type buildPdf } from "@/lib/pdf";
+import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth, useRoles } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
@@ -31,6 +32,7 @@ function PatientPage() {
   const [avalOpen, setAvalOpen] = useState(false);
   const [linkedEvoFor, setLinkedEvoFor] = useState<string | null>(null);
   const [editAssessment, setEditAssessment] = useState<any | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<Parameters<typeof buildPdf>[0] | null>(null);
 
   const patient = useQuery({
     queryKey: ["patient", id],
@@ -248,7 +250,7 @@ function PatientPage() {
                       <span className={`text-xs self-center px-2 py-0.5 rounded-full ${a.status === "finalizada" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {a.status === "finalizada" ? "Finalizada" : "Rascunho"}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => previewPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPdfPreview(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
                       <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
                       <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
 
@@ -371,7 +373,7 @@ function PatientPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={() => previewPdf(buildEvolutionPdfOpts(e, p))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                    <Button size="sm" variant="outline" onClick={() => setPdfPreview(buildEvolutionPdfOpts(e, p))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
                     <Button size="sm" variant="outline" onClick={() => downloadPdf(buildEvolutionPdfOpts(e, p))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
                     <Button size="sm" variant="outline" onClick={() => printPdf(buildEvolutionPdfOpts(e, p))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
                     {!e.locked_at && <Button size="sm" variant="outline" onClick={() => lock.mutate({ table: "evolutions", rowId: e.id })}><Lock className="h-4 w-4 mr-1" />Assinar</Button>}
