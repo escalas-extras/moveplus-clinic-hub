@@ -153,7 +153,7 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
 
   return {
     title: `${isReaval ? "Reavaliação" : "Avaliação"} Fisioterapêutica`,
-    subtitle: `Conforme Resolução COFFITO 414/2012 · Emitida em ${fmtDate(a.data)}`,
+    subtitle: `Emitida em ${fmtDate(a.data)}`,
     patientName: p?.nome_completo,
     professional: a.professionals,
     blocks: [
