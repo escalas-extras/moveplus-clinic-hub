@@ -107,6 +107,24 @@ export function EvolutionForm({
 
   const professional_id = watch("professional_id");
 
+  const openPreview = () => {
+    const v = watch();
+    const prof = profs.data?.find((p) => p.id === v.professional_id);
+    const preview: any = {
+      ...v,
+      professionals: prof,
+      eva,
+      sinais_vitais: sv,
+      avaliacao_algica: dor.filter((r) => r.local || r.repouso || r.movimento || r.fatores || r.impacto),
+      pa: sv.pa,
+      fc: sv.fc,
+      fr: sv.fr,
+      spo2: sv.spo2,
+      nivel_consciencia: sv.nivel_consciencia || null,
+    };
+    setPdfPreview(buildEvolutionPdfOpts(preview, patient));
+  };
+
   return (
     <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-4">
       {assessmentId && (
