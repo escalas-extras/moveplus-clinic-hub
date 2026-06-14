@@ -221,6 +221,16 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         peso: v.peso || null,
         estatura: v.estatura || null,
         imc,
+        doencas_previas: doencasPrevias,
+        habitos_anamnese: habitos,
+        exame_fisico: exameFisico,
+        postura_alinhamento: postura,
+        sinais_vitais: sinaisVitais,
+        med_cintura: sinaisVitais.cintura ? Number(sinaisVitais.cintura) : null,
+        med_quadril: sinaisVitais.quadril ? Number(sinaisVitais.quadril) : null,
+        icq: sinaisVitais.cintura && sinaisVitais.quadril ? Number((Number(sinaisVitais.cintura) / Number(sinaisVitais.quadril)).toFixed(2)) : null,
+        nivel_consciencia: sinaisVitais.nivel_consciencia || null,
+        observacoes_gerais: sinaisVitais.observacoes_gerais || null,
       };
       if (isEdit) {
         if (finalize) {
