@@ -120,15 +120,28 @@ export async function buildPdf(opts: {
     doc.setTextColor(...C.brand);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text(c.nome_fantasia || "Move 60+", tx, 48);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
     const lines = [
       c.razao_social,
       c.cnpj ? `CNPJ: ${c.cnpj}` : null,
       [c.telefones?.join(" · "), c.emails?.join(" · ")].filter(Boolean).join("  ·  "),
     ].filter(Boolean) as string[];
-    doc.text(lines, tx, 66);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    // Vertically center the text block with the logo
+    const logoCenterY = 15 + LOGO_SIZE / 2;
+    const titleH = 18;
+    const lineH = 10;
+    const titleLineGap = 6;
+    const totalH = titleH + titleLineGap + lines.length * lineH;
+    const textTopY = logoCenterY - totalH / 2;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(c.nome_fantasia || "Move 60+", tx, textTopY + titleH);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(lines, tx, textTopY + titleH + titleLineGap + lineH);
   };
   drawHeader();
 
