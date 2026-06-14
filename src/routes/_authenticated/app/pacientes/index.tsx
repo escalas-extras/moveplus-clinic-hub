@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/app/pacientes/")({
 
 function PacientesPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate({ from: "/app/pacientes" });
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
