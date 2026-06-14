@@ -18,7 +18,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  
   const [loading, setLoading] = useState(false);
 
   async function signIn(e: React.FormEvent) {
