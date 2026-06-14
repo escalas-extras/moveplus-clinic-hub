@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Users, CalendarDays, ClipboardCheck, Wallet } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/app/")({
   component: Dashboard,
@@ -50,10 +52,10 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={`${s?.novosMes ?? 0} novos no mês`} />
-        <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} />
+        <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={`${s?.novosMes ?? 0} novos no mês`} to="/app/pacientes" />
+        <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} to="/app/agenda" />
         <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? "—"} />
-        {isAdmin && <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={`${s?.pendentes ?? 0} pendentes`} />}
+        {isAdmin && <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={`${s?.pendentes ?? 0} pendentes`} to="/app/financeiro" />}
       </div>
 
       <Card className="p-6">
@@ -78,9 +80,9 @@ function Dashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string; value: any; hint?: string }) {
-  return (
-    <Card className="p-5">
+function StatCard({ icon: Icon, label, value, hint, to }: { icon: any; label: string; value: any; hint?: string; to?: string }) {
+  const content = (
+    <Card className={cn("p-5", to && "hover:border-primary/60 hover:shadow-sm transition-colors cursor-pointer")}>
       <div className="flex items-start justify-between">
         <div>
           <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
@@ -92,5 +94,11 @@ function StatCard({ icon: Icon, label, value, hint }: { icon: any; label: string
         </div>
       </div>
     </Card>
+  );
+  if (!to) return content;
+  return (
+    <Link to={to} className="block">
+      {content}
+    </Link>
   );
 }
