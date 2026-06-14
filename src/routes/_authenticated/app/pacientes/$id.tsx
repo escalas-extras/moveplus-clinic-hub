@@ -192,9 +192,10 @@ function PatientPage() {
                       <span className={`text-xs self-center px-2 py-0.5 rounded-full ${a.status === "finalizada" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {a.status === "finalizada" ? "Finalizada" : "Rascunho"}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => previewPdf(buildAssessmentPdfOpts(a, p))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
-                      <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
+                      <Button size="sm" variant="outline" onClick={() => previewPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                      <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
+                      <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
+
                       {a.status !== "finalizada" && (
                         <Button size="sm" onClick={() => finalize.mutate(a)} disabled={finalize.isPending}>
                           <CheckCircle2 className="h-4 w-4 mr-1" />Finalizar
