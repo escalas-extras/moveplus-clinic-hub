@@ -105,6 +105,24 @@ export function EvolutionForm({
         <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("hora")} /></div>
       </div>
       <div><Label className="text-xs uppercase">Sessão nº</Label><Input type="number" {...register("sessao_numero", { valueAsNumber: true })} /></div>
+
+      <div className="rounded-lg border p-3 space-y-3">
+        <Label className="text-xs uppercase">Sinais vitais</Label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div><Label className="text-[10px] uppercase">PA</Label><Input placeholder="120/80" {...register("pa")} /></div>
+          <div><Label className="text-[10px] uppercase">FC (bpm)</Label><Input {...register("fc")} /></div>
+          <div><Label className="text-[10px] uppercase">FR (irpm)</Label><Input {...register("fr")} /></div>
+          <div><Label className="text-[10px] uppercase">SpO2 (%)</Label><Input {...register("spo2")} /></div>
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <Label className="text-[10px] uppercase">EVA (dor)</Label>
+            <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
+          </div>
+          <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
+        </div>
+      </div>
+
       <div><Label className="text-xs uppercase">Conduta aplicada</Label><Textarea rows={2} {...register("procedimentos")} /></div>
       <div><Label className="text-xs uppercase">Estado de saúde do paciente</Label><Textarea rows={2} {...register("resposta_paciente")} /></div>
       <div><Label className="text-xs uppercase">Resultados obtidos</Label><Textarea rows={2} {...register("evolucao_observada")} /></div>
