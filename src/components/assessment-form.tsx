@@ -115,18 +115,42 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
 
   const professional_id = watch("professional_id");
   const tipo = watch("tipo");
+  const dataVal = watch("data");
+  const queixa = watch("queixa_principal");
 
-  const submit = (finalize: boolean) => handleSubmit((v) => save.mutate({ v, finalize }))();
+  const missingFinalize: string[] = [];
+  if (!professional_id) missingFinalize.push("Profissional");
+  if (!tipo) missingFinalize.push("Tipo");
+  if (!dataVal) missingFinalize.push("Data");
+  if (!modules.length) missingFinalize.push("Pelo menos um módulo");
+  if (!queixa?.trim()) missingFinalize.push("Queixa principal");
+
+  const submit = (finalize: boolean) => {
+    if (finalize && missingFinalize.length) {
+      toast.error(`Para finalizar, preencha: ${missingFinalize.join(", ")}.`);
+      return;
+    }
+    if (!professional_id) {
+      toast.error("Selecione um profissional.");
+      return;
+    }
+    handleSubmit((v) => save.mutate({ v, finalize }))();
+  };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-5">
+    <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-5 pb-24">
       <section className="grid sm:grid-cols-3 gap-3">
         <div>
           <Label className="text-xs uppercase">Profissional *</Label>
           <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
-            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectTrigger className={!professional_id ? "border-destructive ring-1 ring-destructive/40" : ""}>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
             <SelectContent>{profs.data?.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
           </Select>
+          {!professional_id && (
+            <p className="text-xs text-destructive mt-1">Selecione um profissional para finalizar a avaliação.</p>
+          )}
         </div>
         <div>
           <Label className="text-xs uppercase">Tipo</Label>
@@ -140,6 +164,7 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         </div>
         <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} /></div>
       </section>
+
 
       <section>
         <Label className="text-xs uppercase mb-2 block">Módulos da avaliação</Label>
@@ -187,14 +212,22 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         <div className="sm:col-span-2"><Label className="text-xs uppercase">Condutas terapêuticas</Label><Textarea rows={2} {...register("condutas")} /></div>
       </section>
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)}>
-          {save.isPending ? "Salvando…" : "Salvar rascunho"}
-        </Button>
-        <Button type="button" disabled={save.isPending || !professional_id} onClick={() => submit(true)}>
-          Finalizar avaliação
-        </Button>
+      <div className="sticky bottom-0 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-t flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 z-10">
+        {missingFinalize.length > 0 && (
+          <p className="text-xs text-muted-foreground sm:mr-auto">
+            Para finalizar: <span className="text-destructive font-medium">{missingFinalize.join(", ")}</span>
+          </p>
+        )}
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">
+            {save.isPending ? "Salvando…" : "Salvar rascunho"}
+          </Button>
+          <Button type="button" disabled={save.isPending} onClick={() => submit(true)} className="flex-1 sm:flex-none">
+            Finalizar avaliação
+          </Button>
+        </div>
       </div>
+
     </form>
   );
 }
