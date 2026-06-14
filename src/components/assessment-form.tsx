@@ -145,6 +145,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
       ? assessment.avaliacao_algica
       : Array.from({ length: 5 }, () => ({ local: "", repouso: "", movimento: "", fatores: "", impacto: "" }))
   );
+  const [pdfPreview, setPdfPreview] = useState<ReturnType<typeof buildAssessmentPdfOpts> | null>(null);
 
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
     defaultValues: assessment
