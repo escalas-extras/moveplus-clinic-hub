@@ -52,10 +52,10 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={`${s?.novosMes ?? 0} novos no mês`} />
-        <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} />
+        <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={`${s?.novosMes ?? 0} novos no mês`} to="/app/pacientes" />
+        <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} to="/app/agenda" />
         <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? "—"} />
-        {isAdmin && <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={`${s?.pendentes ?? 0} pendentes`} />}
+        {isAdmin && <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={`${s?.pendentes ?? 0} pendentes`} to="/app/financeiro" />}
       </div>
 
       <Card className="p-6">
