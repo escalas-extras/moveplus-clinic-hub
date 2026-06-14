@@ -54,11 +54,27 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     });
     if (!isAdmin) throw new Error("Forbidden");
 
-    const { data, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
-      .select("user_id, role, created_at, profiles:profiles!inner(full_name, email)")
+      .select("user_id, role, created_at")
       .eq("role", "admin")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return { admins: data ?? [] };
+    const ids = (roles ?? []).map((r) => r.user_id);
+    let profilesById = new Map<string, { full_name: string | null; email: string | null }>();
+    if (ids.length) {
+      const { data: profs } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      profilesById = new Map((profs ?? []).map((p) => [p.id, { full_name: p.full_name, email: p.email }]));
+    }
+    const admins = (roles ?? []).map((r) => ({
+      user_id: r.user_id,
+      role: r.role,
+      created_at: r.created_at,
+      profiles: profilesById.get(r.user_id) ?? { full_name: null, email: null },
+    }));
+    return { admins };
   });
