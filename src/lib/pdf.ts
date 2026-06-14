@@ -152,10 +152,12 @@ export async function buildPdf(opts: {
   y += 14;
 
   // Page-break helper
+  let pageY = y;
   const ensure = (need: number) => {
     if (y + need > H - 80) {
       doc.addPage();
       y = M + 8;
+      pageY = y;
     }
   };
 
