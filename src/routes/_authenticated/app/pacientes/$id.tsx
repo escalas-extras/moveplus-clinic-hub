@@ -256,6 +256,29 @@ function PatientPage() {
                           <CheckCircle2 className="h-4 w-4 mr-1" />Finalizar
                         </Button>
                       )}
+                      {isAdmin && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4 mr-1" />Excluir
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir esta avaliação?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                A avaliação de {fmtDate(a.data)} será removida permanentemente. As evoluções vinculadas permanecerão, mas perderão o vínculo.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteRecord.mutate({ table: "assessments", rowId: a.id })} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
                   {a.queixa_principal && <p className="text-sm mt-3"><b>Queixa:</b> {a.queixa_principal}</p>}
