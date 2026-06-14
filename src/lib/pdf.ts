@@ -108,8 +108,8 @@ export async function buildPdf(opts: {
   const logo = await loadLogoDataUrl();
 
   // Header (once, page 1)
-  const HEADER_H = 120;
-  const LOGO_SIZE = 90;
+  const HEADER_H = 165;
+  const LOGO_SIZE = 135;
   const drawHeader = () => {
     doc.setFillColor(...C.brandSoft);
     doc.rect(0, 0, W, HEADER_H, "F");
