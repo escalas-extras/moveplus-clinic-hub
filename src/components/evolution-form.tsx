@@ -65,7 +65,7 @@ export function EvolutionForm({
   const profs = useQuery({
     queryKey: ["professionals-active"],
     queryFn: async () => {
-      const { data } = await supabase.from("professionals").select("id, nome").eq("situacao", "ativo").order("nome");
+      const { data } = await supabase.from("professionals").select("id, nome, profissao, conselho, registro").eq("situacao", "ativo").order("nome");
       return data ?? [];
     },
   });
