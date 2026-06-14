@@ -33,6 +33,51 @@ const MODULES: { value: ModuleType; label: string }[] = [
 const APRESENTACAO_OPTS = ["Deambulando", "Deambulando com apoio/auxílio", "Cadeira de rodas", "Internado", "Orientado"];
 const INSPECAO_OPTS = ["Normal", "Edema", "Cicatrização incompleta", "Eritemas", "Outros"];
 
+const DOENCAS_PADRAO = [
+  "AVC / AVE", "Ansiedade", "Câncer", "Colesterol", "Depressão", "Diabetes", "Dislipidemia",
+  "DPOC", "Hipertensão arterial", "Linfedema", "Lipedema", "Neuropatias", "Obesidade", "Osteoporose",
+];
+
+const HABITOS_PERGUNTAS: { id: string; label: string; obsHint?: string }[] = [
+  { id: "atividade_fisica", label: "Realiza alguma atividade física?", obsHint: "caminhada / academia / pilates / hidroginástica / outros" },
+  { id: "qualidade_sono", label: "Possui uma boa qualidade do sono?", obsHint: "horas / usa medicamento / acorda à noite" },
+  { id: "alimentacao", label: "Possui alimentação saudável?", obsHint: "restrições / disfagia / suplementação" },
+  { id: "internacoes", label: "Teve internações recentes?", obsHint: "suporte respiratório (baixo/alto fluxo, VMI, VNI)" },
+  { id: "quedas", label: "Teve alguma queda nos últimos 12 meses?", obsHint: "QPA/QPE, local, circunstância" },
+  { id: "cirurgia_previa", label: "Possui cirurgia prévia?", obsHint: "ortopédica / vascular / cardíaca / neurológica / câncer / cesárea / prótese" },
+  { id: "fadiga_dispneia", label: "Sente fadiga / dispneia?", obsHint: "mínimos / médios / grandes esforços" },
+  { id: "angina", label: "Sente angina / aperto / queimação?", obsHint: "repouso / movimento leve / movimento intenso" },
+  { id: "formigamento_mmii", label: "Sente formigamento em MMII?", obsHint: "repouso / ortostase / início ou fim do dia" },
+  { id: "sincope", label: "Já teve quadro de síncope?", obsHint: "perda de consciência, pródromos, tonturas, palidez, etc." },
+  { id: "sequela_motora", label: "Possui sequela motora?", obsHint: "paresia / plegia / AMP / poliomielite / outras" },
+  { id: "fumante", label: "É fumante?", obsHint: "ativo / passivo / maços por dia" },
+  { id: "alcool", label: "Bebida alcoólica / outras substâncias?" },
+  { id: "multidisciplinar", label: "Faz acompanhamento com equipe multidisciplinar?", obsHint: "nutrição / psicologia / fono / enfermagem / odonto / outros" },
+  { id: "atividade_social", label: "Participa de atividade social ou lazer?", obsHint: "com supervisão / sem supervisão" },
+  { id: "deambula", label: "Deambula?", obsHint: "marcha típica/atípica, arrasta pés, base alargada, claudicação..." },
+  { id: "auxiliar_marcha", label: "Utiliza auxiliar de marcha?", obsHint: "andador / muleta / bengala / apoio em familiar / outros" },
+  { id: "cadeirante_acamado", label: "Cadeirante / acamado?", obsHint: "mobilidade e capacidade de transferência" },
+  { id: "esfincter", label: "Controle de esfíncter?", obsHint: "micção / defecação / fralda geriátrica" },
+  { id: "vertigem", label: "Vertigem?", obsHint: "desequilíbrio, zumbidos, movimentos oculares" },
+  { id: "visao", label: "Distúrbio de visão?", obsHint: "presbiopia / catarata / glaucoma / diplopia / outras" },
+  { id: "audicao", label: "Distúrbio de audição?", obsHint: "presbiacusia / zumbido / otite / outras" },
+  { id: "outros_tratamentos", label: "Já fez outros tratamentos?", obsHint: "acupuntura / quiropraxia / fitoterapia / massagem / outros" },
+];
+
+const SEGMENTOS = ["MSD", "MSE", "MID", "MIE", "Tronco", "Face"] as const;
+
+const POSTURA_ITENS = [
+  { id: "cabeca", label: "Alinhamento da cabeça" },
+  { id: "ombros", label: "Alinhamento dos ombros" },
+  { id: "mmss", label: "Alinhamento dos MMSS" },
+  { id: "coluna", label: "Alinhamento da coluna" },
+  { id: "pelve", label: "Alinhamento da pelve" },
+  { id: "mmii", label: "Alinhamento dos MMII" },
+  { id: "joelhos", label: "Alinhamento dos joelhos" },
+  { id: "tornozelos", label: "Alinhamento dos tornozelos" },
+  { id: "pes", label: "Alinhamento dos pés" },
+];
+
 type FormInput = {
   professional_id: string;
   tipo: "avaliacao" | "reavaliacao";
