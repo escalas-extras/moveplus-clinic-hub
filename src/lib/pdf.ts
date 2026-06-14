@@ -449,27 +449,35 @@ export async function buildPdf(opts: {
   }
 
   // ---------- Footer on every page ----------
+  const BAR_H = 9.45; // ~1/3 de 1cm em pt (mais sutil)
+  const TRI = 50;
+  const decorOpacity = 0.25;
+  const GState = (doc as any).GState;
+  const normalFooterY = H - 70;
+  const SIG_BLOCK_H = 90; // espaço reservado para linha + nome + crefito + rodapé
+
+  // Se a assinatura não cabe na última página atual, abre uma nova só para a assinatura.
+  if (opts.professional && pageY + SIG_BLOCK_H > H - 30) {
+    doc.addPage();
+    pageY = M + 8;
+  }
+
   const pageCount = doc.getNumberOfPages();
   const lastPageEndY = pageY;
-  const BAR_H = 9.45; // ~1/3 de 1cm em pt (mais sutil)
-  const TRI = 50; // triângulo decorativo reduzido
-  const decorOpacity = 0.25; // transparência sutil
-  const GState = (doc as any).GState;
-  const normalFooterY = H - 64;
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     let fy = normalFooterY;
-    let sigY = H - 94;
+    let sigY = H - 110;
 
     if (i === pageCount && opts.professional) {
-      // Move assinatura mais próxima do conteúdo na última página para evitar espaço vazio,
-      // respeitando limites para não sobrepor o conteúdo nem sair da página.
-      const desiredSigY = lastPageEndY + 30;
-      const minSigY = H - 180;
-      const maxSigY = H - 66;
+      const desiredSigY = lastPageEndY + 40;
+      const minSigY = H - 160;
+      const maxSigY = H - 110; // garante ~110pt até o fim para texto + rodapé
       sigY = Math.min(maxSigY, Math.max(minSigY, desiredSigY));
-      fy = sigY + 30;
+      fy = sigY + 40;
     }
+
 
     // Decoração: triângulo no canto superior direito (oliva, transparente)
     doc.setGState(new GState({ opacity: decorOpacity }));
