@@ -457,7 +457,7 @@ export async function buildPdf(opts: {
       doc.text(prof.nome, W / 2, sigY + 11, { align: "center" });
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(...C.muted);
+      doc.setTextColor(...C.text);
       const reg = isFisio
         ? `CREFITO ${prof.registro || prof.conselho || ""}`.trim()
         : [prof.profissao, prof.conselho, prof.registro].filter(Boolean).join(" · ");
