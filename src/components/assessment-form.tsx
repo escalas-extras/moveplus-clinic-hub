@@ -115,18 +115,42 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
 
   const professional_id = watch("professional_id");
   const tipo = watch("tipo");
+  const dataVal = watch("data");
+  const queixa = watch("queixa_principal");
 
-  const submit = (finalize: boolean) => handleSubmit((v) => save.mutate({ v, finalize }))();
+  const missingFinalize: string[] = [];
+  if (!professional_id) missingFinalize.push("Profissional");
+  if (!tipo) missingFinalize.push("Tipo");
+  if (!dataVal) missingFinalize.push("Data");
+  if (!modules.length) missingFinalize.push("Pelo menos um módulo");
+  if (!queixa?.trim()) missingFinalize.push("Queixa principal");
+
+  const submit = (finalize: boolean) => {
+    if (finalize && missingFinalize.length) {
+      toast.error(`Para finalizar, preencha: ${missingFinalize.join(", ")}.`);
+      return;
+    }
+    if (!professional_id) {
+      toast.error("Selecione um profissional.");
+      return;
+    }
+    handleSubmit((v) => save.mutate({ v, finalize }))();
+  };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-5">
+    <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-5 pb-24">
       <section className="grid sm:grid-cols-3 gap-3">
         <div>
           <Label className="text-xs uppercase">Profissional *</Label>
           <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
-            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectTrigger className={!professional_id ? "border-destructive ring-1 ring-destructive/40" : ""}>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
             <SelectContent>{profs.data?.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
           </Select>
+          {!professional_id && (
+            <p className="text-xs text-destructive mt-1">Selecione um profissional para finalizar a avaliação.</p>
+          )}
         </div>
         <div>
           <Label className="text-xs uppercase">Tipo</Label>
@@ -140,6 +164,7 @@ export function AssessmentForm({ patientId, onDone }: { patientId: string; onDon
         </div>
         <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} /></div>
       </section>
+
 
       <section>
         <Label className="text-xs uppercase mb-2 block">Módulos da avaliação</Label>
