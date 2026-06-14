@@ -504,10 +504,10 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             <Label className="text-xs uppercase mb-2 block">4.2 Hábitos e anamnese</Label>
             <div className="space-y-2">
               {HABITOS_PERGUNTAS.map((q) => {
-                const cur = habitos[q.id] ?? { resposta: "", obs: "" };
+                const cur: any = habitos[q.id] ?? { resposta: "", obs: "", detalhe: "" };
                 const opts = (q.obsHint ?? "").split("/").map((s) => s.trim()).filter(Boolean);
                 return (
-                  <div key={q.id} className="grid sm:grid-cols-[1fr_auto_2fr] gap-2 items-start p-2 rounded-md bg-muted/30">
+                  <div key={q.id} className="grid sm:grid-cols-[1fr_auto_1fr_1fr] gap-2 items-start p-2 rounded-md bg-muted/30">
                     <div className="text-sm">{q.label}</div>
                     <div className="flex gap-1">
                       <Button type="button" size="sm" variant={cur.resposta === "sim" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "sim" } }))}>Sim</Button>
@@ -521,6 +521,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
                     ) : (
                       <Input placeholder={q.obsHint ?? "Observações"} value={cur.obs} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: e.target.value } }))} />
                     )}
+                    <Input placeholder="Detalhes (ex.: quantas horas, frequência...)" value={cur.detalhe ?? ""} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, detalhe: e.target.value } }))} />
                   </div>
                 );
               })}
