@@ -13,7 +13,7 @@ import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
 import { toast } from "sonner";
-import { downloadPdf, printPdf, uploadAndRegisterPdf, type buildPdf } from "@/lib/pdf";
+import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth, useRoles } from "@/lib/auth";
 
