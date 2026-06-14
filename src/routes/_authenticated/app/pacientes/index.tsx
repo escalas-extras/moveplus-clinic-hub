@@ -104,6 +104,7 @@ function PacientesPage() {
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Idade</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Telefone</th>
                 <th className="px-4 py-3 font-medium">Situação</th>
+                <th className="px-4 py-3 font-medium w-10 text-center">Abrir</th>
                 {isAdmin && <th className="px-4 py-3 font-medium w-10"></th>}
               </tr>
             </thead>
