@@ -582,9 +582,45 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
             </div>
           </div>
 
-          {/* 4.6 Observações gerais */}
+          {/* 4.6 Avaliação álgica multi-local */}
           <div>
-            <Label className="text-xs uppercase">4.6 Observações gerais</Label>
+            <Label className="text-xs uppercase mb-2 block">4.6 Avaliação álgica (locais de dor)</Label>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="text-left p-2 w-10">#</th>
+                    <th className="text-left p-2">Local</th>
+                    <th className="text-left p-2 w-24">Repouso (0-10)</th>
+                    <th className="text-left p-2 w-24">Movimento (0-10)</th>
+                    <th className="text-left p-2">Fatores que agravam / aliviam</th>
+                    <th className="text-left p-2">Impacto nas AVDs</th>
+                    <th className="p-2 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {avaliacaoAlgica.map((row, i) => (
+                    <tr key={i} className="border-t align-top">
+                      <td className="p-2 text-muted-foreground">{i + 1}</td>
+                      <td className="p-2"><Input value={row.local} onChange={(e) => setAvaliacaoAlgica((arr) => arr.map((x, idx) => idx === i ? { ...x, local: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input type="number" min={0} max={10} value={row.repouso} onChange={(e) => setAvaliacaoAlgica((arr) => arr.map((x, idx) => idx === i ? { ...x, repouso: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input type="number" min={0} max={10} value={row.movimento} onChange={(e) => setAvaliacaoAlgica((arr) => arr.map((x, idx) => idx === i ? { ...x, movimento: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input value={row.fatores} onChange={(e) => setAvaliacaoAlgica((arr) => arr.map((x, idx) => idx === i ? { ...x, fatores: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input value={row.impacto} onChange={(e) => setAvaliacaoAlgica((arr) => arr.map((x, idx) => idx === i ? { ...x, impacto: e.target.value } : x))} /></td>
+                      <td className="p-2">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setAvaliacaoAlgica((arr) => arr.filter((_, idx) => idx !== i))}>×</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setAvaliacaoAlgica((arr) => [...arr, { local: "", repouso: "", movimento: "", fatores: "", impacto: "" }])}>+ Adicionar local</Button>
+          </div>
+
+          {/* 4.7 Observações gerais */}
+          <div>
+            <Label className="text-xs uppercase">4.7 Observações gerais</Label>
             <Textarea rows={3} value={sinaisVitais.observacoes_gerais ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, observacoes_gerais: e.target.value }))} />
           </div>
         </div>
