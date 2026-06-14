@@ -22,7 +22,10 @@ export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
 
 function PatientPage() {
   const { id } = useParams({ from: "/_authenticated/app/pacientes/$id" });
+  const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const { isAdmin } = useRoles(user?.id);
   const [editOpen, setEditOpen] = useState(false);
   const [evoOpen, setEvoOpen] = useState(false);
   const [avalOpen, setAvalOpen] = useState(false);
