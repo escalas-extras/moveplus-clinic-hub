@@ -34,10 +34,12 @@ type PainRow = { local: string; repouso: string; movimento: string; fatores: str
 export function EvolutionForm({
   patientId,
   assessmentId,
+  patient,
   onDone,
 }: {
   patientId: string;
   assessmentId?: string;
+  patient?: any;
   onDone: () => void;
 }) {
   const today = new Date();
