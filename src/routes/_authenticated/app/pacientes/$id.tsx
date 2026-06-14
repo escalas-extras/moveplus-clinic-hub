@@ -324,11 +324,12 @@ function PatientPage() {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Nova evolução vinculada à avaliação</DialogTitle></DialogHeader>
               {linkedEvoFor && (
-                <EvolutionForm
-                  patientId={p.id}
-                  assessmentId={linkedEvoFor}
-                  onDone={() => { setLinkedEvoFor(null); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }}
-                />
+              <EvolutionForm
+                patientId={p.id}
+                patient={p}
+                assessmentId={linkedEvoFor}
+                onDone={() => { setLinkedEvoFor(null); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }}
+              />
               )}
             </DialogContent>
           </Dialog>
@@ -358,7 +359,7 @@ function PatientPage() {
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova evolução</Button></DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Nova evolução</DialogTitle></DialogHeader>
-                <EvolutionForm patientId={p.id} onDone={() => { setEvoOpen(false); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }} />
+                <EvolutionForm patientId={p.id} patient={p} onDone={() => { setEvoOpen(false); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }} />
               </DialogContent>
             </Dialog>
           </div>
