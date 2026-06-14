@@ -313,6 +313,8 @@ export type Database = {
         Row: {
           antecedentes_familiares: string | null
           antecedentes_pessoais: string | null
+          apresentacao: string[]
+          cirurgias: string | null
           condutas: string | null
           coordenacao: string | null
           created_at: string
@@ -322,11 +324,16 @@ export type Database = {
           diagnostico_fisio: string | null
           equilibrio: string | null
           estatura: number | null
+          eva: number | null
           exames_complementares: string | null
+          habitos_vida: string | null
+          historia_clinica: string | null
           hma: string | null
+          hmp: string | null
           id: string
           imc: number | null
           inspecao: string | null
+          inspecao_flags: string[]
           locked_at: string | null
           marcha: string | null
           medicamentos: string | null
@@ -337,14 +344,22 @@ export type Database = {
           peso: number | null
           professional_id: string
           queixa_principal: string | null
+          recursos_terapeuticos: string | null
+          semiologia: string | null
           status: Database["public"]["Enums"]["assessment_status"]
+          tem_exames: boolean | null
+          testes_especificos: string | null
+          teve_cirurgias: boolean | null
           tipo: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados: string | null
           updated_at: string
+          usa_medicamentos: boolean | null
         }
         Insert: {
           antecedentes_familiares?: string | null
           antecedentes_pessoais?: string | null
+          apresentacao?: string[]
+          cirurgias?: string | null
           condutas?: string | null
           coordenacao?: string | null
           created_at?: string
@@ -354,11 +369,16 @@ export type Database = {
           diagnostico_fisio?: string | null
           equilibrio?: string | null
           estatura?: number | null
+          eva?: number | null
           exames_complementares?: string | null
+          habitos_vida?: string | null
+          historia_clinica?: string | null
           hma?: string | null
+          hmp?: string | null
           id?: string
           imc?: number | null
           inspecao?: string | null
+          inspecao_flags?: string[]
           locked_at?: string | null
           marcha?: string | null
           medicamentos?: string | null
@@ -369,14 +389,22 @@ export type Database = {
           peso?: number | null
           professional_id: string
           queixa_principal?: string | null
+          recursos_terapeuticos?: string | null
+          semiologia?: string | null
           status?: Database["public"]["Enums"]["assessment_status"]
+          tem_exames?: boolean | null
+          testes_especificos?: string | null
+          teve_cirurgias?: boolean | null
           tipo?: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados?: string | null
           updated_at?: string
+          usa_medicamentos?: boolean | null
         }
         Update: {
           antecedentes_familiares?: string | null
           antecedentes_pessoais?: string | null
+          apresentacao?: string[]
+          cirurgias?: string | null
           condutas?: string | null
           coordenacao?: string | null
           created_at?: string
@@ -386,11 +414,16 @@ export type Database = {
           diagnostico_fisio?: string | null
           equilibrio?: string | null
           estatura?: number | null
+          eva?: number | null
           exames_complementares?: string | null
+          habitos_vida?: string | null
+          historia_clinica?: string | null
           hma?: string | null
+          hmp?: string | null
           id?: string
           imc?: number | null
           inspecao?: string | null
+          inspecao_flags?: string[]
           locked_at?: string | null
           marcha?: string | null
           medicamentos?: string | null
@@ -401,10 +434,16 @@ export type Database = {
           peso?: number | null
           professional_id?: string
           queixa_principal?: string | null
+          recursos_terapeuticos?: string | null
+          semiologia?: string | null
           status?: Database["public"]["Enums"]["assessment_status"]
+          tem_exames?: boolean | null
+          testes_especificos?: string | null
+          teve_cirurgias?: boolean | null
           tipo?: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados?: string | null
           updated_at?: string
+          usa_medicamentos?: boolean | null
         }
         Relationships: [
           {
@@ -524,6 +563,7 @@ export type Database = {
       }
       evolutions: {
         Row: {
+          assessment_id: string | null
           conduta: string | null
           created_at: string
           created_by: string | null
@@ -531,6 +571,7 @@ export type Database = {
           evolucao_observada: string | null
           hora: string
           id: string
+          intercorrencias: string | null
           locked_at: string | null
           patient_id: string
           procedimentos: string | null
@@ -541,6 +582,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assessment_id?: string | null
           conduta?: string | null
           created_at?: string
           created_by?: string | null
@@ -548,6 +590,7 @@ export type Database = {
           evolucao_observada?: string | null
           hora?: string
           id?: string
+          intercorrencias?: string | null
           locked_at?: string | null
           patient_id: string
           procedimentos?: string | null
@@ -558,6 +601,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assessment_id?: string | null
           conduta?: string | null
           created_at?: string
           created_by?: string | null
@@ -565,6 +609,7 @@ export type Database = {
           evolucao_observada?: string | null
           hora?: string
           id?: string
+          intercorrencias?: string | null
           locked_at?: string | null
           patient_id?: string
           procedimentos?: string | null
@@ -575,6 +620,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "evolutions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "evolutions_patient_id_fkey"
             columns: ["patient_id"]
@@ -698,6 +750,7 @@ export type Database = {
       }
       patients: {
         Row: {
+          bairro: string | null
           cep: string | null
           cidade: string | null
           contato_recado: string | null
@@ -706,6 +759,7 @@ export type Database = {
           created_by: string | null
           data_nascimento: string | null
           endereco: string | null
+          endereco_comercial: string | null
           estado: string | null
           estado_civil: string | null
           id: string
@@ -722,6 +776,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          bairro?: string | null
           cep?: string | null
           cidade?: string | null
           contato_recado?: string | null
@@ -730,6 +785,7 @@ export type Database = {
           created_by?: string | null
           data_nascimento?: string | null
           endereco?: string | null
+          endereco_comercial?: string | null
           estado?: string | null
           estado_civil?: string | null
           id?: string
@@ -746,6 +802,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          bairro?: string | null
           cep?: string | null
           cidade?: string | null
           contato_recado?: string | null
@@ -754,6 +811,7 @@ export type Database = {
           created_by?: string | null
           data_nascimento?: string | null
           endereco?: string | null
+          endereco_comercial?: string | null
           estado?: string | null
           estado_civil?: string | null
           id?: string

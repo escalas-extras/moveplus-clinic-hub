@@ -133,8 +133,11 @@ export async function buildPdf(opts: {
     doc.setFontSize(8);
     doc.setTextColor(90, 90, 90);
     const prof = opts.professional;
+    const isFisio = prof?.profissao?.toLowerCase().includes("fisio");
     const profLine = prof
-      ? `${prof.nome} — ${prof.profissao}${prof.conselho ? ` · ${prof.conselho}` : ""}${prof.registro ? ` ${prof.registro}` : ""}`
+      ? isFisio
+        ? `Fisioterapeuta: ${prof.nome}${prof.registro || prof.conselho ? `  ·  CREFITO: ${prof.registro || prof.conselho}` : ""}`
+        : `${prof.profissao}: ${prof.nome}${prof.conselho ? `  ·  ${prof.conselho}` : ""}${prof.registro ? ` ${prof.registro}` : ""}`
       : "";
     doc.text(profLine, M, fy + 14);
     doc.text(`Emitido em ${fmtDateTime(new Date())}`, M, fy + 26);
