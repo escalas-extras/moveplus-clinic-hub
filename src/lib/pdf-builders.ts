@@ -301,6 +301,7 @@ export function buildEvolutionPdfOpts(e: any, p: any) {
             rows: [
               ["Paciente", p?.nome_completo ?? "—"],
               ["Data / Hora", `${fmtDate(e.data)}${e.hora ? ` ${String(e.hora).slice(0, 5)}` : ""}`],
+              ["Sessão nº", e.sessao_numero != null && e.sessao_numero !== "" ? String(e.sessao_numero) : "—"],
               ["Profissional", e.professionals?.nome ?? "—"],
               ["Registro", e.professionals?.registro ?? e.professionals?.conselho ?? "—"],
             ],
