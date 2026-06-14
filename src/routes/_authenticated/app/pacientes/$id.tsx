@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2, Trash2, Pencil } from "lucide-react";
 import { calcAge, fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
@@ -30,6 +30,7 @@ function PatientPage() {
   const [evoOpen, setEvoOpen] = useState(false);
   const [avalOpen, setAvalOpen] = useState(false);
   const [linkedEvoFor, setLinkedEvoFor] = useState<string | null>(null);
+  const [editAssessment, setEditAssessment] = useState<any | null>(null);
 
   const patient = useQuery({
     queryKey: ["patient", id],
@@ -257,6 +258,11 @@ function PatientPage() {
                         </Button>
                       )}
                       {isAdmin && (
+                        <Button size="sm" variant="outline" onClick={() => setEditAssessment(a)}>
+                          <Pencil className="h-4 w-4 mr-1" />Editar
+                        </Button>
+                      )}
+                      {isAdmin && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
@@ -319,6 +325,24 @@ function PatientPage() {
                   patientId={p.id}
                   assessmentId={linkedEvoFor}
                   onDone={() => { setLinkedEvoFor(null); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!editAssessment} onOpenChange={(o) => !o && setEditAssessment(null)}>
+            <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · acesso de administrador)" : ""}
+                </DialogTitle>
+              </DialogHeader>
+              {editAssessment && (
+                <AssessmentForm
+                  patientId={p.id}
+                  patient={p}
+                  assessment={editAssessment}
+                  onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
                 />
               )}
             </DialogContent>

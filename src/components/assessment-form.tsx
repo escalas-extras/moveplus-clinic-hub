@@ -65,14 +65,49 @@ type FormInput = {
   estatura?: number | null;
 };
 
-export function AssessmentForm({ patientId, patient, onDone }: { patientId: string; patient?: any; onDone: () => void }) {
-  const [modules, setModules] = useState<ModuleType[]>(["geral"]);
-  const [apresentacao, setApresentacao] = useState<string[]>([]);
-  const [inspecaoFlags, setInspecaoFlags] = useState<string[]>([]);
-  const [eva, setEva] = useState<number>(0);
+export function AssessmentForm({ patientId, patient, assessment, onDone }: { patientId: string; patient?: any; assessment?: any; onDone: () => void }) {
+  const isEdit = !!assessment?.id;
+  const [modules, setModules] = useState<ModuleType[]>(
+    assessment?.assessment_modules?.length ? assessment.assessment_modules.map((m: any) => m.module_type) : ["geral"]
+  );
+  const [apresentacao, setApresentacao] = useState<string[]>(assessment?.apresentacao ?? []);
+  const [inspecaoFlags, setInspecaoFlags] = useState<string[]>(assessment?.inspecao_flags ?? []);
+  const [eva, setEva] = useState<number>(assessment?.eva ?? 0);
 
   const { register, handleSubmit, setValue, watch } = useForm<FormInput>({
-    defaultValues: { tipo: "avaliacao", data: new Date().toISOString().slice(0, 10) },
+    defaultValues: assessment
+      ? {
+          professional_id: assessment.professional_id,
+          tipo: assessment.tipo,
+          data: assessment.data,
+          diagnostico_clinico: assessment.diagnostico_clinico ?? "",
+          medico_responsavel: assessment.medico_responsavel ?? "",
+          diagnostico_fisio: assessment.diagnostico_fisio ?? "",
+          historia_clinica: assessment.historia_clinica ?? "",
+          queixa_principal: assessment.queixa_principal ?? "",
+          habitos_vida: assessment.habitos_vida ?? "",
+          hma: assessment.hma ?? "",
+          hmp: assessment.hmp ?? "",
+          antecedentes_pessoais: assessment.antecedentes_pessoais ?? "",
+          antecedentes_familiares: assessment.antecedentes_familiares ?? "",
+          tratamentos_realizados: assessment.tratamentos_realizados ?? "",
+          tem_exames: assessment.tem_exames ?? undefined,
+          exames_complementares: assessment.exames_complementares ?? "",
+          usa_medicamentos: assessment.usa_medicamentos ?? undefined,
+          medicamentos: assessment.medicamentos ?? "",
+          teve_cirurgias: assessment.teve_cirurgias ?? undefined,
+          cirurgias: assessment.cirurgias ?? "",
+          inspecao: assessment.inspecao ?? "",
+          palpacao: assessment.palpacao ?? "",
+          semiologia: assessment.semiologia ?? "",
+          testes_especificos: assessment.testes_especificos ?? "",
+          objetivos: assessment.objetivos ?? "",
+          recursos_terapeuticos: assessment.recursos_terapeuticos ?? "",
+          condutas: assessment.condutas ?? "",
+          peso: assessment.peso ?? null,
+          estatura: assessment.estatura ?? null,
+        }
+      : { tipo: "avaliacao", data: new Date().toISOString().slice(0, 10) },
   });
 
   const profs = useQuery({
@@ -87,7 +122,7 @@ export function AssessmentForm({ patientId, patient, onDone }: { patientId: stri
     mutationFn: async ({ v, finalize }: { v: FormInput; finalize: boolean }) => {
       const { data: u } = await supabase.auth.getUser();
       const imc = calcImc(v.peso, v.estatura);
-      const { error } = await supabase.from("assessments").insert({
+      const payload: any = {
         patient_id: patientId,
         professional_id: v.professional_id,
         tipo: v.tipo,
@@ -122,13 +157,26 @@ export function AssessmentForm({ patientId, patient, onDone }: { patientId: stri
         peso: v.peso || null,
         estatura: v.estatura || null,
         imc,
-        created_by: u.user?.id,
-        status: (finalize ? "finalizada" : "rascunho") as any,
-        locked_at: finalize ? new Date().toISOString() : null,
-      } as any).select("id").single();
-      if (error) throw error;
+      };
+      if (isEdit) {
+        if (finalize) {
+          payload.status = "finalizada";
+          payload.locked_at = new Date().toISOString();
+        }
+        const { error } = await supabase.from("assessments").update(payload).eq("id", assessment.id);
+        if (error) throw error;
+      } else {
+        payload.created_by = u.user?.id;
+        payload.status = finalize ? "finalizada" : "rascunho";
+        payload.locked_at = finalize ? new Date().toISOString() : null;
+        const { error } = await supabase.from("assessments").insert(payload).select("id").single();
+        if (error) throw error;
+      }
     },
-    onSuccess: (_d, vars) => { toast.success(vars.finalize ? "Avaliação finalizada" : "Rascunho salvo"); onDone(); },
+    onSuccess: (_d, vars) => {
+      toast.success(isEdit ? "Avaliação atualizada" : vars.finalize ? "Avaliação finalizada" : "Rascunho salvo");
+      onDone();
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -331,11 +379,13 @@ export function AssessmentForm({ patientId, patient, onDone }: { patientId: stri
         )}
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">
-            {save.isPending ? "Salvando…" : "Salvar rascunho"}
+            {save.isPending ? "Salvando…" : isEdit ? "Salvar alterações" : "Salvar rascunho"}
           </Button>
-          <Button type="button" disabled={save.isPending} onClick={() => submit(true)} className="flex-1 sm:flex-none">
-            Finalizar avaliação
-          </Button>
+          {(!isEdit || assessment?.status !== "finalizada") && (
+            <Button type="button" disabled={save.isPending} onClick={() => submit(true)} className="flex-1 sm:flex-none">
+              Finalizar avaliação
+            </Button>
+          )}
         </div>
       </div>
     </form>
