@@ -455,7 +455,7 @@ export async function buildPdf(opts: {
       // Move assinatura mais próxima do conteúdo na última página para evitar espaço vazio,
       // respeitando limites para não sobrepor o conteúdo nem sair da página.
       const desiredSigY = lastPageEndY + 30;
-      const minSigY = H - 140;
+      const minSigY = H - 180;
       const maxSigY = H - 66;
       sigY = Math.min(maxSigY, Math.max(minSigY, desiredSigY));
       fy = sigY + 30;
