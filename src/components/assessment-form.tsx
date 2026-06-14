@@ -418,7 +418,173 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         </div>
       </Section>
 
-      {/* SEÇÃO 4 - PLANO TERAPÊUTICO */}
+      {/* SEÇÃO 4 - FICHA GERIÁTRICA */}
+      <Section title="4. Ficha geriátrica">
+        <div className="space-y-6">
+          {/* 4.1 Doenças prévias */}
+          <div>
+            <Label className="text-xs uppercase mb-2 block">4.1 Doenças prévias</Label>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="text-left p-2 w-8"></th>
+                    <th className="text-left p-2">Patologia</th>
+                    <th className="text-left p-2">Medicação</th>
+                    <th className="text-left p-2">Observação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {doencasPrevias.map((d, i) => (
+                    <tr key={d.patologia + i} className="border-t">
+                      <td className="p-2">
+                        <Checkbox checked={d.ativo} onCheckedChange={(c) => setDoencasPrevias((arr) => arr.map((x, idx) => idx === i ? { ...x, ativo: !!c } : x))} />
+                      </td>
+                      <td className="p-2 font-medium whitespace-nowrap">
+                        {d.patologia === "__outras__" ? (
+                          <Input value={d.patologia === "__outras__" ? "" : d.patologia} placeholder="Outra patologia" onChange={(e) => setDoencasPrevias((arr) => arr.map((x, idx) => idx === i ? { ...x, patologia: e.target.value } : x))} />
+                        ) : d.patologia}
+                      </td>
+                      <td className="p-2"><Input value={d.medicacao} onChange={(e) => setDoencasPrevias((arr) => arr.map((x, idx) => idx === i ? { ...x, medicacao: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input value={d.observacao} onChange={(e) => setDoencasPrevias((arr) => arr.map((x, idx) => idx === i ? { ...x, observacao: e.target.value } : x))} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setDoencasPrevias((arr) => [...arr, { patologia: "", ativo: true, medicacao: "", observacao: "" }])}>+ Outra patologia</Button>
+          </div>
+
+          {/* 4.2 Hábitos e anamnese Sim/Não */}
+          <div>
+            <Label className="text-xs uppercase mb-2 block">4.2 Hábitos e anamnese</Label>
+            <div className="space-y-2">
+              {HABITOS_PERGUNTAS.map((q) => {
+                const cur = habitos[q.id] ?? { resposta: "", obs: "" };
+                return (
+                  <div key={q.id} className="grid sm:grid-cols-[1fr_auto_2fr] gap-2 items-start p-2 rounded-md bg-muted/30">
+                    <div className="text-sm">{q.label}</div>
+                    <div className="flex gap-1">
+                      <Button type="button" size="sm" variant={cur.resposta === "sim" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "sim" } }))}>Sim</Button>
+                      <Button type="button" size="sm" variant={cur.resposta === "nao" ? "default" : "outline"} onClick={() => setHabitos((h) => ({ ...h, [q.id]: { ...cur, resposta: "nao" } }))}>Não</Button>
+                    </div>
+                    <Input placeholder={q.obsHint ?? "Observações"} value={cur.obs} onChange={(e) => setHabitos((h) => ({ ...h, [q.id]: { ...cur, obs: e.target.value } }))} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4.3 Sinais vitais */}
+          <div>
+            <Label className="text-xs uppercase mb-2 block">4.3 Sinais vitais</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {[
+                { id: "pa", label: "PA (basal)" }, { id: "fc", label: "FC" }, { id: "fr", label: "FR" }, { id: "pr", label: "PR" }, { id: "spo2", label: "SpO2" },
+              ].map((f) => (
+                <div key={f.id}>
+                  <Label className="text-[10px] uppercase">{f.label}</Label>
+                  <Input value={sinaisVitais[f.id] ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, [f.id]: e.target.value }))} />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+              <div>
+                <Label className="text-[10px] uppercase">Med. cintura (cm)</Label>
+                <Input type="number" step="0.1" value={sinaisVitais.cintura ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, cintura: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase">Med. quadril (cm)</Label>
+                <Input type="number" step="0.1" value={sinaisVitais.quadril ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, quadril: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase">ICQ</Label>
+                <Input readOnly value={sinaisVitais.cintura && sinaisVitais.quadril ? (Number(sinaisVitais.cintura) / Number(sinaisVitais.quadril)).toFixed(2) : ""} />
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3 mt-3">
+              <div><Label className="text-[10px] uppercase">Ausculta pulmonar</Label><Input value={sinaisVitais.ausculta ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, ausculta: e.target.value }))} /></div>
+              <div><Label className="text-[10px] uppercase">Tosse</Label><Input value={sinaisVitais.tosse ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, tosse: e.target.value }))} /></div>
+              <div><Label className="text-[10px] uppercase">Secreção</Label><Input value={sinaisVitais.secrecao ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, secrecao: e.target.value }))} /></div>
+              <div><Label className="text-[10px] uppercase">Tônus</Label><Input value={sinaisVitais.tonus ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, tonus: e.target.value }))} /></div>
+              <div><Label className="text-[10px] uppercase">Trofismo</Label><Input value={sinaisVitais.trofismo ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, trofismo: e.target.value }))} /></div>
+              <div><Label className="text-[10px] uppercase">Clônus</Label><Input value={sinaisVitais.clonus ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, clonus: e.target.value }))} /></div>
+            </div>
+            <div className="mt-3">
+              <Label className="text-[10px] uppercase">Nível de consciência</Label>
+              <Select value={sinaisVitais.nivel_consciencia ?? ""} onValueChange={(v) => setSinaisVitais((s) => ({ ...s, nivel_consciencia: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lucido_orientado">Lúcido e orientado</SelectItem>
+                  <SelectItem value="lucido_confusao">Lúcido com períodos de confusão</SelectItem>
+                  <SelectItem value="desorientado">Desorientado</SelectItem>
+                  <SelectItem value="inconsciente">Inconsciente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* 4.4 Exame físico (força/sensibilidade/edema/ADM) */}
+          <div>
+            <Label className="text-xs uppercase mb-2 block">4.4 Exame físico por segmento</Label>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="text-left p-2">Segmento</th>
+                    <th className="text-left p-2">Força muscular</th>
+                    <th className="text-left p-2">Sensibilidade</th>
+                    <th className="text-left p-2">Edema</th>
+                    <th className="text-left p-2">Limitação ADM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SEGMENTOS.map((seg) => {
+                    const r = exameFisico[seg] ?? { fm: "", sens: "", edema: "", adm: "" };
+                    return (
+                      <tr key={seg} className="border-t">
+                        <td className="p-2 font-medium">{seg}</td>
+                        <td className="p-2"><Input value={r.fm} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, fm: e.target.value } }))} placeholder="0-5" /></td>
+                        <td className="p-2"><Input value={r.sens} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, sens: e.target.value } }))} /></td>
+                        <td className="p-2"><Input value={r.edema} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, edema: e.target.value } }))} /></td>
+                        <td className="p-2"><Input value={r.adm} onChange={(e) => setExameFisico((m) => ({ ...m, [seg]: { ...r, adm: e.target.value } }))} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 4.5 Avaliação postural */}
+          <div>
+            <Label className="text-xs uppercase mb-2 block">4.5 Avaliação postural</Label>
+            <div className="space-y-2">
+              {POSTURA_ITENS.map((p) => {
+                const cur = postura[p.id] ?? { status: "", obs: "" };
+                return (
+                  <div key={p.id} className="grid sm:grid-cols-[1fr_auto_2fr] gap-2 items-center p-2 rounded-md bg-muted/30">
+                    <div className="text-sm">{p.label}</div>
+                    <div className="flex gap-1">
+                      <Button type="button" size="sm" variant={cur.status === "normal" ? "default" : "outline"} onClick={() => setPostura((s) => ({ ...s, [p.id]: { ...cur, status: "normal" } }))}>Normal</Button>
+                      <Button type="button" size="sm" variant={cur.status === "alterada" ? "default" : "outline"} onClick={() => setPostura((s) => ({ ...s, [p.id]: { ...cur, status: "alterada" } }))}>Alterada</Button>
+                    </div>
+                    <Input placeholder="Observações" value={cur.obs} onChange={(e) => setPostura((s) => ({ ...s, [p.id]: { ...cur, obs: e.target.value } }))} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4.6 Observações gerais */}
+          <div>
+            <Label className="text-xs uppercase">4.6 Observações gerais</Label>
+            <Textarea rows={3} value={sinaisVitais.observacoes_gerais ?? ""} onChange={(e) => setSinaisVitais((s) => ({ ...s, observacoes_gerais: e.target.value }))} />
+          </div>
+        </div>
+      </Section>
+
+      {/* SEÇÃO 5 - PLANO TERAPÊUTICO */}
       <Section title="4. Plano terapêutico">
         <div className="grid sm:grid-cols-1 gap-3">
           <Field label="4.1 Objetivos de tratamento"><Textarea rows={3} {...register("objetivos")} /></Field>
