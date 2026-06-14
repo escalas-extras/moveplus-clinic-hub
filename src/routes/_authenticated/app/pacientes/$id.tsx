@@ -157,13 +157,38 @@ function PatientPage() {
             </p>
           </div>
         </div>
-        <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogTrigger asChild><Button variant="outline">Editar dados</Button></DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-            <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2 flex-wrap">
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogTrigger asChild><Button variant="outline">Editar dados</Button></DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
+              <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
+            </DialogContent>
+          </Dialog>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-1" />Excluir paciente
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Remove permanentemente o paciente e todos os dados clínicos vinculados (avaliações, evoluções, anexos, agendamentos). Ação irreversível.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Excluir definitivamente
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="dados">
