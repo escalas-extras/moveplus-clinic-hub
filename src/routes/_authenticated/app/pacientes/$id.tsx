@@ -83,13 +83,14 @@ function PatientPage() {
         .eq("id", a.id);
       if (error) throw error;
       await uploadAndRegisterPdf({
-        pdfOpts: buildAssessmentPdfOpts(a, patient.data),
+        pdfOpts: buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? []),
         folder: a.tipo === "reavaliacao" ? "reavaliacoes" : "avaliacoes",
         tipo: a.tipo === "reavaliacao" ? "reavaliacao" : "avaliacao",
         patientId: a.patient_id,
         professionalId: a.professional_id,
         referenciaId: a.id,
       });
+
     },
     onSuccess: () => {
       toast.success("Avaliação finalizada e PDF arquivado");
