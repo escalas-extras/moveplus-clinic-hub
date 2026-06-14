@@ -459,7 +459,7 @@ export async function buildPdf(opts: {
       doc.setFontSize(8);
       doc.setTextColor(...C.text);
       const reg = isFisio
-        ? `CREFITO ${prof.registro || prof.conselho || ""}`.trim()
+        ? `CREFITO-8 ${prof.registro || prof.conselho || ""}`.trim()
         : [prof.profissao, prof.conselho, prof.registro].filter(Boolean).join(" · ");
       doc.text(reg, W / 2, sigY + 22, { align: "center" });
     }
