@@ -80,6 +80,7 @@ const C = {
   evaGreen: [120, 180, 110] as [number, number, number],
   evaYellow: [240, 200, 80] as [number, number, number],
   evaRed: [210, 80, 70] as [number, number, number],
+  olive: [85, 107, 47] as [number, number, number],
 };
 
 // ---------- Build ----------
