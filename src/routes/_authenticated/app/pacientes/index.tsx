@@ -21,6 +21,8 @@ function PacientesPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const { isAdmin } = useRoles(user?.id);
 
   const list = useQuery({
     queryKey: ["patients", q],
@@ -42,6 +44,18 @@ function PacientesPage() {
     onSuccess: () => {
       toast.success("Paciente cadastrado");
       setOpen(false);
+      qc.invalidateQueries({ queryKey: ["patients"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("patients").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Paciente excluído");
       qc.invalidateQueries({ queryKey: ["patients"] });
     },
     onError: (e: any) => toast.error(e.message),
