@@ -415,6 +415,11 @@ function PatientPage() {
           </div>
         </TabsContent>
       </Tabs>
+      <PdfPreviewDialog
+        open={!!pdfPreview}
+        onOpenChange={(o) => !o && setPdfPreview(null)}
+        pdfOpts={pdfPreview}
+      />
     </div>
   );
 }
