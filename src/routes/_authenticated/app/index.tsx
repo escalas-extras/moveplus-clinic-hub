@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Users, CalendarDays, ClipboardCheck, Wallet } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/app/")({
   component: Dashboard,
