@@ -133,7 +133,7 @@ export async function buildPdf(opts: {
   drawHeader();
 
   // Document title strip
-  let y = 110;
+  let y = HEADER_H + 18;
   doc.setTextColor(...C.text);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
