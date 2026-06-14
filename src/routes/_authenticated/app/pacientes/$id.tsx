@@ -597,6 +597,23 @@ function buildGeriatricChildren(a: any): any[] {
     children.push({ kind: "grid" as const, rows: postRows, columns: 2 as const });
   }
 
+  // Avaliação álgica multi-local
+  const dor: any[] = Array.isArray(a.avaliacao_algica) ? a.avaliacao_algica : [];
+  const dorRows = dor
+    .filter((r) => r && (r.local || r.repouso || r.movimento || r.fatores || r.impacto))
+    .map((r, i) => [
+      `${i + 1}. ${r.local || "—"}`,
+      [
+        (r.repouso || r.movimento) && `Repouso ${r.repouso || "—"} / Movim. ${r.movimento || "—"}`,
+        r.fatores && `Fatores: ${r.fatores}`,
+        r.impacto && `Impacto AVDs: ${r.impacto}`,
+      ].filter(Boolean).join(" · ") || "—",
+    ] as [string, string]);
+  if (dorRows.length) {
+    children.push({ kind: "paragraph" as const, label: "Avaliação álgica (locais de dor)", text: "" });
+    children.push({ kind: "grid" as const, rows: dorRows, columns: 1 as const });
+  }
+
   if (a.observacoes_gerais) {
     children.push({ kind: "paragraph" as const, label: "Observações gerais", text: a.observacoes_gerais });
   }
