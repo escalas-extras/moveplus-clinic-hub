@@ -329,6 +329,24 @@ function PatientPage() {
               )}
             </DialogContent>
           </Dialog>
+
+          <Dialog open={!!editAssessment} onOpenChange={(o) => !o && setEditAssessment(null)}>
+            <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · acesso de administrador)" : ""}
+                </DialogTitle>
+              </DialogHeader>
+              {editAssessment && (
+                <AssessmentForm
+                  patientId={p.id}
+                  patient={p}
+                  assessment={editAssessment}
+                  onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="evolucoes">
