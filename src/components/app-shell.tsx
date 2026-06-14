@@ -96,5 +96,5 @@ function NavItem({ to, exact, icon: Icon, label, onClick }: { to: string; exact?
 }
 
 function Logo() {
-  return <img src={logoAsset.url} alt="Move 60+" className="h-8 w-auto" />;
+  return <img src={logoAsset.url} alt="Move 60+" className="h-12 w-auto" />;
 }

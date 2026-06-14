@@ -87,5 +87,5 @@ function AuthPage() {
 }
 
 function LogoMark() {
-  return <img src={logoAsset.url} alt="Move 60+" className="h-12 w-auto" />;
+  return <img src={logoAsset.url} alt="Move 60+" className="h-[72px] w-auto" />;
 }
