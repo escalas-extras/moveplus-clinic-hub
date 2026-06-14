@@ -1,4 +1,5 @@
 import logoAsset from "@/assets/logo.jpg.asset.json";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
