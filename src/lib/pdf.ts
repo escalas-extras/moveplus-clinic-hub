@@ -459,8 +459,6 @@ export async function buildPdf(opts: {
       fy = sigY + 30;
     }
 
-    const fy = H - 64;
-
     // Decoração: triângulo no canto superior direito (oliva, transparente)
     doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
