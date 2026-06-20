@@ -18,6 +18,7 @@ import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf
 import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth, useRoles } from "@/lib/auth";
+import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -459,6 +460,10 @@ function PatientPage() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="clinico">
+          <ClinicalTabs patientId={id} />
         </TabsContent>
       </Tabs>
       <PdfPreviewDialog

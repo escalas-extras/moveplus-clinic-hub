@@ -13,10 +13,12 @@ import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ValidarHashRouteImport } from './routes/validar.$hash'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as AuthenticatedAppUsuariosRouteImport } from './routes/_authenticated/app/usuarios'
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
 import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
+import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_authenticated/app/dashboard-clinico'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app/configuracoes'
 import { Route as AuthenticatedAppAgendaRouteImport } from './routes/_authenticated/app/agenda'
 import { Route as AuthenticatedAppPacientesIndexRouteImport } from './routes/_authenticated/app/pacientes/index'
@@ -41,6 +43,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ValidarHashRoute = ValidarHashRouteImport.update({
+  id: '/validar/$hash',
+  path: '/validar/$hash',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
@@ -62,6 +69,12 @@ const AuthenticatedAppFinanceiroRoute =
   AuthenticatedAppFinanceiroRouteImport.update({
     id: '/app/financeiro',
     path: '/app/financeiro',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppDashboardClinicoRoute =
+  AuthenticatedAppDashboardClinicoRouteImport.update({
+    id: '/app/dashboard-clinico',
+    path: '/app/dashboard-clinico',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAppConfiguracoesRoute =
@@ -92,8 +105,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/set-password': typeof SetPasswordRoute
+  '/validar/$hash': typeof ValidarHashRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
@@ -105,8 +120,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/set-password': typeof SetPasswordRoute
+  '/validar/$hash': typeof ValidarHashRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
@@ -120,8 +137,10 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/set-password': typeof SetPasswordRoute
+  '/validar/$hash': typeof ValidarHashRoute
   '/_authenticated/app/agenda': typeof AuthenticatedAppAgendaRoute
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/_authenticated/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/_authenticated/app/usuarios': typeof AuthenticatedAppUsuariosRoute
@@ -135,8 +154,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/set-password'
+    | '/validar/$hash'
     | '/app/agenda'
     | '/app/configuracoes'
+    | '/app/dashboard-clinico'
     | '/app/financeiro'
     | '/app/profissionais'
     | '/app/usuarios'
@@ -148,8 +169,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/set-password'
+    | '/validar/$hash'
     | '/app/agenda'
     | '/app/configuracoes'
+    | '/app/dashboard-clinico'
     | '/app/financeiro'
     | '/app/profissionais'
     | '/app/usuarios'
@@ -162,8 +185,10 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/set-password'
+    | '/validar/$hash'
     | '/_authenticated/app/agenda'
     | '/_authenticated/app/configuracoes'
+    | '/_authenticated/app/dashboard-clinico'
     | '/_authenticated/app/financeiro'
     | '/_authenticated/app/profissionais'
     | '/_authenticated/app/usuarios'
@@ -177,6 +202,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   SetPasswordRoute: typeof SetPasswordRoute
+  ValidarHashRoute: typeof ValidarHashRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -209,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/validar/$hash': {
+      id: '/validar/$hash'
+      path: '/validar/$hash'
+      fullPath: '/validar/$hash'
+      preLoaderRoute: typeof ValidarHashRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/app/': {
       id: '/_authenticated/app/'
       path: '/app'
@@ -235,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/app/financeiro'
       fullPath: '/app/financeiro'
       preLoaderRoute: typeof AuthenticatedAppFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/dashboard-clinico': {
+      id: '/_authenticated/app/dashboard-clinico'
+      path: '/app/dashboard-clinico'
+      fullPath: '/app/dashboard-clinico'
+      preLoaderRoute: typeof AuthenticatedAppDashboardClinicoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/configuracoes': {
@@ -271,6 +311,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAgendaRoute: typeof AuthenticatedAppAgendaRoute
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
+  AuthenticatedAppDashboardClinicoRoute: typeof AuthenticatedAppDashboardClinicoRoute
   AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
   AuthenticatedAppUsuariosRoute: typeof AuthenticatedAppUsuariosRoute
@@ -282,6 +323,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAgendaRoute: AuthenticatedAppAgendaRoute,
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
+  AuthenticatedAppDashboardClinicoRoute: AuthenticatedAppDashboardClinicoRoute,
   AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
   AuthenticatedAppUsuariosRoute: AuthenticatedAppUsuariosRoute,
@@ -298,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   SetPasswordRoute: SetPasswordRoute,
+  ValidarHashRoute: ValidarHashRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
