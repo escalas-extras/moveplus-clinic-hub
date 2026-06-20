@@ -17,8 +17,8 @@ const DEFAULTS: Branding = {
   clinicName: "FisioOS",
   slogan: "Transformando atendimentos em resultados",
   logoUrl: null,
-  primaryColor: "#2f5d3a",
-  secondaryColor: "#c75c3a",
+  primaryColor: "#0F4C5C",
+  secondaryColor: "#2BB673",
   crefitoDefault: null,
   hasOwnLogo: false,
 };
