@@ -1,7 +1,9 @@
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime } from "./format";
 import logoAsset from "@/assets/logo.jpg.asset.json";
+
 
 type ClinicSettings = {
   nome_fantasia: string | null;
