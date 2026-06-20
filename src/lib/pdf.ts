@@ -100,17 +100,17 @@ export async function buildPdf(opts: {
 
   const { data: clinic } = await supabase
     .from("clinic_settings")
-    .select("nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional")
+    .select("nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url")
     .limit(1)
     .maybeSingle();
 
-  const c = (clinic ?? {}) as ClinicSettings;
+  const c = (clinic ?? {}) as ClinicSettings & { logo_url?: string | null };
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 40;
   const contentW = W - 2 * M;
-  const logo = await loadLogoDataUrl();
+  const logo = await loadClinicOrDefaultLogo(c.logo_url);
 
   // Header (once, page 1)
   const HEADER_H = 165;
