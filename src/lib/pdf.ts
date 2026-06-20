@@ -233,23 +233,30 @@ export async function buildPdf(opts: {
     renderBlock(block);
   }
 
-  function renderBlock(block: PdfBlock) {
-    ensure(40);
-
-    let segStartY = y;
-
-    // Title bar
+  function drawBlockTitleBar(label: string) {
     const titleH = 20;
     doc.setFillColor(...C.brand);
     doc.rect(M, y, contentW, titleH, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
-    doc.text(block.title.toUpperCase(), M + 10, y + 13);
+    doc.text(label.toUpperCase(), M + 10, y + 13);
     y += titleH;
     y += 10;
+  }
 
-    // Use a block-scoped ensure that closes the border on page breaks
+  function renderBlock(block: PdfBlock) {
+    // Ensure title bar + at least one content line fits together (no orphan titles)
+    const MIN_TITLE_WITH_CONTENT = 56; // 20 title + 10 gap + ~26 first line + breathing
+    ensure(MIN_TITLE_WITH_CONTENT);
+
+    let segStartY = y;
+    let currentTitle = block.title;
+
+    drawBlockTitleBar(currentTitle);
+
+    // Block-scoped ensure: closes the current segment border AND repeats the title
+    // on the new page so continuation content stays inside a visible card.
     const prevEnsure = ensure;
     ensure = (need: number) => {
       if (y + need > H - 80) {
@@ -261,6 +268,10 @@ export async function buildPdf(opts: {
         y = M + 8;
         pageY = y;
         segStartY = y;
+        // Repeat title with "(continuação)" so content never floats loose
+        const contTitle = `${block.title} (continuação)`;
+        drawBlockTitleBar(contTitle);
+        segStartY = y - 30; // include the title bar inside the new card border
       }
     };
 
@@ -278,6 +289,7 @@ export async function buildPdf(opts: {
     ensure = prevEnsure;
     y += 10;
   }
+
 
   function renderContent(ch: PdfContent) {
     if (ch.kind === "grid") {
