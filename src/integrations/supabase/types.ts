@@ -1573,6 +1573,107 @@ export type Database = {
           },
         ]
       }
+      exercise_program_items: {
+        Row: {
+          content_id: string | null
+          created_at: string
+          custom_title: string | null
+          id: string
+          notes: string | null
+          program_id: string
+          reps: number | null
+          rest_seconds: number | null
+          series: number | null
+          sort_order: number | null
+        }
+        Insert: {
+          content_id?: string | null
+          created_at?: string
+          custom_title?: string | null
+          id?: string
+          notes?: string | null
+          program_id: string
+          reps?: number | null
+          rest_seconds?: number | null
+          series?: number | null
+          sort_order?: number | null
+        }
+        Update: {
+          content_id?: string | null
+          created_at?: string
+          custom_title?: string | null
+          id?: string
+          notes?: string | null
+          program_id?: string
+          reps?: number | null
+          rest_seconds?: number | null
+          series?: number | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_program_items_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "library_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_program_items_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_programs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          frequency: string | null
+          id: string
+          notes: string | null
+          patient_id: string | null
+          sent_at: string | null
+          sent_via: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          frequency?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string | null
+          sent_at?: string | null
+          sent_via?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          frequency?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string | null
+          sent_at?: string | null
+          sent_via?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_programs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_entries: {
         Row: {
           appointment_id: string | null
@@ -1636,6 +1737,332 @@ export type Database = {
             columns: ["professional_id"]
             isOneToOne: false
             referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      home_care_visits: {
+        Row: {
+          address: string | null
+          checklist: Json | null
+          created_at: string
+          created_by: string | null
+          duration_minutes: number | null
+          family_report: string | null
+          id: string
+          observations: string | null
+          patient_id: string
+          professional_id: string | null
+          signature_url: string | null
+          therapeutic_plan: string | null
+          updated_at: string
+          visit_date: string
+        }
+        Insert: {
+          address?: string | null
+          checklist?: Json | null
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number | null
+          family_report?: string | null
+          id?: string
+          observations?: string | null
+          patient_id: string
+          professional_id?: string | null
+          signature_url?: string | null
+          therapeutic_plan?: string | null
+          updated_at?: string
+          visit_date?: string
+        }
+        Update: {
+          address?: string | null
+          checklist?: Json | null
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number | null
+          family_report?: string | null
+          id?: string
+          observations?: string | null
+          patient_id?: string
+          professional_id?: string | null
+          signature_url?: string | null
+          therapeutic_plan?: string | null
+          updated_at?: string
+          visit_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_care_visits_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_care_visits_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_categories: {
+        Row: {
+          active: boolean | null
+          clinic_id: string | null
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          scope: Database["public"]["Enums"]["library_scope"]
+          slug: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          clinic_id?: string | null
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          scope?: Database["public"]["Enums"]["library_scope"]
+          slug: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          clinic_id?: string | null
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          scope?: Database["public"]["Enums"]["library_scope"]
+          slug?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_categories_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "library_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_contents: {
+        Row: {
+          attachments: Json | null
+          author: string | null
+          body: string | null
+          body_json: Json | null
+          body_region: string | null
+          category_id: string | null
+          clinic_id: string | null
+          conducts_suggested: string[] | null
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          difficulty: string | null
+          duration_minutes: number | null
+          id: string
+          level: string | null
+          objectives_suggested: string[] | null
+          reassessment_days: number | null
+          related_diagnoses: string[] | null
+          scales_suggested: string[] | null
+          scope: Database["public"]["Enums"]["library_scope"]
+          slug: string | null
+          status: string | null
+          suggested_frequency: string | null
+          summary: string | null
+          tags: string[] | null
+          title: string
+          type: Database["public"]["Enums"]["library_content_type"]
+          updated_at: string
+          views_count: number | null
+        }
+        Insert: {
+          attachments?: Json | null
+          author?: string | null
+          body?: string | null
+          body_json?: Json | null
+          body_region?: string | null
+          category_id?: string | null
+          clinic_id?: string | null
+          conducts_suggested?: string[] | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string | null
+          duration_minutes?: number | null
+          id?: string
+          level?: string | null
+          objectives_suggested?: string[] | null
+          reassessment_days?: number | null
+          related_diagnoses?: string[] | null
+          scales_suggested?: string[] | null
+          scope?: Database["public"]["Enums"]["library_scope"]
+          slug?: string | null
+          status?: string | null
+          suggested_frequency?: string | null
+          summary?: string | null
+          tags?: string[] | null
+          title: string
+          type: Database["public"]["Enums"]["library_content_type"]
+          updated_at?: string
+          views_count?: number | null
+        }
+        Update: {
+          attachments?: Json | null
+          author?: string | null
+          body?: string | null
+          body_json?: Json | null
+          body_region?: string | null
+          category_id?: string | null
+          clinic_id?: string | null
+          conducts_suggested?: string[] | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string | null
+          duration_minutes?: number | null
+          id?: string
+          level?: string | null
+          objectives_suggested?: string[] | null
+          reassessment_days?: number | null
+          related_diagnoses?: string[] | null
+          scales_suggested?: string[] | null
+          scope?: Database["public"]["Enums"]["library_scope"]
+          slug?: string | null
+          status?: string | null
+          suggested_frequency?: string | null
+          summary?: string | null
+          tags?: string[] | null
+          title?: string
+          type?: Database["public"]["Enums"]["library_content_type"]
+          updated_at?: string
+          views_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_contents_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "library_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_contents_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_favorites: {
+        Row: {
+          content_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_favorites_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "library_contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_calendar: {
+        Row: {
+          category: string | null
+          channel: string | null
+          clinic_id: string | null
+          content_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          scheduled_for: string
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          channel?: string | null
+          clinic_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          scheduled_for: string
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          channel?: string | null
+          clinic_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          scheduled_for?: string
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_calendar_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_calendar_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "library_contents"
             referencedColumns: ["id"]
           },
         ]
@@ -2026,6 +2453,38 @@ export type Database = {
           },
         ]
       }
+      training_views: {
+        Row: {
+          completed: boolean | null
+          content_id: string
+          id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          completed?: boolean | null
+          content_id: string
+          id?: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          completed?: boolean | null
+          content_id?: string
+          id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_views_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "library_contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2123,6 +2582,16 @@ export type Database = {
         | "nao_atingido"
         | "cancelado"
       goal_term: "curto" | "medio" | "longo"
+      library_content_type:
+        | "cartilha"
+        | "protocolo"
+        | "exercicio"
+        | "documento"
+        | "marketing"
+        | "treinamento"
+        | "post_social"
+        | "pop"
+      library_scope: "global" | "clinic" | "shared"
       payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
       payment_status: "pago" | "pendente"
       risk_level: "baixo" | "moderado" | "alto" | "muito_alto"
@@ -2305,6 +2774,17 @@ export const Constants = {
         "cancelado",
       ],
       goal_term: ["curto", "medio", "longo"],
+      library_content_type: [
+        "cartilha",
+        "protocolo",
+        "exercicio",
+        "documento",
+        "marketing",
+        "treinamento",
+        "post_social",
+        "pop",
+      ],
+      library_scope: ["global", "clinic", "shared"],
       payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
       payment_status: ["pago", "pendente"],
       risk_level: ["baixo", "moderado", "alto", "muito_alto"],
