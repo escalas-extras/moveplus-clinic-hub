@@ -71,6 +71,102 @@ export type Database = {
           },
         ]
       }
+      assessment_audit_log: {
+        Row: {
+          action: string
+          assessment_id: string | null
+          details: Json | null
+          id: string
+          occurred_at: string
+          patient_id: string | null
+          step: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          assessment_id?: string | null
+          details?: Json | null
+          id?: string
+          occurred_at?: string
+          patient_id?: string | null
+          step?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          assessment_id?: string | null
+          details?: Json | null
+          id?: string
+          occurred_at?: string
+          patient_id?: string | null
+          step?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_audit_log_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_audit_log_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_drafts: {
+        Row: {
+          assessment_id: string | null
+          created_at: string
+          id: string
+          patient_id: string
+          payload: Json
+          updated_at: string
+          user_id: string
+          wizard_step: number
+        }
+        Insert: {
+          assessment_id?: string | null
+          created_at?: string
+          id?: string
+          patient_id: string
+          payload?: Json
+          updated_at?: string
+          user_id: string
+          wizard_step?: number
+        }
+        Update: {
+          assessment_id?: string | null
+          created_at?: string
+          id?: string
+          patient_id?: string
+          payload?: Json
+          updated_at?: string
+          user_id?: string
+          wizard_step?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_drafts_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_drafts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_modules: {
         Row: {
           assessment_id: string
@@ -316,11 +412,14 @@ export type Database = {
           apresentacao: string[]
           avaliacao_algica: Json | null
           cirurgias: string | null
+          clinical_profiles: string[]
           condutas: string | null
           coordenacao: string | null
           created_at: string
           created_by: string | null
           data: string
+          dependency_level: string | null
+          diagnosis_codes: string[]
           diagnostico_clinico: string | null
           diagnostico_fisio: string | null
           doencas_previas: Json | null
@@ -329,6 +428,7 @@ export type Database = {
           eva: number | null
           exame_fisico: Json | null
           exames_complementares: string | null
+          executive_summary: Json | null
           habitos_anamnese: Json | null
           habitos_vida: string | null
           historia_clinica: string | null
@@ -339,12 +439,14 @@ export type Database = {
           imc: number | null
           inspecao: string | null
           inspecao_flags: string[]
+          last_autosaved_at: string | null
           locked_at: string | null
           marcha: string | null
           med_cintura: number | null
           med_quadril: number | null
           medicamentos: string | null
           medico_responsavel: string | null
+          next_reassessment_date: string | null
           nivel_consciencia: string | null
           objetivos: string | null
           observacoes_gerais: string | null
@@ -353,18 +455,28 @@ export type Database = {
           peso: number | null
           postura_alinhamento: Json | null
           professional_id: string
+          qr_validation_token: string | null
           queixa_principal: string | null
           recursos_terapeuticos: string | null
+          risk_falls: string | null
+          risk_pressure: string | null
+          rom_goniometry: Json | null
+          scales_results: Json | null
           semiologia: string | null
+          signatures: Json | null
           sinais_vitais: Json | null
           status: Database["public"]["Enums"]["assessment_status"]
+          strength_mrc: Json | null
           tem_exames: boolean | null
           testes_especificos: string | null
           teve_cirurgias: boolean | null
+          therapeutic_goals: Json | null
           tipo: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados: string | null
           updated_at: string
           usa_medicamentos: boolean | null
+          wizard_completed: boolean
+          wizard_step: number
         }
         Insert: {
           antecedentes_familiares?: string | null
@@ -372,11 +484,14 @@ export type Database = {
           apresentacao?: string[]
           avaliacao_algica?: Json | null
           cirurgias?: string | null
+          clinical_profiles?: string[]
           condutas?: string | null
           coordenacao?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
+          dependency_level?: string | null
+          diagnosis_codes?: string[]
           diagnostico_clinico?: string | null
           diagnostico_fisio?: string | null
           doencas_previas?: Json | null
@@ -385,6 +500,7 @@ export type Database = {
           eva?: number | null
           exame_fisico?: Json | null
           exames_complementares?: string | null
+          executive_summary?: Json | null
           habitos_anamnese?: Json | null
           habitos_vida?: string | null
           historia_clinica?: string | null
@@ -395,12 +511,14 @@ export type Database = {
           imc?: number | null
           inspecao?: string | null
           inspecao_flags?: string[]
+          last_autosaved_at?: string | null
           locked_at?: string | null
           marcha?: string | null
           med_cintura?: number | null
           med_quadril?: number | null
           medicamentos?: string | null
           medico_responsavel?: string | null
+          next_reassessment_date?: string | null
           nivel_consciencia?: string | null
           objetivos?: string | null
           observacoes_gerais?: string | null
@@ -409,18 +527,28 @@ export type Database = {
           peso?: number | null
           postura_alinhamento?: Json | null
           professional_id: string
+          qr_validation_token?: string | null
           queixa_principal?: string | null
           recursos_terapeuticos?: string | null
+          risk_falls?: string | null
+          risk_pressure?: string | null
+          rom_goniometry?: Json | null
+          scales_results?: Json | null
           semiologia?: string | null
+          signatures?: Json | null
           sinais_vitais?: Json | null
           status?: Database["public"]["Enums"]["assessment_status"]
+          strength_mrc?: Json | null
           tem_exames?: boolean | null
           testes_especificos?: string | null
           teve_cirurgias?: boolean | null
+          therapeutic_goals?: Json | null
           tipo?: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados?: string | null
           updated_at?: string
           usa_medicamentos?: boolean | null
+          wizard_completed?: boolean
+          wizard_step?: number
         }
         Update: {
           antecedentes_familiares?: string | null
@@ -428,11 +556,14 @@ export type Database = {
           apresentacao?: string[]
           avaliacao_algica?: Json | null
           cirurgias?: string | null
+          clinical_profiles?: string[]
           condutas?: string | null
           coordenacao?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
+          dependency_level?: string | null
+          diagnosis_codes?: string[]
           diagnostico_clinico?: string | null
           diagnostico_fisio?: string | null
           doencas_previas?: Json | null
@@ -441,6 +572,7 @@ export type Database = {
           eva?: number | null
           exame_fisico?: Json | null
           exames_complementares?: string | null
+          executive_summary?: Json | null
           habitos_anamnese?: Json | null
           habitos_vida?: string | null
           historia_clinica?: string | null
@@ -451,12 +583,14 @@ export type Database = {
           imc?: number | null
           inspecao?: string | null
           inspecao_flags?: string[]
+          last_autosaved_at?: string | null
           locked_at?: string | null
           marcha?: string | null
           med_cintura?: number | null
           med_quadril?: number | null
           medicamentos?: string | null
           medico_responsavel?: string | null
+          next_reassessment_date?: string | null
           nivel_consciencia?: string | null
           objetivos?: string | null
           observacoes_gerais?: string | null
@@ -465,18 +599,28 @@ export type Database = {
           peso?: number | null
           postura_alinhamento?: Json | null
           professional_id?: string
+          qr_validation_token?: string | null
           queixa_principal?: string | null
           recursos_terapeuticos?: string | null
+          risk_falls?: string | null
+          risk_pressure?: string | null
+          rom_goniometry?: Json | null
+          scales_results?: Json | null
           semiologia?: string | null
+          signatures?: Json | null
           sinais_vitais?: Json | null
           status?: Database["public"]["Enums"]["assessment_status"]
+          strength_mrc?: Json | null
           tem_exames?: boolean | null
           testes_especificos?: string | null
           teve_cirurgias?: boolean | null
+          therapeutic_goals?: Json | null
           tipo?: Database["public"]["Enums"]["assessment_type"]
           tratamentos_realizados?: string | null
           updated_at?: string
           usa_medicamentos?: boolean | null
+          wizard_completed?: boolean
+          wizard_step?: number
         }
         Relationships: [
           {
@@ -494,6 +638,168 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      catalog_diagnoses: {
+        Row: {
+          active: boolean
+          clinical_profiles: string[]
+          code: string
+          created_at: string
+          id: string
+          keywords: string[]
+          label: string
+          sort_order: number
+          suggested_objectives: string[]
+          suggested_scales: string[]
+          template_anamnese: string | null
+          template_condutas: string | null
+          template_objetivos: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinical_profiles?: string[]
+          code: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          label: string
+          sort_order?: number
+          suggested_objectives?: string[]
+          suggested_scales?: string[]
+          template_anamnese?: string | null
+          template_condutas?: string | null
+          template_objetivos?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinical_profiles?: string[]
+          code?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          label?: string
+          sort_order?: number
+          suggested_objectives?: string[]
+          suggested_scales?: string[]
+          template_anamnese?: string | null
+          template_condutas?: string | null
+          template_objetivos?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      catalog_objectives: {
+        Row: {
+          active: boolean
+          clinical_profiles: string[]
+          code: string
+          created_at: string
+          default_deadline_days: number | null
+          default_indicator: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          clinical_profiles?: string[]
+          code: string
+          created_at?: string
+          default_deadline_days?: number | null
+          default_indicator?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          clinical_profiles?: string[]
+          code?: string
+          created_at?: string
+          default_deadline_days?: number | null
+          default_indicator?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      catalog_risk_classifications: {
+        Row: {
+          created_at: string
+          id: string
+          risk_type: string
+          rules: Json
+          source_scale_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          risk_type: string
+          rules?: Json
+          source_scale_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          risk_type?: string
+          rules?: Json
+          source_scale_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      catalog_scales: {
+        Row: {
+          active: boolean
+          classification: Json
+          clinical_profiles: string[]
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          items: Json
+          label: string
+          max_score: number | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          classification?: Json
+          clinical_profiles?: string[]
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          label: string
+          max_score?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          classification?: Json
+          clinical_profiles?: string[]
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          items?: Json
+          label?: string
+          max_score?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       clinic_settings: {
         Row: {
