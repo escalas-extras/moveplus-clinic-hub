@@ -359,17 +359,38 @@ function PatientPage() {
           <Dialog open={!!editAssessment} onOpenChange={(o) => !o && setEditAssessment(null)}>
             <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
-                  Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · acesso de administrador)" : ""}
+                <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
+                  <span>Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · admin)" : ""}</span>
+                  <div className="flex gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setEditMode("wizard")}
+                      className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
+                    >Wizard</button>
+                    <button
+                      type="button"
+                      onClick={() => setEditMode("classic")}
+                      className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
+                    >Modo clássico</button>
+                  </div>
                 </DialogTitle>
               </DialogHeader>
               {editAssessment && (
-                <AssessmentForm
-                  patientId={p.id}
-                  patient={p}
-                  assessment={editAssessment}
-                  onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
-                />
+                editMode === "wizard" ? (
+                  <AssessmentWizard
+                    patientId={p.id}
+                    patient={p}
+                    assessment={editAssessment}
+                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
+                  />
+                ) : (
+                  <AssessmentForm
+                    patientId={p.id}
+                    patient={p}
+                    assessment={editAssessment}
+                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
+                  />
+                )
               )}
             </DialogContent>
           </Dialog>
