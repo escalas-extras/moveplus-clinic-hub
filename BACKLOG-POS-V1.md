@@ -141,3 +141,17 @@ Itens identificados durante a preparação do go-live e direcionados ao roadmap 
 - White-label completo (CSS variables por clínica).
 
 Consulte `GO-LIVE-V1.md` para os entregáveis do Bloco D (checklists, DR, monitoramento).
+
+
+## BLOCO E — Itens enviados ao Backlog
+
+- WYSIWYG editor para cartilhas/protocolos (atualmente markdown/texto).
+- Upload de imagens/anexos via Storage para conteúdos da biblioteca.
+- Editor visual de posts/stories (canvas) com aplicação automática do logo.
+- Geração de PDF server-side personalizado (cartilhas com logo da clínica).
+- Banco de vídeos de exercícios (player + thumbnails).
+- Prescrição de programa de exercícios via WhatsApp/Email com link público.
+- Calendário visual (drag-and-drop) para marketing.
+- Datas comemorativas pré-cadastradas (seed anual).
+- Compartilhamento de conteúdo entre clínicas (scope='shared' com aprovação).
+- Controle granular de visualização de treinamentos (% progresso, certificado).

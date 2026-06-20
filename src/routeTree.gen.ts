@@ -20,9 +20,13 @@ import { Route as AuthenticatedAppTemplatesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppRelatoriosRouteImport } from './routes/_authenticated/app/relatorios'
 import { Route as AuthenticatedAppReavaliacoesRouteImport } from './routes/_authenticated/app/reavaliacoes'
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
+import { Route as AuthenticatedAppMarketingRouteImport } from './routes/_authenticated/app/marketing'
+import { Route as AuthenticatedAppHomeCareRouteImport } from './routes/_authenticated/app/home-care'
 import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
+import { Route as AuthenticatedAppDiferenciaisRouteImport } from './routes/_authenticated/app/diferenciais'
 import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_authenticated/app/dashboard-clinico'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app/configuracoes'
+import { Route as AuthenticatedAppBibliotecaRouteImport } from './routes/_authenticated/app/biblioteca'
 import { Route as AuthenticatedAppAgendaRouteImport } from './routes/_authenticated/app/agenda'
 import { Route as AuthenticatedAppPacientesIndexRouteImport } from './routes/_authenticated/app/pacientes/index'
 import { Route as AuthenticatedAppPacientesIdRouteImport } from './routes/_authenticated/app/pacientes/$id'
@@ -86,10 +90,28 @@ const AuthenticatedAppProfissionaisRoute =
     path: '/app/profissionais',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppMarketingRoute =
+  AuthenticatedAppMarketingRouteImport.update({
+    id: '/app/marketing',
+    path: '/app/marketing',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppHomeCareRoute =
+  AuthenticatedAppHomeCareRouteImport.update({
+    id: '/app/home-care',
+    path: '/app/home-care',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppFinanceiroRoute =
   AuthenticatedAppFinanceiroRouteImport.update({
     id: '/app/financeiro',
     path: '/app/financeiro',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppDiferenciaisRoute =
+  AuthenticatedAppDiferenciaisRouteImport.update({
+    id: '/app/diferenciais',
+    path: '/app/diferenciais',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAppDashboardClinicoRoute =
@@ -102,6 +124,12 @@ const AuthenticatedAppConfiguracoesRoute =
   AuthenticatedAppConfiguracoesRouteImport.update({
     id: '/app/configuracoes',
     path: '/app/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppBibliotecaRoute =
+  AuthenticatedAppBibliotecaRouteImport.update({
+    id: '/app/biblioteca',
+    path: '/app/biblioteca',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAppAgendaRoute = AuthenticatedAppAgendaRouteImport.update({
@@ -128,9 +156,13 @@ export interface FileRoutesByFullPath {
   '/set-password': typeof SetPasswordRoute
   '/validar/$hash': typeof ValidarHashRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
+  '/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
+  '/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
+  '/app/home-care': typeof AuthenticatedAppHomeCareRoute
+  '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
@@ -146,9 +178,13 @@ export interface FileRoutesByTo {
   '/set-password': typeof SetPasswordRoute
   '/validar/$hash': typeof ValidarHashRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
+  '/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
+  '/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
+  '/app/home-care': typeof AuthenticatedAppHomeCareRoute
+  '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
@@ -166,9 +202,13 @@ export interface FileRoutesById {
   '/set-password': typeof SetPasswordRoute
   '/validar/$hash': typeof ValidarHashRoute
   '/_authenticated/app/agenda': typeof AuthenticatedAppAgendaRoute
+  '/_authenticated/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
+  '/_authenticated/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
   '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
+  '/_authenticated/app/home-care': typeof AuthenticatedAppHomeCareRoute
+  '/_authenticated/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/_authenticated/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/_authenticated/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
@@ -186,9 +226,13 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/validar/$hash'
     | '/app/agenda'
+    | '/app/biblioteca'
     | '/app/configuracoes'
     | '/app/dashboard-clinico'
+    | '/app/diferenciais'
     | '/app/financeiro'
+    | '/app/home-care'
+    | '/app/marketing'
     | '/app/profissionais'
     | '/app/reavaliacoes'
     | '/app/relatorios'
@@ -204,9 +248,13 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/validar/$hash'
     | '/app/agenda'
+    | '/app/biblioteca'
     | '/app/configuracoes'
     | '/app/dashboard-clinico'
+    | '/app/diferenciais'
     | '/app/financeiro'
+    | '/app/home-care'
+    | '/app/marketing'
     | '/app/profissionais'
     | '/app/reavaliacoes'
     | '/app/relatorios'
@@ -223,9 +271,13 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/validar/$hash'
     | '/_authenticated/app/agenda'
+    | '/_authenticated/app/biblioteca'
     | '/_authenticated/app/configuracoes'
     | '/_authenticated/app/dashboard-clinico'
+    | '/_authenticated/app/diferenciais'
     | '/_authenticated/app/financeiro'
+    | '/_authenticated/app/home-care'
+    | '/_authenticated/app/marketing'
     | '/_authenticated/app/profissionais'
     | '/_authenticated/app/reavaliacoes'
     | '/_authenticated/app/relatorios'
@@ -323,11 +375,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppProfissionaisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/marketing': {
+      id: '/_authenticated/app/marketing'
+      path: '/app/marketing'
+      fullPath: '/app/marketing'
+      preLoaderRoute: typeof AuthenticatedAppMarketingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/home-care': {
+      id: '/_authenticated/app/home-care'
+      path: '/app/home-care'
+      fullPath: '/app/home-care'
+      preLoaderRoute: typeof AuthenticatedAppHomeCareRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/financeiro': {
       id: '/_authenticated/app/financeiro'
       path: '/app/financeiro'
       fullPath: '/app/financeiro'
       preLoaderRoute: typeof AuthenticatedAppFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/diferenciais': {
+      id: '/_authenticated/app/diferenciais'
+      path: '/app/diferenciais'
+      fullPath: '/app/diferenciais'
+      preLoaderRoute: typeof AuthenticatedAppDiferenciaisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/dashboard-clinico': {
@@ -342,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/app/configuracoes'
       fullPath: '/app/configuracoes'
       preLoaderRoute: typeof AuthenticatedAppConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/biblioteca': {
+      id: '/_authenticated/app/biblioteca'
+      path: '/app/biblioteca'
+      fullPath: '/app/biblioteca'
+      preLoaderRoute: typeof AuthenticatedAppBibliotecaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/agenda': {
@@ -370,9 +450,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAgendaRoute: typeof AuthenticatedAppAgendaRoute
+  AuthenticatedAppBibliotecaRoute: typeof AuthenticatedAppBibliotecaRoute
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppDashboardClinicoRoute: typeof AuthenticatedAppDashboardClinicoRoute
+  AuthenticatedAppDiferenciaisRoute: typeof AuthenticatedAppDiferenciaisRoute
   AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
+  AuthenticatedAppHomeCareRoute: typeof AuthenticatedAppHomeCareRoute
+  AuthenticatedAppMarketingRoute: typeof AuthenticatedAppMarketingRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
   AuthenticatedAppReavaliacoesRoute: typeof AuthenticatedAppReavaliacoesRoute
   AuthenticatedAppRelatoriosRoute: typeof AuthenticatedAppRelatoriosRoute
@@ -385,9 +469,13 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAgendaRoute: AuthenticatedAppAgendaRoute,
+  AuthenticatedAppBibliotecaRoute: AuthenticatedAppBibliotecaRoute,
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppDashboardClinicoRoute: AuthenticatedAppDashboardClinicoRoute,
+  AuthenticatedAppDiferenciaisRoute: AuthenticatedAppDiferenciaisRoute,
   AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
+  AuthenticatedAppHomeCareRoute: AuthenticatedAppHomeCareRoute,
+  AuthenticatedAppMarketingRoute: AuthenticatedAppMarketingRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
   AuthenticatedAppReavaliacoesRoute: AuthenticatedAppReavaliacoesRoute,
   AuthenticatedAppRelatoriosRoute: AuthenticatedAppRelatoriosRoute,
