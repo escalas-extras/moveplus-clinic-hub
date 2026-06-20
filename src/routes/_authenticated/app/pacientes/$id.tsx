@@ -22,6 +22,7 @@ import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
 import { DischargePanel } from "@/components/clinical/discharge-panel";
 import { ReassessmentComparator } from "@/components/clinical/reassessment-comparator";
+import { PatientDocumentsTab } from "@/components/clinical/patient-documents-tab";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
