@@ -8,6 +8,7 @@ export type MergeContext = {
   professional?: any;
   clinic?: any;
   scales?: any[]; // assessment_scales rows
+  discharge?: any;
   extra?: Record<string, string>;
 };
 
@@ -18,45 +19,107 @@ function fmtScale(scales: any[] | undefined, code: string): string {
   return String(s.total_score ?? "—");
 }
 
+function fmtGoniometry(rom: any): string {
+  if (!rom) return "—";
+  if (typeof rom === "string") return rom;
+  if (Array.isArray(rom)) {
+    return rom
+      .filter((r) => r && (r.articulacao || r.movimento))
+      .map((r) => `${r.articulacao || ""} ${r.movimento || ""}: ${r.valor ?? "—"}°`.trim())
+      .join("; ") || "—";
+  }
+  if (typeof rom === "object") {
+    return Object.entries(rom)
+      .filter(([, v]) => v != null && String(v).trim() !== "")
+      .map(([k, v]) => `${k}: ${v}°`)
+      .join("; ") || "—";
+  }
+  return "—";
+}
+
 export function buildMergeData(ctx: MergeContext): Record<string, string> {
   const p = ctx.patient || {};
   const a = ctx.assessment || {};
   const pr = ctx.professional || {};
   const c = ctx.clinic || {};
+  const d = ctx.discharge || {};
   const today = new Date();
 
   const data: Record<string, string> = {
+    // ---- Paciente ----
     paciente_nome: p.nome_completo || "—",
     paciente_idade: p.data_nascimento ? `${calcAge(p.data_nascimento)} anos` : "—",
     paciente_sexo: p.sexo || "—",
     paciente_cpf: p.cpf || "—",
+    paciente_rg: p.rg || "—",
+    paciente_telefone: p.telefone || p.whatsapp || "—",
     paciente_data_nascimento: p.data_nascimento ? fmtDate(p.data_nascimento) : "—",
     paciente_endereco: [p.endereco, p.bairro, p.cidade, p.estado].filter(Boolean).join(", ") || "—",
+    paciente_responsavel: p.responsavel || "—",
+    paciente_acompanhante: p.acompanhante_nome || "—",
+    paciente_acompanhante_parentesco: p.acompanhante_parentesco || "—",
 
+    // ---- Convênio ----
+    convenio_nome: p.convenio_nome || "—",
+    convenio_carteirinha: p.convenio_carteirinha || "—",
+
+    // ---- Clínico ----
     diagnostico: a.diagnostico_clinico || "—",
     diagnostico_fisio: a.diagnostico_fisio || "—",
     queixa_principal: a.queixa_principal || "—",
     hma: a.hma || "—",
+    cid_principal: p.cid_principal || a.diagnosis_codes?.[0] || "—",
+    cid_secundario: p.cid_secundario || a.cid_secundario || a.diagnosis_codes?.[1] || "—",
+    prognostico: a.prognostico || "—",
+    goniometria: fmtGoniometry(a.rom_goniometry),
 
+    // ---- Plano ----
+    objetivos: a.objetivos || "—",
+    condutas: a.condutas || "—",
+    proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "—",
+
+    // ---- Profissional ----
     profissional_nome: pr.nome || "—",
-    profissional_crefito: [pr.conselho, pr.registro].filter(Boolean).join(" ") || "—",
+    profissional_crefito: [pr.conselho, pr.registro].filter(Boolean).join(" ") || c.crefito_default || "—",
+    profissional_especialidade: pr.especialidade || "—",
+    profissional_assinatura: pr.assinatura_url ? "[Assinatura digital]" : "—",
 
+    // ---- Sistema ----
     data_atual: fmtDate(today),
     data_avaliacao: a.data ? fmtDate(a.data) : "—",
 
+    // ---- Escalas ----
+    escala_eva: a.eva != null ? `${a.eva}/10` : fmtScale(ctx.scales, "eva"),
     escala_barthel: fmtScale(ctx.scales, "barthel"),
     escala_katz: fmtScale(ctx.scales, "katz"),
     escala_berg: fmtScale(ctx.scales, "berg"),
     escala_tinetti: fmtScale(ctx.scales, "tinetti"),
     escala_braden: fmtScale(ctx.scales, "braden"),
+    escala_mrc: fmtScale(ctx.scales, "mrc"),
+    escala_mif: fmtScale(ctx.scales, "mif"),
+    escala_tug: fmtScale(ctx.scales, "tug"),
+    escala_meem: fmtScale(ctx.scales, "meem"),
+    escala_moca: fmtScale(ctx.scales, "moca"),
+    escala_ashworth: fmtScale(ctx.scales, "ashworth"),
+    escala_borg: fmtScale(ctx.scales, "borg"),
 
-    objetivos: a.objetivos || "—",
-    condutas: a.condutas || "—",
-    proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "—",
+    // ---- Alta ----
+    data_alta: d.data_alta ? fmtDate(d.data_alta) : (p.data_alta ? fmtDate(p.data_alta) : "—"),
+    motivo_alta: d.motivo || "—",
+    objetivos_alcancados: d.objetivos_alcancados || "—",
+    objetivos_pendentes: d.objetivos_pendentes || "—",
+    recomendacoes_alta: d.recomendacoes || "—",
+    plano_domiciliar: d.plano_domiciliar || "—",
+    encaminhamento_pos_alta: d.observacoes || "—",
 
+    // ---- Clínica ----
     clinica_nome: c.nome_fantasia || "FisioOS",
+    clinica_razao_social: c.razao_social || c.nome_fantasia || "—",
+    clinica_cnpj: c.cnpj || "—",
     clinica_endereco: [c.endereco, c.cidade, c.estado].filter(Boolean).join(", ") || "—",
+    clinica_cidade_estado: [c.cidade, c.estado].filter(Boolean).join("/") || "—",
     clinica_telefone: Array.isArray(c.telefones) ? c.telefones.join(" · ") : (c.telefones || "—"),
+    clinica_email: Array.isArray(c.emails) ? c.emails.join(" · ") : (c.emails || "—"),
   };
 
   if (ctx.extra) Object.assign(data, ctx.extra);
@@ -80,7 +143,6 @@ export function renderTemplateSections(
     .map((s) => ({ title: s.title, body: renderMergeText(s.content || "", data) }));
 }
 
-// Lista de tags não substituídas (debug/validação)
 export function findMissingTags(template: string, data: Record<string, string>): string[] {
   const out: string[] = [];
   const re = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
@@ -91,5 +153,4 @@ export function findMissingTags(template: string, data: Record<string, string>):
   return out;
 }
 
-// Re-export para reuso
 export { computeScale };

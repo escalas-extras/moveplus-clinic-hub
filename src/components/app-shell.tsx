@@ -15,6 +15,7 @@ const nav = [
   { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/app/reavaliacoes", label: "Reavaliações", icon: RefreshCw },
   { to: "/app/home-care", label: "Home Care", icon: HomeIcon },
+  { to: "/app/documentos", label: "Documentos", icon: FileText },
   { to: "/app/biblioteca", label: "Biblioteca", icon: BookOpen },
   { to: "/app/marketing", label: "Marketing", icon: Megaphone },
   { to: "/app/relatorios", label: "Relatórios", icon: BarChart3 },

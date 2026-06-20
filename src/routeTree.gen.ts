@@ -23,6 +23,7 @@ import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppMarketingRouteImport } from './routes/_authenticated/app/marketing'
 import { Route as AuthenticatedAppHomeCareRouteImport } from './routes/_authenticated/app/home-care'
 import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
+import { Route as AuthenticatedAppDocumentosRouteImport } from './routes/_authenticated/app/documentos'
 import { Route as AuthenticatedAppDiferenciaisRouteImport } from './routes/_authenticated/app/diferenciais'
 import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_authenticated/app/dashboard-clinico'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app/configuracoes'
@@ -108,6 +109,12 @@ const AuthenticatedAppFinanceiroRoute =
     path: '/app/financeiro',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppDocumentosRoute =
+  AuthenticatedAppDocumentosRouteImport.update({
+    id: '/app/documentos',
+    path: '/app/documentos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppDiferenciaisRoute =
   AuthenticatedAppDiferenciaisRouteImport.update({
     id: '/app/diferenciais',
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
+  '/app/documentos': typeof AuthenticatedAppDocumentosRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/home-care': typeof AuthenticatedAppHomeCareRoute
   '/app/marketing': typeof AuthenticatedAppMarketingRoute
@@ -182,6 +190,7 @@ export interface FileRoutesByTo {
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
+  '/app/documentos': typeof AuthenticatedAppDocumentosRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/home-care': typeof AuthenticatedAppHomeCareRoute
   '/app/marketing': typeof AuthenticatedAppMarketingRoute
@@ -206,6 +215,7 @@ export interface FileRoutesById {
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/_authenticated/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
+  '/_authenticated/app/documentos': typeof AuthenticatedAppDocumentosRoute
   '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/_authenticated/app/home-care': typeof AuthenticatedAppHomeCareRoute
   '/_authenticated/app/marketing': typeof AuthenticatedAppMarketingRoute
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/dashboard-clinico'
     | '/app/diferenciais'
+    | '/app/documentos'
     | '/app/financeiro'
     | '/app/home-care'
     | '/app/marketing'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/app/configuracoes'
     | '/app/dashboard-clinico'
     | '/app/diferenciais'
+    | '/app/documentos'
     | '/app/financeiro'
     | '/app/home-care'
     | '/app/marketing'
@@ -275,6 +287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/configuracoes'
     | '/_authenticated/app/dashboard-clinico'
     | '/_authenticated/app/diferenciais'
+    | '/_authenticated/app/documentos'
     | '/_authenticated/app/financeiro'
     | '/_authenticated/app/home-care'
     | '/_authenticated/app/marketing'
@@ -396,6 +409,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppFinanceiroRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/documentos': {
+      id: '/_authenticated/app/documentos'
+      path: '/app/documentos'
+      fullPath: '/app/documentos'
+      preLoaderRoute: typeof AuthenticatedAppDocumentosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/diferenciais': {
       id: '/_authenticated/app/diferenciais'
       path: '/app/diferenciais'
@@ -454,6 +474,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppDashboardClinicoRoute: typeof AuthenticatedAppDashboardClinicoRoute
   AuthenticatedAppDiferenciaisRoute: typeof AuthenticatedAppDiferenciaisRoute
+  AuthenticatedAppDocumentosRoute: typeof AuthenticatedAppDocumentosRoute
   AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
   AuthenticatedAppHomeCareRoute: typeof AuthenticatedAppHomeCareRoute
   AuthenticatedAppMarketingRoute: typeof AuthenticatedAppMarketingRoute
@@ -473,6 +494,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppDashboardClinicoRoute: AuthenticatedAppDashboardClinicoRoute,
   AuthenticatedAppDiferenciaisRoute: AuthenticatedAppDiferenciaisRoute,
+  AuthenticatedAppDocumentosRoute: AuthenticatedAppDocumentosRoute,
   AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
   AuthenticatedAppHomeCareRoute: AuthenticatedAppHomeCareRoute,
   AuthenticatedAppMarketingRoute: AuthenticatedAppMarketingRoute,

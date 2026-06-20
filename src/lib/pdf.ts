@@ -69,6 +69,35 @@ async function loadLogoDataUrl(): Promise<string | null> {
   return cachedLogo;
 }
 
+async function urlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function loadClinicOrDefaultLogo(clinicLogoUrl?: string | null): Promise<string | null> {
+  if (clinicLogoUrl) {
+    // Supabase storage signed/public URL or absolute URL
+    let finalUrl = clinicLogoUrl;
+    if (!/^https?:\/\//.test(clinicLogoUrl)) {
+      const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
+      finalUrl = data.publicUrl;
+    }
+    const dataUrl = await urlToDataUrl(finalUrl);
+    if (dataUrl) return dataUrl;
+  }
+  return loadLogoDataUrl();
+}
+
 // ---------- Colors ----------
 
 const C = {
@@ -100,17 +129,17 @@ export async function buildPdf(opts: {
 
   const { data: clinic } = await supabase
     .from("clinic_settings")
-    .select("nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional")
+    .select("nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url")
     .limit(1)
     .maybeSingle();
 
-  const c = (clinic ?? {}) as ClinicSettings;
+  const c = (clinic ?? {}) as ClinicSettings & { logo_url?: string | null };
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 40;
   const contentW = W - 2 * M;
-  const logo = await loadLogoDataUrl();
+  const logo = await loadClinicOrDefaultLogo(c.logo_url);
 
   // Header (once, page 1)
   const HEADER_H = 165;
