@@ -159,7 +159,7 @@ function TemplatesPage() {
             <TemplateEditor
               template={current}
               mergeTags={mergeTags}
-              onSave={(t) => upsert.mutate(t)}
+              onSave={(t: any) => upsert.mutate(t)}
               onDuplicate={() => duplicate.mutate(current)}
               onNewVersion={() => newVersion.mutate(current)}
               onSetDefault={() => setDefault.mutate(current)}
