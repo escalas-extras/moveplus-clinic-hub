@@ -13,6 +13,8 @@ const nav = [
   { to: "/app/pacientes", label: "Pacientes", icon: Users },
   { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/app/reavaliacoes", label: "Reavaliações", icon: RefreshCw },
+  { to: "/app/relatorios", label: "Relatórios", icon: BarChart3 },
+
   { to: "/app/templates", label: "Modelos", icon: FileText, adminOnly: true },
   { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true },
   { to: "/app/profissionais", label: "Profissionais", icon: UserCog, adminOnly: true },
