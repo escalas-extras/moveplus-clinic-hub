@@ -13,9 +13,12 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   evolucao: "Evolução",
   relatorio: "Relatório",
   encaminhamento: "Encaminhamento",
-  termo: "Termo / Documento",
+  termo: "Termo",
   declaracao: "Declaração",
   laudo: "Laudo",
+  contrato: "Contrato",
+  alta: "Alta",
+  plano: "Plano Terapêutico",
   recibo: "Recibo",
 };
 
