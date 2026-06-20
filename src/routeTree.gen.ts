@@ -20,6 +20,7 @@ import { Route as AuthenticatedAppTemplatesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppRelatoriosRouteImport } from './routes/_authenticated/app/relatorios'
 import { Route as AuthenticatedAppReavaliacoesRouteImport } from './routes/_authenticated/app/reavaliacoes'
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
+import { Route as AuthenticatedAppMarketingRouteImport } from './routes/_authenticated/app/marketing'
 import { Route as AuthenticatedAppHomeCareRouteImport } from './routes/_authenticated/app/home-care'
 import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
 import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_authenticated/app/dashboard-clinico'
@@ -88,6 +89,12 @@ const AuthenticatedAppProfissionaisRoute =
     path: '/app/profissionais',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppMarketingRoute =
+  AuthenticatedAppMarketingRouteImport.update({
+    id: '/app/marketing',
+    path: '/app/marketing',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppHomeCareRoute =
   AuthenticatedAppHomeCareRouteImport.update({
     id: '/app/home-care',
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/home-care': typeof AuthenticatedAppHomeCareRoute
+  '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
@@ -167,6 +175,7 @@ export interface FileRoutesByTo {
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/home-care': typeof AuthenticatedAppHomeCareRoute
+  '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
@@ -189,6 +198,7 @@ export interface FileRoutesById {
   '/_authenticated/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/_authenticated/app/home-care': typeof AuthenticatedAppHomeCareRoute
+  '/_authenticated/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/_authenticated/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/_authenticated/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/app/dashboard-clinico'
     | '/app/financeiro'
     | '/app/home-care'
+    | '/app/marketing'
     | '/app/profissionais'
     | '/app/reavaliacoes'
     | '/app/relatorios'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/app/dashboard-clinico'
     | '/app/financeiro'
     | '/app/home-care'
+    | '/app/marketing'
     | '/app/profissionais'
     | '/app/reavaliacoes'
     | '/app/relatorios'
@@ -252,6 +264,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/dashboard-clinico'
     | '/_authenticated/app/financeiro'
     | '/_authenticated/app/home-care'
+    | '/_authenticated/app/marketing'
     | '/_authenticated/app/profissionais'
     | '/_authenticated/app/reavaliacoes'
     | '/_authenticated/app/relatorios'
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppProfissionaisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/marketing': {
+      id: '/_authenticated/app/marketing'
+      path: '/app/marketing'
+      fullPath: '/app/marketing'
+      preLoaderRoute: typeof AuthenticatedAppMarketingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/home-care': {
       id: '/_authenticated/app/home-care'
       path: '/app/home-care'
@@ -415,6 +435,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppDashboardClinicoRoute: typeof AuthenticatedAppDashboardClinicoRoute
   AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
   AuthenticatedAppHomeCareRoute: typeof AuthenticatedAppHomeCareRoute
+  AuthenticatedAppMarketingRoute: typeof AuthenticatedAppMarketingRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
   AuthenticatedAppReavaliacoesRoute: typeof AuthenticatedAppReavaliacoesRoute
   AuthenticatedAppRelatoriosRoute: typeof AuthenticatedAppRelatoriosRoute
@@ -432,6 +453,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppDashboardClinicoRoute: AuthenticatedAppDashboardClinicoRoute,
   AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
   AuthenticatedAppHomeCareRoute: AuthenticatedAppHomeCareRoute,
+  AuthenticatedAppMarketingRoute: AuthenticatedAppMarketingRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
   AuthenticatedAppReavaliacoesRoute: AuthenticatedAppReavaliacoesRoute,
   AuthenticatedAppRelatoriosRoute: AuthenticatedAppRelatoriosRoute,
