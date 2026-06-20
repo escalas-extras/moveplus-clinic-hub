@@ -122,3 +122,22 @@ Itens identificados durante a execução da V1.0 que foram conscientemente adiad
 - **Limite de plano** por clinic (assinaturas SaaS)
 - **API pública v1** (REST com chaves por clínica) para integração de parceiros
 - **App mobile nativo** (React Native) para fisioterapeutas em atendimento domiciliar
+
+---
+
+## Bloco D — Piloto Operacional (2026-06-20)
+
+Itens identificados durante a preparação do go-live e direcionados ao roadmap V1.1:
+
+- Manual do usuário em PDF e vídeos tutoriais curtos.
+- Central de notificações in-app para reavaliações vencidas.
+- App nativo para atendimento domiciliar offline.
+- MFA (TOTP) para administradores.
+- Integração com agenda Google/Outlook.
+- Dashboard de BI avançado (coortes, NPS clínico).
+- Templates de documentos com editor WYSIWYG.
+- Geração de PDF server-side (renderização fiel a impressão).
+- Integração com gateways de pagamento (Stripe/Paddle) para mensalidade.
+- White-label completo (CSS variables por clínica).
+
+Consulte `GO-LIVE-V1.md` para os entregáveis do Bloco D (checklists, DR, monitoramento).
