@@ -28,12 +28,19 @@ export const Route = createFileRoute("/_authenticated/app/documentos")({
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   avaliacao_inicial: "Avaliação",
+  avaliacao: "Avaliação",
   reavaliacao: "Reavaliação",
   evolucao: "Evolução",
   relatorio: "Relatório",
   alta: "Alta",
   encaminhamento: "Encaminhamento",
   parecer: "Documento / Termo",
+  termo: "Termo",
+  declaracao: "Declaração",
+  laudo: "Laudo",
+  contrato: "Contrato",
+  plano: "Plano Terapêutico",
+  recibo: "Recibo",
 };
 
 function DocumentosPage() {
