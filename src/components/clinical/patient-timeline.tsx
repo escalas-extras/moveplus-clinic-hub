@@ -14,11 +14,11 @@ type TimelineItem = {
 };
 
 const KIND_META: Record<TimelineItem["kind"], { label: string; icon: any; color: string }> = {
-  assessment: { label: "Avaliação", icon: ClipboardList, color: "#2f5d3a" },
-  reassessment: { label: "Reavaliação", icon: RefreshCw, color: "#0e7490" },
-  evolution: { label: "Evolução", icon: Activity, color: "#6b21a8" },
-  discharge: { label: "Alta", icon: LogOut, color: "#c75c3a" },
-  document: { label: "Documento", icon: FileText, color: "#475569" },
+  assessment:   { label: "Avaliação",   icon: ClipboardList, color: "#0F4C5C" },
+  reassessment: { label: "Reavaliação", icon: RefreshCw,     color: "#4F9CF9" },
+  evolution:    { label: "Evolução",    icon: Activity,      color: "#2BB673" },
+  discharge:    { label: "Alta",        icon: LogOut,        color: "#E07A5F" },
+  document:     { label: "Documento",   icon: FileText,      color: "#64748B" },
 };
 
 export function PatientTimeline({ patientId }: { patientId: string }) {
@@ -77,17 +77,20 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
         <h3 className="font-semibold">Linha do tempo clínica</h3>
         <p className="text-xs text-muted-foreground">{items.length} eventos · do mais recente ao mais antigo</p>
       </div>
-      <ol className="relative border-l-2 border-muted ml-3 space-y-5">
+      <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-gradient-to-b before:from-primary/30 before:via-border before:to-transparent">
         {items.map((it) => {
           const meta = KIND_META[it.kind];
           const Icon = meta.icon;
           return (
-            <li key={it.id} className="ml-6">
-              <span className="absolute -left-[13px] flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background" style={{ backgroundColor: meta.color }}>
-                <Icon className="h-3 w-3 text-white" />
+            <li key={it.id} className="ml-6 lift hover:translate-x-0.5">
+              <span
+                className="absolute -left-[14px] flex h-7 w-7 items-center justify-center rounded-full ring-4 ring-background shadow-soft"
+                style={{ background: `linear-gradient(135deg, ${meta.color}, color-mix(in oklab, ${meta.color} 70%, white))` }}
+              >
+                <Icon className="h-3.5 w-3.5 text-white" />
               </span>
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-xs font-medium uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: meta.color }}>{meta.label}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{fmtDate(it.date)}{it.hora ? ` · ${String(it.hora).slice(0, 5)}` : ""}</span>
               </div>
               <div className="text-sm font-medium mt-0.5">{it.title}</div>
