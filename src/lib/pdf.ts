@@ -94,7 +94,10 @@ export async function buildPdf(opts: {
   sections?: PdfSection[];
   blocks?: PdfBlock[];
   professional?: Professional | null;
+  validationHash?: string | null;
+  validationUrlBase?: string;
 }) {
+
   const { data: clinic } = await supabase
     .from("clinic_settings")
     .select("nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional")
