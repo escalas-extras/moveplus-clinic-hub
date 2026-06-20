@@ -541,7 +541,25 @@ export async function buildPdf(opts: {
     doc.text(`Emitido em ${fmtDateTime(new Date())}`, M, fy + 14);
     doc.text(c.rodape_institucional || `${c.nome_fantasia ?? "Move 60+"} · ${[c.cidade, c.estado].filter(Boolean).join("/")}`, M, fy + 26);
     doc.text(`Página ${i} de ${pageCount}`, W - M - 4, fy + 14, { align: "right" });
+
+    // QR + hash de validação (somente última página)
+    if (i === pageCount && opts.validationHash) {
+      try {
+        const base = opts.validationUrlBase || (typeof window !== "undefined" ? window.location.origin : "");
+        const url = `${base}/validar/${opts.validationHash}`;
+        const qrDataUrl = await QRCode.toDataURL(url, { margin: 0, width: 180 });
+        const qrSize = 56;
+        const qrX = W - M - qrSize;
+        const qrY = fy - qrSize - 6;
+        doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+        doc.setFontSize(6.5);
+        doc.setTextColor(...C.muted);
+        doc.text("Valide em:", qrX, qrY - 4);
+        doc.text(`${opts.validationHash.slice(0, 12)}…`, qrX, qrY + qrSize + 8);
+      } catch { /* ignore QR errors */ }
+    }
   }
+
 
   return doc;
 }
