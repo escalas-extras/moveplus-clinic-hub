@@ -134,7 +134,7 @@ function ReportsPage() {
       .from("evolutions")
       .select("data, conduta, intercorrencias, patients(nome_completo), professionals(nome)")
       .gte("data", from).lte("data", to);
-    const rows = data.map((e: any) => ({
+    const rows = (data ?? []).map((e: any) => ({
       data: e.data,
       paciente: e.patients?.nome_completo,
       profissional: e.professionals?.nome,
