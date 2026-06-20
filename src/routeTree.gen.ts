@@ -17,6 +17,7 @@ import { Route as ValidarHashRouteImport } from './routes/validar.$hash'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as AuthenticatedAppUsuariosRouteImport } from './routes/_authenticated/app/usuarios'
 import { Route as AuthenticatedAppTemplatesRouteImport } from './routes/_authenticated/app/templates'
+import { Route as AuthenticatedAppReavaliacoesRouteImport } from './routes/_authenticated/app/reavaliacoes'
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
 import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
 import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_authenticated/app/dashboard-clinico'
@@ -64,6 +65,12 @@ const AuthenticatedAppTemplatesRoute =
   AuthenticatedAppTemplatesRouteImport.update({
     id: '/app/templates',
     path: '/app/templates',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppReavaliacoesRoute =
+  AuthenticatedAppReavaliacoesRouteImport.update({
+    id: '/app/reavaliacoes',
+    path: '/app/reavaliacoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAppProfissionaisRoute =
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
+  '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
+  '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -152,6 +161,7 @@ export interface FileRoutesById {
   '/_authenticated/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
   '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
+  '/_authenticated/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/_authenticated/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/_authenticated/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/app/dashboard-clinico'
     | '/app/financeiro'
     | '/app/profissionais'
+    | '/app/reavaliacoes'
     | '/app/templates'
     | '/app/usuarios'
     | '/app/'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/app/dashboard-clinico'
     | '/app/financeiro'
     | '/app/profissionais'
+    | '/app/reavaliacoes'
     | '/app/templates'
     | '/app/usuarios'
     | '/app'
@@ -203,6 +215,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/dashboard-clinico'
     | '/_authenticated/app/financeiro'
     | '/_authenticated/app/profissionais'
+    | '/_authenticated/app/reavaliacoes'
     | '/_authenticated/app/templates'
     | '/_authenticated/app/usuarios'
     | '/_authenticated/app/'
@@ -276,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppTemplatesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/reavaliacoes': {
+      id: '/_authenticated/app/reavaliacoes'
+      path: '/app/reavaliacoes'
+      fullPath: '/app/reavaliacoes'
+      preLoaderRoute: typeof AuthenticatedAppReavaliacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/profissionais': {
       id: '/_authenticated/app/profissionais'
       path: '/app/profissionais'
@@ -334,6 +354,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppDashboardClinicoRoute: typeof AuthenticatedAppDashboardClinicoRoute
   AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
+  AuthenticatedAppReavaliacoesRoute: typeof AuthenticatedAppReavaliacoesRoute
   AuthenticatedAppTemplatesRoute: typeof AuthenticatedAppTemplatesRoute
   AuthenticatedAppUsuariosRoute: typeof AuthenticatedAppUsuariosRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -347,6 +368,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppDashboardClinicoRoute: AuthenticatedAppDashboardClinicoRoute,
   AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
+  AuthenticatedAppReavaliacoesRoute: AuthenticatedAppReavaliacoesRoute,
   AuthenticatedAppTemplatesRoute: AuthenticatedAppTemplatesRoute,
   AuthenticatedAppUsuariosRoute: AuthenticatedAppUsuariosRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
