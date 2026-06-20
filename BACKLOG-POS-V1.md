@@ -155,3 +155,36 @@ Consulte `GO-LIVE-V1.md` para os entregáveis do Bloco D (checklists, DR, monito
 - Datas comemorativas pré-cadastradas (seed anual).
 - Compartilhamento de conteúdo entre clínicas (scope='shared' com aprovação).
 - Controle granular de visualização de treinamentos (% progresso, certificado).
+
+## Bloco F (FisioOS V1.1) — Concluído
+
+**F1 — Rebranding + White Label**
+- Renomeado Move+/Move 60+ → FisioOS em UI, login, root head/meta, PDFs (fallbacks), validar/$hash, set-password, biblioteca, diferenciais, onboarding, merge-tags
+- Tabela `clinic_settings` expandida com: `app_name`, `slogan`, `primary_color`, `secondary_color`, `crefito_default`
+- Hook `useBranding()` em `src/lib/branding.ts` (clinic settings + fallback institucional FisioOS com símbolo estetoscópio)
+- Tela `/app/configuracoes` com seção White Label: cores primária/secundária, slogan, nome do app, upload de logo para bucket `documents/branding/`, preview ao vivo, fallback automático com estetoscópio quando não há logo
+- Sidebar e login aplicam cores da clínica dinamicamente
+
+**F2 — Dashboard Premium**
+- `/app` reescrito com saudação contextual (manhã/tarde/noite + primeiro nome)
+- 8 cards principais: pacientes ativos, atendimentos hoje, reavaliações vencidas, sessões/mês, altas/mês, faturamento/mês, sessões por paciente, contas pendentes
+- Alerta inteligente: reavaliações vencidas com link direto ao paciente
+- Agenda do dia + painel de ações rápidas
+- Mobile first com grid responsivo
+
+**F3 — Fluxo Clínico 360º**
+- Tabela `patient_discharges` + RLS (admins gerenciam, usuários veem dos seus pacientes)
+- Campos `data_alta` e `discharge_id` em `patients`
+- Componente `PatientTimeline` — linha do tempo cronológica unificada (avaliações, reavaliações, evoluções, altas, documentos)
+- Componente `ReassessmentComparator` — comparativo automático Δ EVA + queixa/objetivos/condutas entre últimas 2 avaliações
+- Componente `DischargePanel` — registro de alta com motivo, objetivos alcançados/pendentes, recomendações, plano domiciliar + geração de Relatório de Alta Fisioterapêutica em PDF com hash de validação e assinatura
+- Novas abas no prontuário do paciente: Timeline 360º, Reavaliação, Alta
+
+## Backlog V1.2 (sucessor)
+- Aplicar branding (cores) também no PDF (`pdf.ts` ainda usa cor `C.brand` fixa)
+- Editor WYSIWYG de templates de documentos
+- Comparativo de escalas (Berg/Tinetti/Barthel) na Reavaliação
+- Plano terapêutico estruturado (entidade própria, não texto livre)
+- Permissões finas: Recepção e Supervisor Clínico (hoje só Admin e Fisio)
+- Notificações in-app para reavaliações vencidas
+- Receitas/pacotes de sessões mais sofisticados no Financeiro

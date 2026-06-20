@@ -52,7 +52,7 @@ function SetPasswordPage() {
       <Card className="w-full max-w-md p-8">
         <h1 className="text-2xl mb-1">Defina sua senha</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          Crie a senha de acesso à sua conta Move 60+.
+          Crie a senha de acesso à sua conta FisioOS.
         </p>
 
         {!ready ? (

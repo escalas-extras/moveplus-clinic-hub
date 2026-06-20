@@ -1,11 +1,12 @@
 import logoAsset from "@/assets/logo.jpg.asset.json";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X, ShieldCheck, Activity, FileText, RefreshCw, BarChart3, BookOpen, Home as HomeIcon, Megaphone, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X, ShieldCheck, Activity, FileText, RefreshCw, BarChart3, BookOpen, Home as HomeIcon, Megaphone, Sparkles, Stethoscope } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useBranding } from "@/lib/branding";
 
 const nav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -14,10 +15,10 @@ const nav = [
   { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/app/reavaliacoes", label: "Reavaliações", icon: RefreshCw },
   { to: "/app/home-care", label: "Home Care", icon: HomeIcon },
-  { to: "/app/biblioteca", label: "Biblioteca Move+", icon: BookOpen },
+  { to: "/app/biblioteca", label: "Biblioteca", icon: BookOpen },
   { to: "/app/marketing", label: "Marketing", icon: Megaphone },
   { to: "/app/relatorios", label: "Relatórios", icon: BarChart3 },
-  { to: "/app/diferenciais", label: "Por que Move+", icon: Sparkles },
+  { to: "/app/diferenciais", label: "Diferenciais", icon: Sparkles },
 
   { to: "/app/templates", label: "Modelos", icon: FileText, adminOnly: true },
   { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true },
@@ -26,13 +27,12 @@ const nav = [
   { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
 ];
 
-
-
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const brand = useBranding();
 
   async function logout() {
     await supabase.auth.signOut();
@@ -46,8 +46,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile top bar */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-16 border-b bg-sidebar flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <Logo />
-          <span className="font-semibold">Move 60+</span>
+          <Logo brand={brand} />
+          <span className="font-semibold" style={{ color: brand.primaryColor }}>{brand.clinicName}</span>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setOpen(!open)}>
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -62,10 +62,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="hidden lg:flex items-center gap-3 px-5 h-16 border-b">
-          <Logo />
+          <Logo brand={brand} />
           <div className="leading-tight">
-            <div className="font-semibold" style={{ color: "#2f5d3a" }}>Move 60+</div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Fisioterapia</div>
+            <div className="font-semibold" style={{ color: brand.primaryColor }}>{brand.clinicName}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {brand.hasOwnLogo ? "Fisioterapia" : `Powered by ${brand.appName}`}
+            </div>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -106,6 +108,18 @@ function NavItem({ to, exact, icon: Icon, label, onClick }: { to: string; exact?
   );
 }
 
-function Logo() {
-  return <img src={logoAsset.url} alt="Move 60+" className="h-12 w-auto" />;
+function Logo({ brand }: { brand: ReturnType<typeof useBranding> }) {
+  if (brand.hasOwnLogo && brand.logoUrl) {
+    return <img src={brand.logoUrl} alt={brand.clinicName} className="h-12 w-auto object-contain" />;
+  }
+  // Fallback: símbolo institucional de fisioterapia (Stethoscope) com cor primária
+  // OU logo padrão se ainda nenhuma configuração definida
+  if (brand.clinicName === "FisioOS") {
+    return (
+      <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}>
+        <Stethoscope className="h-6 w-6 text-white" />
+      </div>
+    );
+  }
+  return <img src={logoAsset.url} alt={brand.clinicName} className="h-12 w-auto" />;
 }

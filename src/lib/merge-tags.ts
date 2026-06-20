@@ -54,7 +54,7 @@ export function buildMergeData(ctx: MergeContext): Record<string, string> {
     condutas: a.condutas || "—",
     proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "—",
 
-    clinica_nome: c.nome_fantasia || "Move+",
+    clinica_nome: c.nome_fantasia || "FisioOS",
     clinica_endereco: [c.endereco, c.cidade, c.estado].filter(Boolean).join(", ") || "—",
     clinica_telefone: Array.isArray(c.telefones) ? c.telefones.join(" · ") : (c.telefones || "—"),
   };

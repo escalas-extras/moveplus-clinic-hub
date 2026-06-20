@@ -1076,53 +1076,68 @@ export type Database = {
       }
       clinic_settings: {
         Row: {
+          app_name: string | null
           assinatura_padrao_url: string | null
           cep: string | null
           cidade: string | null
           cnpj: string | null
           created_at: string
+          crefito_default: string | null
           emails: string[] | null
           endereco: string | null
           estado: string | null
           id: string
           logo_url: string | null
           nome_fantasia: string
+          primary_color: string | null
           razao_social: string | null
           rodape_institucional: string | null
+          secondary_color: string | null
+          slogan: string | null
           telefones: string[] | null
           updated_at: string
         }
         Insert: {
+          app_name?: string | null
           assinatura_padrao_url?: string | null
           cep?: string | null
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
+          crefito_default?: string | null
           emails?: string[] | null
           endereco?: string | null
           estado?: string | null
           id?: string
           logo_url?: string | null
           nome_fantasia: string
+          primary_color?: string | null
           razao_social?: string | null
           rodape_institucional?: string | null
+          secondary_color?: string | null
+          slogan?: string | null
           telefones?: string[] | null
           updated_at?: string
         }
         Update: {
+          app_name?: string | null
           assinatura_padrao_url?: string | null
           cep?: string | null
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
+          crefito_default?: string | null
           emails?: string[] | null
           endereco?: string | null
           estado?: string | null
           id?: string
           logo_url?: string | null
           nome_fantasia?: string
+          primary_color?: string | null
           razao_social?: string | null
           rodape_institucional?: string | null
+          secondary_color?: string | null
+          slogan?: string | null
           telefones?: string[] | null
           updated_at?: string
         }
@@ -2171,6 +2186,75 @@ export type Database = {
           },
         ]
       }
+      patient_discharges: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data_alta: string
+          id: string
+          locked_at: string | null
+          motivo: string
+          objetivos_alcancados: string | null
+          objetivos_pendentes: string | null
+          observacoes: string | null
+          patient_id: string
+          plano_domiciliar: string | null
+          professional_id: string | null
+          recomendacoes: string | null
+          updated_at: string
+          validation_hash: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data_alta?: string
+          id?: string
+          locked_at?: string | null
+          motivo: string
+          objetivos_alcancados?: string | null
+          objetivos_pendentes?: string | null
+          observacoes?: string | null
+          patient_id: string
+          plano_domiciliar?: string | null
+          professional_id?: string | null
+          recomendacoes?: string | null
+          updated_at?: string
+          validation_hash?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data_alta?: string
+          id?: string
+          locked_at?: string | null
+          motivo?: string
+          objetivos_alcancados?: string | null
+          objetivos_pendentes?: string | null
+          observacoes?: string | null
+          patient_id?: string
+          plano_domiciliar?: string | null
+          professional_id?: string | null
+          recomendacoes?: string | null
+          updated_at?: string
+          validation_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_discharges_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_discharges_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           bairro: string | null
@@ -2180,7 +2264,9 @@ export type Database = {
           cpf: string | null
           created_at: string
           created_by: string | null
+          data_alta: string | null
           data_nascimento: string | null
+          discharge_id: string | null
           endereco: string | null
           endereco_comercial: string | null
           estado: string | null
@@ -2208,7 +2294,9 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           created_by?: string | null
+          data_alta?: string | null
           data_nascimento?: string | null
+          discharge_id?: string | null
           endereco?: string | null
           endereco_comercial?: string | null
           estado?: string | null
@@ -2236,7 +2324,9 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           created_by?: string | null
+          data_alta?: string | null
           data_nascimento?: string | null
+          discharge_id?: string | null
           endereco?: string | null
           endereco_comercial?: string | null
           estado?: string | null
@@ -2256,7 +2346,15 @@ export type Database = {
           updated_at?: string
           whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "patients_discharge_id_fkey"
+            columns: ["discharge_id"]
+            isOneToOne: false
+            referencedRelation: "patient_discharges"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       professionals: {
         Row: {

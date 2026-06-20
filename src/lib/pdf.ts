@@ -143,7 +143,7 @@ export async function buildPdf(opts: {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text(c.nome_fantasia || "Move 60+", tx, textTopY + titleH);
+    doc.text(c.nome_fantasia || "FisioOS", tx, textTopY + titleH);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.text(lines, tx, textTopY + titleH + titleLineGap + lineH);
@@ -539,7 +539,7 @@ export async function buildPdf(opts: {
     doc.setFontSize(8);
     doc.setTextColor(...C.muted);
     doc.text(`Emitido em ${fmtDateTime(new Date())}`, M, fy + 14);
-    doc.text(c.rodape_institucional || `${c.nome_fantasia ?? "Move 60+"} · ${[c.cidade, c.estado].filter(Boolean).join("/")}`, M, fy + 26);
+    doc.text(c.rodape_institucional || `${c.nome_fantasia ?? "FisioOS"} · ${[c.cidade, c.estado].filter(Boolean).join("/") || "Transformando atendimentos em resultados"}`, M, fy + 26);
     doc.text(`Página ${i} de ${pageCount}`, W - M - 4, fy + 14, { align: "right" });
 
     // QR + hash de validação (somente última página)
