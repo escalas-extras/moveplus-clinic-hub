@@ -202,6 +202,7 @@ function PatientPage() {
           <TabsTrigger value="dados">Dados</TabsTrigger>
           <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
           <TabsTrigger value="evolucoes">Evoluções</TabsTrigger>
+          <TabsTrigger value="clinico">Clínico</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dados">

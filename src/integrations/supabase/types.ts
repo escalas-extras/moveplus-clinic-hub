@@ -167,6 +167,120 @@ export type Database = {
           },
         ]
       }
+      assessment_goals: {
+        Row: {
+          achieved_at: string | null
+          assessment_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          notes: string | null
+          patient_id: string
+          progress_pct: number
+          status: Database["public"]["Enums"]["goal_status"]
+          target_date: string | null
+          term: Database["public"]["Enums"]["goal_term"]
+          updated_at: string
+        }
+        Insert: {
+          achieved_at?: string | null
+          assessment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          progress_pct?: number
+          status?: Database["public"]["Enums"]["goal_status"]
+          target_date?: string | null
+          term: Database["public"]["Enums"]["goal_term"]
+          updated_at?: string
+        }
+        Update: {
+          achieved_at?: string | null
+          assessment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          progress_pct?: number
+          status?: Database["public"]["Enums"]["goal_status"]
+          target_date?: string | null
+          term?: Database["public"]["Enums"]["goal_term"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_goals_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_goniometry: {
+        Row: {
+          applied_at: string
+          assessment_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          measurements: Json
+          notes: string | null
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          assessment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          measurements?: Json
+          notes?: string | null
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          assessment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          measurements?: Json
+          notes?: string | null
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_goniometry_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_goniometry_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_modules: {
         Row: {
           assessment_id: string
@@ -195,6 +309,66 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: false
             referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_mrc: {
+        Row: {
+          applied_at: string
+          assessment_id: string | null
+          classification: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          measurements: Json
+          notes: string | null
+          patient_id: string
+          total_left: number | null
+          total_right: number | null
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          assessment_id?: string | null
+          classification?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          measurements?: Json
+          notes?: string | null
+          patient_id: string
+          total_left?: number | null
+          total_right?: number | null
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          assessment_id?: string | null
+          classification?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          measurements?: Json
+          notes?: string | null
+          patient_id?: string
+          total_left?: number | null
+          total_right?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_mrc_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_mrc_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
@@ -336,6 +510,69 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: true
             referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_scales: {
+        Row: {
+          applied_at: string
+          assessment_id: string | null
+          classification: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          items: Json
+          notes: string | null
+          patient_id: string
+          risk_level: Database["public"]["Enums"]["risk_level"] | null
+          scale_type: Database["public"]["Enums"]["scale_type"]
+          total_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string
+          assessment_id?: string | null
+          classification?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json
+          notes?: string | null
+          patient_id: string
+          risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          scale_type: Database["public"]["Enums"]["scale_type"]
+          total_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string
+          assessment_id?: string | null
+          classification?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json
+          notes?: string | null
+          patient_id?: string
+          risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          scale_type?: Database["public"]["Enums"]["scale_type"]
+          total_score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_scales_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_scales_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
@@ -639,6 +876,39 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          id: string
+          new_data: Json | null
+          occurred_at: string
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       catalog_diagnoses: {
         Row: {
           active: boolean
@@ -854,6 +1124,146 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      clinical_documents: {
+        Row: {
+          assessment_id: string | null
+          body_text: string | null
+          content: Json
+          created_at: string
+          created_by: string | null
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          issued_at: string
+          locked_at: string | null
+          patient_id: string
+          professional_id: string | null
+          title: string
+          updated_at: string
+          validation_hash: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          body_text?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id?: string
+          issued_at?: string
+          locked_at?: string | null
+          patient_id: string
+          professional_id?: string | null
+          title: string
+          updated_at?: string
+          validation_hash?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          body_text?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          issued_at?: string
+          locked_at?: string | null
+          patient_id?: string
+          professional_id?: string | null
+          title?: string
+          updated_at?: string
+          validation_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_documents_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinical_signatures: {
+        Row: {
+          assessment_id: string | null
+          created_at: string
+          document_id: string | null
+          id: string
+          ip_address: string | null
+          patient_id: string
+          signature_png: string
+          signed_at: string
+          signer_document: string | null
+          signer_name: string
+          signer_role: Database["public"]["Enums"]["signer_role"]
+          user_agent: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          ip_address?: string | null
+          patient_id: string
+          signature_png: string
+          signed_at?: string
+          signer_document?: string | null
+          signer_name: string
+          signer_role: Database["public"]["Enums"]["signer_role"]
+          user_agent?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          ip_address?: string | null
+          patient_id?: string
+          signature_png?: string
+          signed_at?: string
+          signer_document?: string | null
+          signer_name?: string
+          signer_role?: Database["public"]["Enums"]["signer_role"]
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_signatures_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_signatures_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -1082,6 +1492,42 @@ export type Database = {
           },
         ]
       }
+      normative_rom: {
+        Row: {
+          active: boolean
+          display_order: number
+          id: string
+          movement_key: string
+          movement_label: string
+          normal_max: number
+          normal_min: number
+          region: string
+          unit: string
+        }
+        Insert: {
+          active?: boolean
+          display_order?: number
+          id?: string
+          movement_key: string
+          movement_label: string
+          normal_max: number
+          normal_min: number
+          region: string
+          unit?: string
+        }
+        Update: {
+          active?: boolean
+          display_order?: number
+          id?: string
+          movement_key?: string
+          movement_label?: string
+          normal_max?: number
+          normal_min?: number
+          region?: string
+          unit?: string
+        }
+        Relationships: []
+      }
       patient_attachments: {
         Row: {
           created_at: string
@@ -1278,6 +1724,63 @@ export type Database = {
         }
         Relationships: []
       }
+      reassessment_schedule: {
+        Row: {
+          base_assessment_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          interval_days: number
+          notes: string | null
+          patient_id: string
+          reminder_sent: boolean
+          scheduled_for: string
+          updated_at: string
+        }
+        Insert: {
+          base_assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interval_days?: number
+          notes?: string | null
+          patient_id: string
+          reminder_sent?: boolean
+          scheduled_for: string
+          updated_at?: string
+        }
+        Update: {
+          base_assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interval_days?: number
+          notes?: string | null
+          patient_id?: string
+          reminder_sent?: boolean
+          scheduled_for?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reassessment_schedule_base_assessment_id_fkey"
+            columns: ["base_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reassessment_schedule_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipts: {
         Row: {
           created_at: string
@@ -1365,6 +1868,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
       current_professional_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -1414,8 +1918,18 @@ export type Database = {
         | "encaminhamento"
         | "laudo"
       entity_status: "ativo" | "inativo"
+      goal_status:
+        | "pendente"
+        | "em_andamento"
+        | "atingido"
+        | "nao_atingido"
+        | "cancelado"
+      goal_term: "curto" | "medio" | "longo"
       payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
       payment_status: "pago" | "pendente"
+      risk_level: "baixo" | "moderado" | "alto" | "muito_alto"
+      scale_type: "barthel" | "katz" | "berg" | "tinetti" | "braden"
+      signer_role: "paciente" | "responsavel" | "profissional"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1585,8 +2099,19 @@ export const Constants = {
         "laudo",
       ],
       entity_status: ["ativo", "inativo"],
+      goal_status: [
+        "pendente",
+        "em_andamento",
+        "atingido",
+        "nao_atingido",
+        "cancelado",
+      ],
+      goal_term: ["curto", "medio", "longo"],
       payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
       payment_status: ["pago", "pendente"],
+      risk_level: ["baixo", "moderado", "alto", "muito_alto"],
+      scale_type: ["barthel", "katz", "berg", "tinetti", "braden"],
+      signer_role: ["paciente", "responsavel", "profissional"],
     },
   },
 } as const
