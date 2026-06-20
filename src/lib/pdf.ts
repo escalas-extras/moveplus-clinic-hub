@@ -534,10 +534,12 @@ export async function buildPdf(opts: {
   const SIG_BLOCK_H = isContract ? 360 : 140;
 
   // Se assinatura não cabe na última página, abre nova
-  if (renderSignatures && pageY + SIG_BLOCK_H > H - 90) {
+  if (renderSignatures && y + SIG_BLOCK_H > H - 90) {
     doc.addPage();
     pageY = M + 8;
+    y = pageY;
   }
+
 
   const pageCount = doc.getNumberOfPages();
   const lastPageEndY = y; // posição real do cursor após renderização
