@@ -72,7 +72,12 @@ async function loadLogoDataUrl(): Promise<string | null> {
 async function urlToDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
+    if (!res.ok) return null;
+    const ct = res.headers.get("content-type") || "";
+    // Only accept real images; reject HTML, JSON, redirect pages, git repos, etc.
+    if (!ct.startsWith("image/")) return null;
     const blob = await res.blob();
+    if (blob.size === 0) return null;
     return await new Promise<string>((resolve, reject) => {
       const r = new FileReader();
       r.onloadend = () => resolve(r.result as string);
@@ -84,16 +89,24 @@ async function urlToDataUrl(url: string): Promise<string | null> {
   }
 }
 
+function isLikelyImageUrl(url: string): boolean {
+  // Reject obvious non-image URLs (git repos, etc.) before fetching
+  if (/\.git(\?|$|#)/i.test(url)) return false;
+  if (/^https?:\/\/(www\.)?github\.com\//i.test(url) && !/\/raw\//.test(url)) return false;
+  return true;
+}
+
 async function loadClinicOrDefaultLogo(clinicLogoUrl?: string | null): Promise<string | null> {
   if (clinicLogoUrl) {
-    // Supabase storage signed/public URL or absolute URL
     let finalUrl = clinicLogoUrl;
     if (!/^https?:\/\//.test(clinicLogoUrl)) {
       const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
       finalUrl = data.publicUrl;
     }
-    const dataUrl = await urlToDataUrl(finalUrl);
-    if (dataUrl) return dataUrl;
+    if (isLikelyImageUrl(finalUrl)) {
+      const dataUrl = await urlToDataUrl(finalUrl);
+      if (dataUrl) return dataUrl;
+    }
   }
   return loadLogoDataUrl();
 }

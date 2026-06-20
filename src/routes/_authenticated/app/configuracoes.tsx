@@ -163,6 +163,9 @@ function ConfigPage() {
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }} />
                   </label>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Use o botão <strong>Enviar arquivo</strong> para fazer upload de uma imagem (PNG ou JPG). URLs que não apontam para uma imagem real (ex.: repositórios GitHub, páginas HTML) são ignoradas e o logo institucional padrão é usado nos PDFs.
+                </p>
               </Field>
               <Field label="CREFITO padrão (sem logo)" className="sm:col-span-2">
                 <Input {...register("crefito_default")} placeholder="CREFITO-8 12345-F (usado quando a clínica não tem logo própria)" />

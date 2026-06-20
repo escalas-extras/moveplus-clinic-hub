@@ -28,12 +28,19 @@ export const Route = createFileRoute("/_authenticated/app/documentos")({
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   avaliacao_inicial: "Avaliação",
+  avaliacao: "Avaliação",
   reavaliacao: "Reavaliação",
   evolucao: "Evolução",
   relatorio: "Relatório",
   alta: "Alta",
   encaminhamento: "Encaminhamento",
   parecer: "Documento / Termo",
+  termo: "Termo",
+  declaracao: "Declaração",
+  laudo: "Laudo",
+  contrato: "Contrato",
+  plano: "Plano Terapêutico",
+  recibo: "Recibo",
 };
 
 function DocumentosPage() {
@@ -210,19 +217,27 @@ function DocumentosPage() {
       });
       if (upErr) throw upErr;
 
-      // Map template doc_type → clinical_documents.doc_type enum
-      const docTypeMap: Record<string, string> = {
-        avaliacao_inicial: "avaliacao",
-        reavaliacao: "reavaliacao",
-        evolucao: "evolucao",
-        relatorio: "relatorio",
-        alta: "relatorio",
-        encaminhamento: "encaminhamento",
-        parecer: "termo",
-      };
-      const cdocType = docTypeMap[template.doc_type] || "relatorio";
+      // Map template → clinical_documents.doc_type (granular)
+      const name = (template.name || "").toLowerCase();
+      let cdocType: string;
+      if (template.doc_type === "alta") cdocType = "alta";
+      else if (template.doc_type === "encaminhamento") cdocType = "encaminhamento";
+      else if (template.doc_type === "avaliacao_inicial") cdocType = "avaliacao";
+      else if (template.doc_type === "reavaliacao") cdocType = "reavaliacao";
+      else if (template.doc_type === "evolucao") cdocType = "evolucao";
+      else if (template.doc_type === "relatorio") {
+        if (name.includes("plano terap")) cdocType = "plano";
+        else cdocType = "relatorio";
+      } else if (template.doc_type === "parecer") {
+        if (name.includes("contrato")) cdocType = "contrato";
+        else if (name.includes("declara")) cdocType = "declaracao";
+        else if (name.includes("termo")) cdocType = "termo";
+        else if (name.includes("pericial") || name.includes("laudo")) cdocType = "laudo";
+        else cdocType = "termo";
+      } else cdocType = "relatorio";
 
-      // 4) insert clinical_documents
+      // 4) insert clinical_documents (already locked = official issuance)
+      const nowIso = new Date().toISOString();
       const { error: insErr } = await supabase.from("clinical_documents").insert({
         patient_id: patient.id,
         professional_id: professional?.id ?? null,
@@ -234,7 +249,8 @@ function DocumentosPage() {
         body_text: renderedSections.map((s) => `## ${s.title}\n${s.body}`).join("\n\n"),
         validation_hash,
         pdf_url: path,
-        issued_at: new Date().toISOString(),
+        issued_at: nowIso,
+        locked_at: nowIso,
       });
       if (insErr) throw insErr;
 
