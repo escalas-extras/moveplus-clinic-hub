@@ -6,6 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Users, CalendarDays, ClipboardCheck, Wallet } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
+
+
 
 
 export const Route = createFileRoute("/_authenticated/app/")({
@@ -50,8 +53,10 @@ function Dashboard() {
         <h1 className="text-3xl">Bom dia 👋</h1>
         <p className="text-muted-foreground text-sm">Resumo da clínica em {fmtDate(today)}</p>
       </div>
+      <OnboardingChecklist />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
         <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={`${s?.novosMes ?? 0} novos no mês`} to="/app/pacientes" />
         <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} to="/app/agenda" />
         <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? "—"} />
