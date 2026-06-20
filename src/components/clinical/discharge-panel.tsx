@@ -64,7 +64,7 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
         ...form,
       });
       if (error) throw error;
-      await supabase.from("patients").update({ data_alta: form.data_alta, situacao: "alta" }).eq("id", patientId);
+      await supabase.from("patients").update({ data_alta: form.data_alta }).eq("id", patientId);
     },
     onSuccess: () => {
       toast.success("Alta registrada");
