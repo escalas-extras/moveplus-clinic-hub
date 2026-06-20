@@ -6,6 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Users, CalendarDays, ClipboardCheck, Wallet } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
+
+
 
 
 export const Route = createFileRoute("/_authenticated/app/")({
