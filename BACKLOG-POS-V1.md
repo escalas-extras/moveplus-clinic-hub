@@ -50,3 +50,16 @@ Itens identificados durante a execução da V1.0 que foram conscientemente adiad
 ## Multi-tenant SaaS
 - Modelo de tenants para suportar múltiplas clínicas isoladas com RLS por `tenant_id`.
 - Cobrança recorrente integrada (Stripe).
+
+## BLOCO B — Itens adiados
+
+- **Geração server-side de PDF** (worker dedicado para PDFs com >50 páginas)
+- **Editor visual WYSIWYG** para modelos de documentos (atualmente Markdown + merge tags)
+- **Versioning UI completo**: diff entre versões, restore
+- **Multi-tenant ativo**: `clinics` + `clinic_id` criados em todas as tabelas, mas controle ainda single-tenant (helper `current_clinic_id()` + RLS multi-tenant a ativar antes do SaaS)
+- **White-label**: tema dinâmico por clinic_settings.logo_url / cores
+- **OCR de exames complementares** anexados ao paciente
+- **Assinatura ICP-Brasil** (atualmente: canvas + hash de validação)
+- **Notificação por e-mail/WhatsApp** de reavaliações atrasadas (cron pg_cron + Edge Function)
+- **Templates por especialidade** (cardio, neuro pediátrica, oncológica)
+- **API pública /api/public/validar** para validação programática via JSON

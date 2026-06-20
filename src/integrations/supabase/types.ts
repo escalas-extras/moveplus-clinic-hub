@@ -915,6 +915,7 @@ export type Database = {
           clinical_profiles: string[]
           code: string
           created_at: string
+          default_reassessment_days: number | null
           id: string
           keywords: string[]
           label: string
@@ -931,6 +932,7 @@ export type Database = {
           clinical_profiles?: string[]
           code: string
           created_at?: string
+          default_reassessment_days?: number | null
           id?: string
           keywords?: string[]
           label: string
@@ -947,6 +949,7 @@ export type Database = {
           clinical_profiles?: string[]
           code?: string
           created_at?: string
+          default_reassessment_days?: number | null
           id?: string
           keywords?: string[]
           label?: string
@@ -1129,6 +1132,7 @@ export type Database = {
         Row: {
           assessment_id: string | null
           body_text: string | null
+          clinic_id: string | null
           content: Json
           created_at: string
           created_by: string | null
@@ -1137,7 +1141,11 @@ export type Database = {
           issued_at: string
           locked_at: string | null
           patient_id: string
+          pdf_url: string | null
           professional_id: string | null
+          rendered_html: string | null
+          template_id: string | null
+          template_version: number | null
           title: string
           updated_at: string
           validation_hash: string | null
@@ -1145,6 +1153,7 @@ export type Database = {
         Insert: {
           assessment_id?: string | null
           body_text?: string | null
+          clinic_id?: string | null
           content?: Json
           created_at?: string
           created_by?: string | null
@@ -1153,7 +1162,11 @@ export type Database = {
           issued_at?: string
           locked_at?: string | null
           patient_id: string
+          pdf_url?: string | null
           professional_id?: string | null
+          rendered_html?: string | null
+          template_id?: string | null
+          template_version?: number | null
           title: string
           updated_at?: string
           validation_hash?: string | null
@@ -1161,6 +1174,7 @@ export type Database = {
         Update: {
           assessment_id?: string | null
           body_text?: string | null
+          clinic_id?: string | null
           content?: Json
           created_at?: string
           created_by?: string | null
@@ -1169,7 +1183,11 @@ export type Database = {
           issued_at?: string
           locked_at?: string | null
           patient_id?: string
+          pdf_url?: string | null
           professional_id?: string | null
+          rendered_html?: string | null
+          template_id?: string | null
+          template_version?: number | null
           title?: string
           updated_at?: string
           validation_hash?: string | null
@@ -1180,6 +1198,13 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: false
             referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
           {
@@ -1196,16 +1221,25 @@ export type Database = {
             referencedRelation: "professionals"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clinical_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
         ]
       }
       clinical_signatures: {
         Row: {
           assessment_id: string | null
           created_at: string
+          device_info: string | null
           document_id: string | null
           id: string
           ip_address: string | null
           patient_id: string
+          signature_order: number | null
           signature_png: string
           signed_at: string
           signer_document: string | null
@@ -1216,10 +1250,12 @@ export type Database = {
         Insert: {
           assessment_id?: string | null
           created_at?: string
+          device_info?: string | null
           document_id?: string | null
           id?: string
           ip_address?: string | null
           patient_id: string
+          signature_order?: number | null
           signature_png: string
           signed_at?: string
           signer_document?: string | null
@@ -1230,10 +1266,12 @@ export type Database = {
         Update: {
           assessment_id?: string | null
           created_at?: string
+          device_info?: string | null
           document_id?: string | null
           id?: string
           ip_address?: string | null
           patient_id?: string
+          signature_order?: number | null
           signature_png?: string
           signed_at?: string
           signer_document?: string | null
@@ -1261,6 +1299,116 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinics: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          nome: string
+          plan: string | null
+          settings_id: string | null
+          slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          plan?: string | null
+          settings_id?: string | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          plan?: string | null
+          settings_id?: string | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinics_settings_id_fkey"
+            columns: ["settings_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_templates: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          doc_type: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          layout_config: Json
+          name: string
+          parent_id: string | null
+          required_tags: string[] | null
+          sections: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          doc_type: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          layout_config?: Json
+          name: string
+          parent_id?: string | null
+          required_tags?: string[] | null
+          sections?: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          doc_type?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          layout_config?: Json
+          name?: string
+          parent_id?: string | null
+          required_tags?: string[] | null
+          sections?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_templates_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1492,6 +1640,36 @@ export type Database = {
           },
         ]
       }
+      merge_tags: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          example: string | null
+          id: string
+          is_sensitive: boolean
+          tag: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          example?: string | null
+          id?: string
+          is_sensitive?: boolean
+          tag: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          example?: string | null
+          id?: string
+          is_sensitive?: boolean
+          tag?: string
+        }
+        Relationships: []
+      }
       normative_rom: {
         Row: {
           active: boolean
@@ -1585,6 +1763,8 @@ export type Database = {
           nome_completo: string
           observacoes: string | null
           profissao: string | null
+          reassessment_interval_days: number | null
+          reassessment_notify: boolean | null
           responsavel: string | null
           rg: string | null
           sexo: string | null
@@ -1611,6 +1791,8 @@ export type Database = {
           nome_completo: string
           observacoes?: string | null
           profissao?: string | null
+          reassessment_interval_days?: number | null
+          reassessment_notify?: boolean | null
           responsavel?: string | null
           rg?: string | null
           sexo?: string | null
@@ -1637,6 +1819,8 @@ export type Database = {
           nome_completo?: string
           observacoes?: string | null
           profissao?: string | null
+          reassessment_interval_days?: number | null
+          reassessment_notify?: boolean | null
           responsavel?: string | null
           rg?: string | null
           sexo?: string | null
@@ -1865,7 +2049,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_document_validation: {
+        Row: {
+          clinica_nome: string | null
+          doc_type: Database["public"]["Enums"]["document_type"] | null
+          issued_at: string | null
+          locked_at: string | null
+          paciente_iniciais: string | null
+          profissional_nome: string | null
+          profissional_registro: string | null
+          status: string | null
+          title: string | null
+          validation_hash: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
