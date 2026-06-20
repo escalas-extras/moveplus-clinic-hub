@@ -177,7 +177,7 @@ function DocumentosPage() {
       clinic,
       discharge: lastDischarge,
     });
-    return renderTemplateSections(template.sections || [], data);
+    return renderTemplateSections((template.sections as any) || [], data);
   }, [template, patient, lastAssessment, scales, professional, clinic, lastDischarge]);
 
   const buildPdfOpts = () => ({
@@ -210,15 +210,27 @@ function DocumentosPage() {
       });
       if (upErr) throw upErr;
 
+      // Map template doc_type → clinical_documents.doc_type enum
+      const docTypeMap: Record<string, string> = {
+        avaliacao_inicial: "avaliacao",
+        reavaliacao: "reavaliacao",
+        evolucao: "evolucao",
+        relatorio: "relatorio",
+        alta: "relatorio",
+        encaminhamento: "encaminhamento",
+        parecer: "termo",
+      };
+      const cdocType = docTypeMap[template.doc_type] || "relatorio";
+
       // 4) insert clinical_documents
       const { error: insErr } = await supabase.from("clinical_documents").insert({
         patient_id: patient.id,
         professional_id: professional?.id ?? null,
-        doc_type: template.doc_type,
+        doc_type: cdocType as any,
         title: template.name,
         template_id: template.id,
         template_version: template.version,
-        content: { sections: renderedSections },
+        content: { sections: renderedSections } as any,
         body_text: renderedSections.map((s) => `## ${s.title}\n${s.body}`).join("\n\n"),
         validation_hash,
         pdf_url: path,
