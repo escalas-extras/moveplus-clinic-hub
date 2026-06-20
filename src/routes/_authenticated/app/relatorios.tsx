@@ -105,7 +105,7 @@ function ReportsPage() {
   const { data: financial } = useQuery({
     queryKey: ["report-financial", from, to],
     queryFn: async () => {
-      const { data } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
+      const { data: data = [] as any[] } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
       const recebido = data.filter((d: any) => d.status === "pago" && d.tipo === "receita").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
       const pendente = data.filter((d: any) => d.status === "pendente").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
       const despesas = data.filter((d: any) => d.tipo === "despesa").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
