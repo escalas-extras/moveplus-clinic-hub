@@ -648,6 +648,7 @@ export type Database = {
           antecedentes_pessoais: string | null
           apresentacao: string[]
           avaliacao_algica: Json | null
+          cid_secundario: string | null
           cirurgias: string | null
           clinical_profiles: string[]
           condutas: string | null
@@ -692,6 +693,7 @@ export type Database = {
           peso: number | null
           postura_alinhamento: Json | null
           professional_id: string
+          prognostico: string | null
           qr_validation_token: string | null
           queixa_principal: string | null
           recursos_terapeuticos: string | null
@@ -720,6 +722,7 @@ export type Database = {
           antecedentes_pessoais?: string | null
           apresentacao?: string[]
           avaliacao_algica?: Json | null
+          cid_secundario?: string | null
           cirurgias?: string | null
           clinical_profiles?: string[]
           condutas?: string | null
@@ -764,6 +767,7 @@ export type Database = {
           peso?: number | null
           postura_alinhamento?: Json | null
           professional_id: string
+          prognostico?: string | null
           qr_validation_token?: string | null
           queixa_principal?: string | null
           recursos_terapeuticos?: string | null
@@ -792,6 +796,7 @@ export type Database = {
           antecedentes_pessoais?: string | null
           apresentacao?: string[]
           avaliacao_algica?: Json | null
+          cid_secundario?: string | null
           cirurgias?: string | null
           clinical_profiles?: string[]
           condutas?: string | null
@@ -836,6 +841,7 @@ export type Database = {
           peso?: number | null
           postura_alinhamento?: Json | null
           professional_id?: string
+          prognostico?: string | null
           qr_validation_token?: string | null
           queixa_principal?: string | null
           recursos_terapeuticos?: string | null
@@ -2257,10 +2263,16 @@ export type Database = {
       }
       patients: {
         Row: {
+          acompanhante_nome: string | null
+          acompanhante_parentesco: string | null
           bairro: string | null
           cep: string | null
+          cid_principal: string | null
+          cid_secundario: string | null
           cidade: string | null
           contato_recado: string | null
+          convenio_carteirinha: string | null
+          convenio_nome: string | null
           cpf: string | null
           created_at: string
           created_by: string | null
@@ -2287,10 +2299,16 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          acompanhante_nome?: string | null
+          acompanhante_parentesco?: string | null
           bairro?: string | null
           cep?: string | null
+          cid_principal?: string | null
+          cid_secundario?: string | null
           cidade?: string | null
           contato_recado?: string | null
+          convenio_carteirinha?: string | null
+          convenio_nome?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
@@ -2317,10 +2335,16 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          acompanhante_nome?: string | null
+          acompanhante_parentesco?: string | null
           bairro?: string | null
           cep?: string | null
+          cid_principal?: string | null
+          cid_secundario?: string | null
           cidade?: string | null
           contato_recado?: string | null
+          convenio_carteirinha?: string | null
+          convenio_nome?: string | null
           cpf?: string | null
           created_at?: string
           created_by?: string | null
