@@ -540,7 +540,8 @@ export async function buildPdf(opts: {
   }
 
   const pageCount = doc.getNumberOfPages();
-  const lastPageEndY = pageY;
+  const lastPageEndY = y; // posição real do cursor após renderização
+
 
   // Helper: monta cidade/UF da clínica para "local e data"
   const localStr = [c.cidade, c.estado].filter(Boolean).join("/") || "—";
