@@ -209,6 +209,7 @@ function PatientPage() {
           <TabsTrigger value="evolucoes">Evoluções</TabsTrigger>
           <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
           <TabsTrigger value="clinico">Clínico</TabsTrigger>
+          <TabsTrigger value="documentos">Documentos</TabsTrigger>
           <TabsTrigger value="alta">Alta</TabsTrigger>
         </TabsList>
 
@@ -220,9 +221,14 @@ function PatientPage() {
           <ReassessmentComparator patientId={id} />
         </TabsContent>
 
+        <TabsContent value="documentos">
+          <PatientDocumentsTab patientId={id} />
+        </TabsContent>
+
         <TabsContent value="alta">
           <DischargePanel patientId={id} patient={p} />
         </TabsContent>
+
 
 
         <TabsContent value="dados">
