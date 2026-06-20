@@ -105,7 +105,7 @@ function ReportsPage() {
   const { data: financial } = useQuery({
     queryKey: ["report-financial", from, to],
     queryFn: async () => {
-      const { data = [] } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
+      const { data } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
       const recebido = data.filter((d: any) => d.status === "pago" && d.tipo === "receita").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
       const pendente = data.filter((d: any) => d.status === "pendente").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
       const despesas = data.filter((d: any) => d.tipo === "despesa").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
@@ -114,7 +114,7 @@ function ReportsPage() {
   });
 
   const exportPatients = async () => {
-    const { data = [] } = await supabase.from("patients").select("nome_completo, cpf, data_nascimento, sexo, telefone, situacao, created_at");
+    const { data } = await supabase.from("patients").select("nome_completo, cpf, data_nascimento, sexo, telefone, situacao, created_at");
     downloadCSV(`pacientes-${from}.csv`, toCSV(data, [
       { key: "nome_completo", label: "Nome" },
       { key: "cpf", label: "CPF" },
@@ -127,7 +127,7 @@ function ReportsPage() {
   };
 
   const exportEvolutions = async () => {
-    const { data = [] } = await supabase
+    const { data } = await supabase
       .from("evolutions")
       .select("data, conduta, intercorrencias, patients(nome_completo), professionals(nome)")
       .gte("data", from).lte("data", to);
