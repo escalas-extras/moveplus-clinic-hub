@@ -105,13 +105,15 @@ function ReportsPage() {
   const { data: financial } = useQuery({
     queryKey: ["report-financial", from, to],
     queryFn: async () => {
-      const { data: data = [] as any[] } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
-      const recebido = data.filter((d: any) => d.status === "pago" && d.tipo === "receita").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
-      const pendente = data.filter((d: any) => d.status === "pendente").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
-      const despesas = data.filter((d: any) => d.tipo === "despesa").reduce((s: number, d: any) => s + Number(d.valor || 0), 0);
-      return { recebido, pendente, despesas, entries: data };
+      const { data } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
+      const rows: any[] = data ?? [];
+      const recebido = rows.filter((d) => d.status === "pago" && d.tipo === "receita").reduce((s, d) => s + Number(d.valor || 0), 0);
+      const pendente = rows.filter((d) => d.status === "pendente").reduce((s, d) => s + Number(d.valor || 0), 0);
+      const despesas = rows.filter((d) => d.tipo === "despesa").reduce((s, d) => s + Number(d.valor || 0), 0);
+      return { recebido, pendente, despesas, entries: rows };
     },
   });
+
 
   const exportPatients = async () => {
     const { data } = await supabase.from("patients").select("nome_completo, cpf, data_nascimento, sexo, telefone, situacao, created_at");
