@@ -2696,6 +2696,9 @@ export type Database = {
         | "termo"
         | "encaminhamento"
         | "laudo"
+        | "contrato"
+        | "alta"
+        | "plano"
       entity_status: "ativo" | "inativo"
       goal_status:
         | "pendente"
@@ -2886,6 +2889,9 @@ export const Constants = {
         "termo",
         "encaminhamento",
         "laudo",
+        "contrato",
+        "alta",
+        "plano",
       ],
       entity_status: ["ativo", "inativo"],
       goal_status: [
