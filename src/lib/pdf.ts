@@ -521,15 +521,20 @@ export async function buildPdf(opts: {
   }
 
   // ---------- Footer on every page ----------
-  const BAR_H = 9.45; // ~1/3 de 1cm em pt (mais sutil)
+  const BAR_H = 9.45;
   const TRI = 50;
   const decorOpacity = 0.25;
   const GState = (doc as any).GState;
   const normalFooterY = H - 70;
-  const SIG_BLOCK_H = 90; // espaço reservado para linha + nome + crefito + rodapé
 
-  // Se a assinatura não cabe na última página atual, abre uma nova só para a assinatura.
-  if (opts.professional && pageY + SIG_BLOCK_H > H - 30) {
+  const isContract = /contrato/i.test(opts.title || "");
+  const renderSignatures = true; // sempre renderiza bloco de assinatura nos documentos
+
+  // Altura estimada do bloco de assinatura
+  const SIG_BLOCK_H = isContract ? 360 : 140;
+
+  // Se assinatura não cabe na última página, abre nova
+  if (renderSignatures && pageY + SIG_BLOCK_H > H - 90) {
     doc.addPage();
     pageY = M + 8;
   }
@@ -537,56 +542,123 @@ export async function buildPdf(opts: {
   const pageCount = doc.getNumberOfPages();
   const lastPageEndY = pageY;
 
+  // Helper: monta cidade/UF da clínica para "local e data"
+  const localStr = [c.cidade, c.estado].filter(Boolean).join("/") || "—";
+  const dataStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  const localData = `${localStr}, ${dataStr}.`;
+
+  // Helper: desenha um bloco de assinatura individual
+  function drawSignatureBlock(
+    cx: number,
+    sigY: number,
+    sigW: number,
+    label: string,
+    line1?: string | null,
+    line2?: string | null,
+    line3?: string | null,
+  ) {
+    doc.setDrawColor(...C.text);
+    doc.setLineWidth(0.5);
+    const sigX = cx - sigW / 2;
+    doc.line(sigX, sigY, sigX + sigW, sigY);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...C.label);
+    doc.text(label.toUpperCase(), cx, sigY + 10, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.text);
+    let ly = sigY + 22;
+    for (const ln of [line1, line2, line3]) {
+      if (ln && ln.trim() && !/^—+(\s*—+)*$/.test(ln.trim())) {
+        doc.text(ln, cx, ly, { align: "center" });
+        ly += 11;
+      }
+    }
+  }
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     let fy = normalFooterY;
-    let sigY = H - 110;
 
-    if (i === pageCount && opts.professional) {
-      const desiredSigY = lastPageEndY + 40;
-      const minSigY = H - 160;
-      const maxSigY = H - 110; // garante ~110pt até o fim para texto + rodapé
-      sigY = Math.min(maxSigY, Math.max(minSigY, desiredSigY));
-      fy = sigY + 40;
+    if (i === pageCount && renderSignatures) {
+      const desiredTop = lastPageEndY + 28;
+      const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 70);
+
+      // Local e data
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...C.text);
+      doc.text(localData, M, sigBlockTop);
+
+      if (isContract) {
+        // Layout do contrato: 5 blocos
+        // Linha 1: CONTRATANTE | CONTRATADA
+        // Linha 2: PROFISSIONAL RESPONSÁVEL (centralizado)
+        // Linha 3: TESTEMUNHA 1 | TESTEMUNHA 2
+        const colW = (W - 2 * M) / 2;
+        const sigW = 200;
+        const rowGap = 75;
+        let by = sigBlockTop + 50;
+
+        // Linha 1
+        drawSignatureBlock(M + colW / 2, by, sigW, "Contratante", null, "CPF: __________________", null);
+        drawSignatureBlock(M + colW + colW / 2, by, sigW, "Contratada", c.razao_social || c.nome_fantasia || null, c.cnpj ? `CNPJ: ${c.cnpj}` : "CNPJ: __________________", null);
+
+        // Linha 2: profissional responsável
+        by += rowGap;
+        const prof = opts.professional;
+        const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
+        const crefitoNum = prof?.registro || prof?.conselho || "";
+        const crefitoLine = crefitoNum ? `CREFITO-8 ${crefitoNum}` : "CREFITO-8: __________________";
+        drawSignatureBlock(W / 2, by, sigW + 40, "Profissional Responsável", profNome, "Fisioterapeuta", crefitoLine);
+
+        // Linha 3: testemunhas
+        by += rowGap;
+        drawSignatureBlock(M + colW / 2, by, sigW, "Testemunha 1", null, "Nome: __________________", "CPF: __________________");
+        drawSignatureBlock(M + colW + colW / 2, by, sigW, "Testemunha 2", null, "Nome: __________________", "CPF: __________________");
+      } else {
+        // Layout padrão: assinatura única do profissional + dados da clínica
+        const sigY = sigBlockTop + 60;
+        const prof = opts.professional;
+        const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
+        const crefitoNum = prof?.registro || prof?.conselho || "";
+        const crefitoLine = crefitoNum ? `CREFITO-8 ${crefitoNum}` : "CREFITO-8: __________________";
+
+        drawSignatureBlock(W / 2, sigY, 240, "Profissional Responsável", profNome, "Fisioterapeuta", crefitoLine);
+
+        // Dados da clínica logo abaixo
+        const clinicY = sigY + 56;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...C.muted);
+        const clinicLines = [
+          c.nome_fantasia || c.razao_social,
+          c.cnpj ? `CNPJ: ${c.cnpj}` : null,
+        ].filter(Boolean) as string[];
+        let cyy = clinicY;
+        for (const ln of clinicLines) {
+          doc.text(ln, W / 2, cyy, { align: "center" });
+          cyy += 11;
+        }
+      }
     }
 
-
-    // Decoração: triângulo no canto superior direito (oliva, transparente)
+    // Decoração: triângulo no canto superior direito
     doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
     doc.triangle(W - TRI, 0, W, 0, W, TRI, "F");
-    doc.setGState(new GState({ opacity: 1 })); // reset
+    doc.setGState(new GState({ opacity: 1 }));
 
-    // Rodapé: faixa oliva transparente em toda a largura
+    // Faixa do rodapé
     doc.setGState(new GState({ opacity: decorOpacity }));
     doc.setFillColor(...C.olive);
-    const barY = fy < normalFooterY - 1 ? Math.min(fy + 34, H - BAR_H) : H - BAR_H;
-    doc.rect(0, barY, W, BAR_H, "F");
-    doc.setGState(new GState({ opacity: 1 })); // reset
+    doc.rect(0, H - BAR_H, W, BAR_H, "F");
+    doc.setGState(new GState({ opacity: 1 }));
 
-    // Signature line on last page
-    if (i === pageCount && opts.professional) {
-      const prof = opts.professional;
-      const isFisio = prof.profissao?.toLowerCase().includes("fisio");
-      doc.setDrawColor(...C.text);
-      doc.setLineWidth(0.5);
-      const sigW = 220;
-      const sigX = (W - sigW) / 2;
-      doc.line(sigX, sigY, sigX + sigW, sigY);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(...C.text);
-      doc.text(prof.nome, W / 2, sigY + 11, { align: "center" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(...C.text);
-      const reg = isFisio
-        ? `CREFITO-8 ${prof.registro || prof.conselho || ""}`.trim()
-        : [prof.profissao, prof.conselho, prof.registro].filter(Boolean).join(" · ");
-      doc.text(reg, W / 2, sigY + 22, { align: "center" });
-    }
-
-    // Footer divider
+    // Divisor + texto do rodapé
     doc.setDrawColor(...C.border);
     doc.setLineWidth(0.5);
     doc.line(M, fy, W - M, fy);
@@ -613,6 +685,7 @@ export async function buildPdf(opts: {
       } catch { /* ignore QR errors */ }
     }
   }
+
 
 
   return doc;
