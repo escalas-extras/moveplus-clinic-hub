@@ -153,11 +153,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden xl:flex items-center gap-2 glass rounded-full px-4 py-2 w-72 text-sm text-muted-foreground">
-              <Search className="h-4 w-4" />
-              <span>Buscar paciente, documento…</span>
-              <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-white/70">⌘K</kbd>
+            <div className="hidden xl:flex items-center gap-2 glass rounded-full px-4 py-2 w-80 text-sm text-muted-foreground">
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="truncate flex-1">Buscar paciente, documento…</span>
+              <kbd className="ml-auto shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-white/70">⌘K</kbd>
             </div>
+
             <Button variant="ghost" size="icon" className="rounded-full glass">
               <Bell className="h-4 w-4" />
             </Button>
