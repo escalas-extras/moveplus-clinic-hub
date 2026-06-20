@@ -117,7 +117,8 @@ function ReportsPage() {
 
   const exportPatients = async () => {
     const { data } = await supabase.from("patients").select("nome_completo, cpf, data_nascimento, sexo, telefone, situacao, created_at");
-    downloadCSV(`pacientes-${from}.csv`, toCSV(data, [
+    downloadCSV(`pacientes-${from}.csv`, toCSV(data ?? [], [
+
       { key: "nome_completo", label: "Nome" },
       { key: "cpf", label: "CPF" },
       { key: "data_nascimento", label: "Nascimento" },
