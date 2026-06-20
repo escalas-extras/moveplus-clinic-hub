@@ -42,7 +42,7 @@ function DiferenciaisPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> Por que usar a Move+</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> Por que usar a FisioOS</h1>
           <p className="text-muted-foreground text-sm">Indicadores reais gerados pelo uso da plataforma na sua clínica.</p>
         </div>
 

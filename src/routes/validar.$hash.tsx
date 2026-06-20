@@ -39,7 +39,7 @@ function ValidatePage() {
       <Card className="max-w-lg w-full p-6 space-y-4 shadow-lg">
         <div className="flex items-center gap-2 text-primary">
           <ShieldCheck className="h-6 w-6" />
-          <h1 className="text-xl font-semibold">Validação Move+</h1>
+          <h1 className="text-xl font-semibold">Validação FisioOS</h1>
         </div>
 
         {isLoading ? (

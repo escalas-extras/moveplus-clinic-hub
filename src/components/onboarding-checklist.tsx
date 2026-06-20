@@ -83,7 +83,7 @@ export function OnboardingChecklist() {
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
           <div>
-            <h3 className="font-semibold">Bem-vindo à Move+</h3>
+            <h3 className="font-semibold">Bem-vindo à FisioOS</h3>
             <p className="text-xs text-muted-foreground">Complete a configuração para começar a usar tudo.</p>
           </div>
         </div>
