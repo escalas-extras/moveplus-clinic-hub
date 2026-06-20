@@ -115,15 +115,25 @@
   --sidebar-border: oklch(0.92 0.008 250);
   --sidebar-ring: var(--fos-accent);
 
-  /* Gradientes ambiente (fundo da app) */
+  /* Gradientes ambiente (aurora) — mais perceptível, sem poluir */
   --fos-aurora:
-    radial-gradient(1200px 600px at 0% -10%, color-mix(in oklab, var(--fos-accent) 14%, transparent), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, color-mix(in oklab, var(--fos-secondary) 12%, transparent), transparent 55%),
-    radial-gradient(800px 600px at 50% 100%, color-mix(in oklab, var(--fos-primary) 10%, transparent), transparent 60%);
+    radial-gradient(1100px 700px at -5% -15%, color-mix(in oklab, var(--fos-accent) 26%, transparent), transparent 55%),
+    radial-gradient(900px 600px at 105% -10%, color-mix(in oklab, var(--fos-secondary) 22%, transparent), transparent 55%),
+    radial-gradient(1000px 700px at 50% 115%, color-mix(in oklab, var(--fos-primary) 18%, transparent), transparent 60%),
+    radial-gradient(700px 500px at 80% 50%, color-mix(in oklab, var(--fos-accent) 10%, transparent), transparent 60%);
 
-  /* Sombras suaves estilo Apple */
-  --shadow-soft: 0 1px 2px rgba(15, 76, 92, 0.04), 0 8px 24px -12px rgba(15, 76, 92, 0.10);
-  --shadow-lift: 0 1px 2px rgba(15, 76, 92, 0.05), 0 18px 40px -20px rgba(15, 76, 92, 0.18);
+  /* Sombras premium */
+  --shadow-soft:
+    0 1px 2px rgba(15, 76, 92, 0.05),
+    0 12px 32px -14px rgba(15, 76, 92, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --shadow-lift:
+    0 2px 4px rgba(15, 76, 92, 0.06),
+    0 28px 56px -24px rgba(15, 76, 92, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-glow:
+    0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 30px 80px -30px color-mix(in oklab, var(--fos-accent) 35%, transparent);
 }
 
 .dark {
@@ -164,31 +174,50 @@
     background-color: var(--color-background);
     background-image: var(--fos-aurora);
     background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+  /* Camada extra de respiro: gradiente sutil de breathing global */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(800px 600px at var(--mx, 50%) var(--my, 30%), color-mix(in oklab, var(--fos-accent) 6%, transparent), transparent 60%);
+    transition: background 600ms ease;
   }
   h1, h2, h3, h4, h5 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     font-weight: 600;
   }
+  /* Números tabulares em métricas */
+  .num-hero { font-feature-settings: "tnum", "lnum"; letter-spacing: -0.035em; line-height: 0.95; }
 }
 
-/* ====== Glassmorphism utilities ====== */
+/* ====== Glassmorphism premium ====== */
 @utility glass {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: var(--shadow-soft);
 }
 @utility glass-strong {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: var(--shadow-soft);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow-lift);
 }
 @utility glass-sidebar {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(22px) saturate(160%);
-  border-right: 1px solid rgba(15, 76, 92, 0.08);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-right: 1px solid rgba(15, 76, 92, 0.06);
+}
+@utility glass-topbar {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(15, 76, 92, 0.06);
 }
 @utility lift {
   transition: transform 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms ease, background-color 250ms ease;
@@ -198,7 +227,10 @@
 }
 @utility shadow-soft { box-shadow: var(--shadow-soft); }
 @utility shadow-lift { box-shadow: var(--shadow-lift); }
+@utility shadow-glow { box-shadow: var(--shadow-glow); }
 
 .dark .glass,
 .dark .glass-strong { background: rgba(20, 28, 40, 0.55); border-color: rgba(255,255,255,0.08); }
 .dark .glass-sidebar { background: rgba(20, 28, 40, 0.65); border-color: rgba(255,255,255,0.06); }
+.dark .glass-topbar { background: rgba(20, 28, 40, 0.6); border-color: rgba(255,255,255,0.05); }
+
