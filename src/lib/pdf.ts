@@ -69,6 +69,35 @@ async function loadLogoDataUrl(): Promise<string | null> {
   return cachedLogo;
 }
 
+async function urlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function loadClinicOrDefaultLogo(clinicLogoUrl?: string | null): Promise<string | null> {
+  if (clinicLogoUrl) {
+    // Supabase storage signed/public URL or absolute URL
+    let finalUrl = clinicLogoUrl;
+    if (!/^https?:\/\//.test(clinicLogoUrl)) {
+      const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
+      finalUrl = data.publicUrl;
+    }
+    const dataUrl = await urlToDataUrl(finalUrl);
+    if (dataUrl) return dataUrl;
+  }
+  return loadLogoDataUrl();
+}
+
 // ---------- Colors ----------
 
 const C = {
