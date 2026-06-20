@@ -63,3 +63,62 @@ Itens identificados durante a execução da V1.0 que foram conscientemente adiad
 - **Notificação por e-mail/WhatsApp** de reavaliações atrasadas (cron pg_cron + Edge Function)
 - **Templates por especialidade** (cardio, neuro pediátrica, oncológica)
 - **API pública /api/public/validar** para validação programática via JSON
+
+---
+
+## BLOCO C — Hardening, Comercialização e Escala (HOMOLOGADO)
+
+### Auditoria realizada
+- 13 alertas iniciais → 3 falsos positivos remanescentes (funções `has_role`, `can_access_patient`, `current_professional_id` são intencionalmente executáveis por `authenticated` porque são chamadas pelas próprias políticas RLS — único caminho seguro).
+- Queries mais lentas: todas <1ms média; nenhum gargalo de banco.
+
+### Segurança aplicada
+- Política de UPDATE em `patients` agora restrita a `created_by = auth.uid()` ou admin (era `USING(true)`).
+- Política de INSERT em `patients` exige `created_by = auth.uid()`.
+- INSERT direto em `audit_log` bloqueado para clientes — apenas triggers (definer) gravam.
+- `EXECUTE` revogado de `anon` em todas as funções SECURITY DEFINER internas.
+- `EXECUTE` revogado de `anon` e `authenticated` em funções de trigger (`handle_new_user`, `fn_audit_trigger`, `block_locked_updates`, `fn_set_validation_hash`, `fn_schedule_reassessment`, `update_updated_at_column`).
+- View pública de validação (`v_document_validation`) já com `security_invoker=true` desde Bloco B.
+
+### Performance — índices adicionados
+- `assessments`: professional_id, (status, data DESC), GIN(clinical_profiles), next_reassessment_date (parcial).
+- `patients`: created_by, situacao.
+- `evolutions`: data DESC.
+- `appointments`: (patient_id, data), (professional_id, data).
+- `financial_entries`: data DESC, patient_id.
+- `reassessment_schedule`: (patient_id, scheduled_for), scheduled_for (parcial pendentes).
+- `clinical_documents`: validation_hash, clinic_id.
+- `document_templates`: (doc_type) parcial WHERE is_default.
+
+### Itens entregues no Bloco C
+- **Onboarding checklist**: card progressivo no dashboard com 6 passos (clínica, logo, profissionais, paciente, avaliação, modelos) — dispensável e ressurge se houver pendência.
+- **Relatórios Executivos** (`/app/relatorios`): KPIs clínicos, operacionais e financeiros com filtro por período + exportação CSV (UTF-8 BOM compatível com Excel) de pacientes, evoluções e financeiro.
+- **Sidebar**: novas entradas Reavaliações, Relatórios, Modelos (admin).
+- **Settings da clínica** já cobrem dados institucionais, logo e rodapé (preparado para white-label).
+
+### Checklist de prontidão comercial
+- [x] RLS hardened em todas as tabelas críticas
+- [x] Auditoria automática em tabelas clínicas
+- [x] PDFs com QR + hash de validação
+- [x] Validação pública LGPD-safe (apenas iniciais)
+- [x] Modelos parametrizáveis pelo admin
+- [x] Indicadores clínicos / operacionais / financeiros
+- [x] Onboarding self-service
+- [x] Multi-tenant ready (clinic_id + clinics table)
+- [x] Exportação CSV/Excel
+- [x] Reavaliações automáticas
+- [x] Assinaturas múltiplas (mouse/touch/tablet)
+- [x] Índices em todas as colunas-chave
+
+### Backlog Pós-V1.0 — adicionados no Bloco C
+- **Tour interativo guiado** (driver.js) — atual: checklist + tooltips contextuais
+- **Exportação Excel nativa (.xlsx)** — atual: CSV UTF-8 (lê no Excel)
+- **Dashboards com gráficos avançados** (recharts já instalado; expandir além dos atuais)
+- **Tema dinâmico por clínica** (white-label CSS variables)
+- **Gateway de pagamento** (Stripe/Mercado Pago integrado a `financial_entries`)
+- **Backup automático agendado** + restauração self-service
+- **Two-factor authentication** (Supabase Auth MFA)
+- **Logs de auditoria UI**: explorador visual do `audit_log`
+- **Limite de plano** por clinic (assinaturas SaaS)
+- **API pública v1** (REST com chaves por clínica) para integração de parceiros
+- **App mobile nativo** (React Native) para fisioterapeutas em atendimento domiciliar
