@@ -203,7 +203,7 @@ function PatientPage() {
       </div>
 
       <Tabs defaultValue="dados">
-        <TabsList className="flex flex-wrap">
+        <TabsList className="flex w-full h-auto flex-wrap justify-start gap-1 sm:w-auto sm:inline-flex sm:flex-nowrap sm:overflow-x-auto">
           <TabsTrigger value="dados">Dados</TabsTrigger>
           <TabsTrigger value="timeline">Timeline 360º</TabsTrigger>
           <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
