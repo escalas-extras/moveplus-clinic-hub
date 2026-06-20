@@ -19,6 +19,9 @@ import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builder
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth, useRoles } from "@/lib/auth";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
+import { PatientTimeline } from "@/components/clinical/patient-timeline";
+import { DischargePanel } from "@/components/clinical/discharge-panel";
+import { ReassessmentComparator } from "@/components/clinical/reassessment-comparator";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -201,10 +204,26 @@ function PatientPage() {
       <Tabs defaultValue="dados">
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="dados">Dados</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline 360º</TabsTrigger>
           <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
           <TabsTrigger value="evolucoes">Evoluções</TabsTrigger>
+          <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
           <TabsTrigger value="clinico">Clínico</TabsTrigger>
+          <TabsTrigger value="alta">Alta</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="timeline">
+          <PatientTimeline patientId={id} />
+        </TabsContent>
+
+        <TabsContent value="reavaliacao">
+          <ReassessmentComparator patientId={id} />
+        </TabsContent>
+
+        <TabsContent value="alta">
+          <DischargePanel patientId={id} patient={p} />
+        </TabsContent>
+
 
         <TabsContent value="dados">
           <Card className="p-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
