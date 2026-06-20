@@ -99,10 +99,10 @@ function ConfigPage() {
     const path = `branding/logo-${Date.now()}-${file.name}`;
     const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
     if (error) return toast.error(error.message);
-    const { data } = supabase.storage.from("documents").createSignedUrl ? await supabase.storage.from("documents").createSignedUrl(path, 60 * 60 * 24 * 365 * 10) : { data: null } as any;
+    const { data } = await supabase.storage.from("documents").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
     if (data?.signedUrl) {
       reset({ ...(watch() as any), logo_url: data.signedUrl });
-      toast.success("Logo enviada — clique em Salvar");
+      toast.success("Logo enviada — clique em Salvar para aplicar");
     }
   }
 
