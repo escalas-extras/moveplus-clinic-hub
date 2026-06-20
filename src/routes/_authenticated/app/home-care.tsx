@@ -19,7 +19,7 @@ type Visit = {
   therapeutic_plan: string | null; family_report: string | null; observations: string | null;
   duration_minutes: number | null;
 };
-type Patient = { id: string; full_name: string };
+type Patient = { id: string; nome_completo: string };
 
 function HomeCarePage() {
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -30,7 +30,7 @@ function HomeCarePage() {
   async function load() {
     const [v, p] = await Promise.all([
       supabase.from("home_care_visits").select("*").order("visit_date", { ascending: false }),
-      supabase.from("patients").select("id,full_name").order("full_name"),
+      supabase.from("patients").select("id,nome_completo").order("nome_completo"),
     ]);
     setVisits((v.data ?? []) as Visit[]);
     setPatients((p.data ?? []) as Patient[]);
@@ -73,7 +73,7 @@ function HomeCarePage() {
             return (
               <Card key={v.id}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{p?.full_name ?? "Paciente"}</CardTitle>
+                  <CardTitle className="text-base">{p?.nome_completo ?? "Paciente"}</CardTitle>
                   <p className="text-xs text-muted-foreground">{new Date(v.visit_date).toLocaleDateString("pt-BR")}{v.duration_minutes ? ` • ${v.duration_minutes} min` : ""}</p>
                 </CardHeader>
                 <CardContent className="space-y-1 text-sm">
@@ -94,7 +94,7 @@ function HomeCarePage() {
           <div className="space-y-3">
             <select className="w-full border rounded h-9 px-2" value={form.patient_id ?? ""} onChange={(e) => setForm({ ...form, patient_id: e.target.value })}>
               <option value="">Selecione o paciente...</option>
-              {patients.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              {patients.map((p) => <option key={p.id} value={p.id}>{p.nome_completo}</option>)}
             </select>
             <Input type="date" value={form.visit_date ?? ""} onChange={(e) => setForm({ ...form, visit_date: e.target.value })} />
             <Input type="number" placeholder="Duração (min)" value={form.duration_minutes ?? ""} onChange={(e) => setForm({ ...form, duration_minutes: Number(e.target.value) })} />
