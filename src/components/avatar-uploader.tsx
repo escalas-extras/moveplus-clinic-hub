@@ -249,3 +249,7 @@ export function UserAvatar({
     </div>
   );
 }
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : "Erro inesperado.";
+}
