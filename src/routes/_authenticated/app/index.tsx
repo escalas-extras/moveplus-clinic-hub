@@ -74,32 +74,33 @@ function Dashboard() {
   return (
     <div className="space-y-10">
       {/* Saudação minimalista — topbar já mostra clínica e data */}
+      {/* Saudação personalizada */}
       <div>
         <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">{greeting()}{userName ? `, ${userName}` : ""}</h1>
-        <p className="text-muted-foreground text-sm mt-2">Visão geral da operação clínica · {fmtDate(today)}</p>
+        <p className="text-muted-foreground text-sm mt-2">Gestão clínica de hoje · {brand.clinicName} · {fmtDate(today)}</p>
       </div>
 
       <OnboardingChecklist />
 
-      {/* Cards principais — estilo Apple Health */}
+      {/* Indicadores principais */}
       <section className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h2 className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Indicadores</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} />
-          <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} to="/app/agenda" color={brand.secondaryColor} />
-          <StatCard icon={RefreshCw} label="Reavaliações vencidas" value={s?.reavalAtrasadas.length ?? "—"} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
-          <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? "—"} color={brand.primaryColor} />
-          <StatCard icon={LogOut} label="Altas no mês" value={s?.altasMes ?? "—"} color={brand.secondaryColor} />
-          {isAdmin && (
-            <>
-              <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={s?.pendentes ? `${s.pendentes} pendentes` : undefined} to="/app/financeiro" color={brand.primaryColor} small />
-              <StatCard icon={TrendingUp} label="Sessões/paciente" value={s && s.pacientesAtivos ? (s.sessoesMes / s.pacientesAtivos).toFixed(1) : "—"} color={brand.primaryColor} />
-              <StatCard icon={FileWarning} label="Contas pendentes" value={s?.pendentes ?? "—"} to="/app/financeiro" color={brand.primaryColor} />
-            </>
-          )}
+          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} />
+          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} />
+          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} />
+          <StatCard icon={RefreshCw} label="Reavaliações pendentes" value={s?.reavalAtrasadas.length ?? 0} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
         </div>
+        {isAdmin && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+            <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? 0} color={brand.primaryColor} small />
+            <StatCard icon={LogOut} label="Altas no mês" value={s?.altasMes ?? 0} color={brand.secondaryColor} small />
+            <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={s?.pendentes ? `${s.pendentes} pendentes` : undefined} to="/app/financeiro" color={brand.primaryColor} small />
+            <StatCard icon={TrendingUp} label="Sessões/paciente" value={s && s.pacientesAtivos ? (s.sessoesMes / s.pacientesAtivos).toFixed(1) : "0"} color={brand.primaryColor} small />
+          </div>
+        )}
       </section>
 
       {/* Alertas inteligentes */}
