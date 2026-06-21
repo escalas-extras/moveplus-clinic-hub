@@ -234,6 +234,20 @@ function ExploreCard({ to, icon: Icon, title, desc, color }: { to: string; icon:
   );
 }
 
+function GrowthTile({ icon: Icon, label, value, color }: { icon: any; label: string; value: number | string; color: string }) {
+  return (
+    <div className="rounded-2xl bg-white/75 p-4 shadow-soft min-h-28 flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-3">
+        <div className="rounded-xl p-2" style={{ background: `${color}16`, color }}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="text-3xl font-semibold tabular-nums" style={{ color }}>{value}</div>
+      </div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium leading-snug">{label}</div>
+    </div>
+  );
+}
+
 function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default", small = false, emptyCta }: { icon: any; label: string; value: any; hint?: string; to?: string; color?: string; tone?: "default" | "warn"; small?: boolean; emptyCta?: string }) {
   const isEmpty = emptyCta && (value === 0 || value === "0");
   const content = (
