@@ -56,6 +56,8 @@ import {
   resendOwnerInvite,
   cancelOwnerInvite,
   changeClinicOwner,
+  getClinicCounts,
+  softDeleteClinic,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
 import { supabase } from "@/integrations/supabase/client";
