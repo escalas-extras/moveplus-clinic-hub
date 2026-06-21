@@ -365,8 +365,8 @@ export const startSupportSession = createServerFn({ method: "POST" })
     await assertSuperAdmin(context.supabase, context.userId);
     const { data: id, error } = await context.supabase.rpc("start_support_session", {
       _clinic_id: data.clinic_id,
-      _reason: data.reason ?? null,
-    });
+      _reason: data.reason ?? undefined,
+    } as any);
     if (error) throw new Error(error.message);
     return { id };
   });
