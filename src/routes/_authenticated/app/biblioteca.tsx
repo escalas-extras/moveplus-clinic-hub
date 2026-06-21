@@ -13,6 +13,7 @@ import { LibraryContentView } from "@/components/library/library-content-view";
 import { buildLibraryContentPdfOpts } from "@/lib/library-pdf";
 import { buildPdf } from "@/lib/pdf";
 import { useBranding } from "@/lib/branding";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/biblioteca")({
   component: BibliotecaPage,
@@ -45,6 +46,7 @@ const TYPE_META: Record<string, { label: string; icon: typeof BookOpen }> = {
 
 function BibliotecaPage() {
   const brand = useBranding();
+  const { clinicId } = useActiveClinic();
   const [contents, setContents] = useState<Content[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [favs, setFavs] = useState<Set<string>>(new Set());
@@ -54,6 +56,9 @@ function BibliotecaPage() {
   const [open, setOpen] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Bloco B: reexecuta o load ao trocar de clínica (mudança de support session
+  // ou login). RLS já restringe os dados; isso garante que o estado local
+  // siga o contexto ativo.
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -68,7 +73,7 @@ function BibliotecaPage() {
       setFavs(new Set((f.data ?? []).map((x: { content_id: string }) => x.content_id)));
       setLoading(false);
     })();
-  }, []);
+  }, [clinicId]);
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
@@ -177,8 +182,8 @@ function BibliotecaPage() {
                   onClick={async () => {
                     if (!open) return;
                     try {
-                      const doc = await buildPdf(
-                        buildLibraryContentPdfOpts({
+                      const doc = await buildPdf({
+                        ...buildLibraryContentPdfOpts({
                           title: open.title,
                           type: open.type,
                           summary: open.summary,
@@ -186,7 +191,11 @@ function BibliotecaPage() {
                           author: open.author,
                           tags: open.tags,
                         }),
-                      );
+                        // Bloco D: PDF da biblioteca usa branding da clínica ativa
+                        // explicitamente, garantindo header/logo corretos mesmo
+                        // em modo suporte ou navegação cross-tab.
+                        clinicId: clinicId,
+                      });
                       const filename = `${open.title.replace(/\s+/g, "_")}.pdf`;
                       const blob = doc.output("blob");
                       const url = URL.createObjectURL(blob);
