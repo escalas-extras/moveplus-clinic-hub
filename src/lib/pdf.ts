@@ -30,6 +30,19 @@ async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | n
 }
 
 export async function buildPdf(opts: BuildPdfOpts) {
+  // Documentos clínicos exigem profissional responsável (nome + conselho/registro).
+  // Materiais institucionais da biblioteca passam hideSignature=true e ficam isentos.
+  if (!opts.hideSignature) {
+    const prof = opts.professional;
+    const nome = (prof?.nome ?? "").trim();
+    const registro = (prof?.registro ?? "").trim();
+    if (!nome || !registro) {
+      throw new Error(
+        "Documento clínico exige profissional responsável com nome e número de registro (CREFITO).",
+      );
+    }
+  }
+
   const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
     supabase.rpc("current_support_session_clinic"),
     supabase.rpc("current_clinic_id"),

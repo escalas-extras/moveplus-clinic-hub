@@ -54,10 +54,10 @@ const groups: NavGroup[] = [
     title: "Sistema",
     items: [
       { to: "/app/usuarios", label: "Usuários", icon: ShieldCheck, adminOnly: true },
-      { to: "/app/admin-saas", label: "Painel SaaS", icon: Building2, superAdminOnly: true },
       { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
     ],
   },
+
 ];
 
 const platformGroups: NavGroup[] = [
@@ -73,7 +73,7 @@ const platformGroups: NavGroup[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
-  const { isPlatformAdmin, isSuperAdmin } = usePlatformContext();
+  const { isPlatformAdmin } = usePlatformContext();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const brand = useBranding();
@@ -94,9 +94,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       items: g.items.filter(
         (i) =>
           (!i.adminOnly || isAdmin) &&
-          (!i.superAdminOnly || isSuperAdmin) &&
+          (!i.superAdminOnly || isPlatformAdmin) &&
           (!i.feature || hasFeature(i.feature)),
       ),
+
     }))
     .filter((g) => g.items.length > 0);
 
