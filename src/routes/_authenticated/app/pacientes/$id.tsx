@@ -17,7 +17,8 @@ import { toast } from "sonner";
 import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
 import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
-import { useAuth, useRoles } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
+import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
 import { DischargePanel } from "@/components/clinical/discharge-panel";
@@ -33,7 +34,7 @@ function PatientPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const { isAdmin } = useRoles(user?.id);
+  const { clinicId, isAdmin } = useActiveClinic();
   const [editOpen, setEditOpen] = useState(false);
   const [evoOpen, setEvoOpen] = useState(false);
   const [avalOpen, setAvalOpen] = useState(false);
@@ -43,20 +44,28 @@ function PatientPage() {
   const [pdfPreview, setPdfPreview] = useState<Parameters<typeof buildPdf>[0] | null>(null);
 
   const patient = useQuery({
-    queryKey: ["patient", id],
+    queryKey: ["patient", clinicId, id],
+    enabled: !!clinicId && !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("patients").select("*").eq("id", id).single();
+      const { data, error } = await supabase
+        .from("patients")
+        .select("*")
+        .eq("clinic_id", clinicId!)
+        .eq("id", id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
 
   const evolutions = useQuery({
-    queryKey: ["evolutions", id],
+    queryKey: ["evolutions", clinicId, id],
+    enabled: !!clinicId && !!id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("evolutions")
         .select("*, professionals(nome, conselho, registro, profissao)")
+        .eq("clinic_id", clinicId!)
         .eq("patient_id", id)
         .order("data", { ascending: false })
         .order("hora", { ascending: false });
@@ -66,11 +75,13 @@ function PatientPage() {
   });
 
   const assessments = useQuery({
-    queryKey: ["assessments", id],
+    queryKey: ["assessments", clinicId, id],
+    enabled: !!clinicId && !!id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assessments")
         .select("*, professionals(nome, conselho, registro, profissao), assessment_modules(module_type)")
+        .eq("clinic_id", clinicId!)
         .eq("patient_id", id)
         .order("data", { ascending: false });
       if (error) throw error;
@@ -80,13 +91,13 @@ function PatientPage() {
 
   const update = useMutation({
     mutationFn: async (input: any) => {
-      const { error } = await supabase.from("patients").update(input).eq("id", id);
+      const { error } = await supabase.from("patients").update(input).eq("clinic_id", clinicId!).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Paciente atualizado");
       setEditOpen(false);
-      qc.invalidateQueries({ queryKey: ["patient", id] });
+      qc.invalidateQueries({ queryKey: ["patient", clinicId, id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -96,6 +107,7 @@ function PatientPage() {
       const { error } = await supabase
         .from("assessments")
         .update({ status: "finalizada", locked_at: new Date().toISOString() })
+        .eq("clinic_id", clinicId!)
         .eq("id", a.id);
       if (error) throw error;
       await uploadAndRegisterPdf({
@@ -105,54 +117,55 @@ function PatientPage() {
         patientId: a.patient_id,
         professionalId: a.professional_id,
         referenciaId: a.id,
+        clinicId: clinicId ?? undefined,
       });
 
     },
     onSuccess: () => {
       toast.success("Avaliação finalizada e PDF arquivado");
-      qc.invalidateQueries({ queryKey: ["assessments", id] });
+      qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const lock = useMutation({
     mutationFn: async ({ table, rowId }: { table: "assessments" | "evolutions"; rowId: string }) => {
-      const { error } = await supabase.from(table).update({ locked_at: new Date().toISOString() }).eq("id", rowId);
+      const { error } = await supabase.from(table).update({ locked_at: new Date().toISOString() }).eq("clinic_id", clinicId!).eq("id", rowId);
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
       toast.success("Registro assinado");
-      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", id] });
+      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", clinicId, id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const deleteRecord = useMutation({
     mutationFn: async ({ table, rowId }: { table: "assessments" | "evolutions"; rowId: string }) => {
-      const { error } = await supabase.from(table).delete().eq("id", rowId);
+      const { error } = await supabase.from(table).delete().eq("clinic_id", clinicId!).eq("id", rowId);
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
       toast.success("Registro excluído");
-      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", id] });
+      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", clinicId, id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const deletePatient = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("patients").delete().eq("id", id);
+      const { error } = await supabase.from("patients").delete().eq("clinic_id", clinicId!).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Paciente excluído");
-      qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patients", clinicId] });
       navigate({ to: "/app/pacientes" });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  if (patient.isLoading) return <div className="text-sm text-muted-foreground">Carregando…</div>;
+  if (patient.isLoading || !clinicId) return <div className="text-sm text-muted-foreground">Carregando…</div>;
   if (!patient.data) return <div>Paciente não encontrado.</div>;
   const p = patient.data;
 
