@@ -171,12 +171,13 @@ function DocumentosPage() {
   });
 
   const { data: professional } = useQuery({
-    queryKey: ["my-professional", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["my-professional", user?.id, activeClinicId],
+    enabled: !!user?.id && !!activeClinicId,
     queryFn: async () => {
       const { data: byProfile } = await supabase
         .from("professionals")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("profile_id", user!.id)
         .maybeSingle();
       if (byProfile) return byProfile;
@@ -184,6 +185,7 @@ function DocumentosPage() {
       const { data: fallback } = await supabase
         .from("professionals")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("situacao", "ativo")
         .order("nome")
         .limit(1)
@@ -309,6 +311,7 @@ function DocumentosPage() {
       // 4) insert clinical_documents (already locked = official issuance)
       const nowIso = new Date().toISOString();
       const { error: insErr } = await supabase.from("clinical_documents").insert({
+        clinic_id: activeClinicId,
         patient_id: patient.id,
         professional_id: professional?.id ?? null,
         doc_type: cdocType as any,
