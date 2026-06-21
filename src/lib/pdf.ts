@@ -117,6 +117,12 @@ export async function buildPdf(opts: {
   professional?: Professional | null;
   validationHash?: string | null;
   validationUrlBase?: string;
+  contratante?: {
+    nome?: string | null;
+    cpf?: string | null;
+    vinculo?: string | null;
+  } | null;
+  patientSnapshot?: { nome?: string | null; cpf?: string | null } | null;
 }) {
 
   const { data: clinic } = await supabase
@@ -275,12 +281,11 @@ export async function buildPdf(opts: {
   }
 
   function renderBlock(block: PdfBlock, isLastBlock: boolean = false) {
-    // Em contratos, suprime a cláusula "Partes Contratantes" / "Qualificação
-    // das Partes" do corpo — a identificação fica apenas no bloco visual de
-    // assinaturas no fim do documento, evitando duplicidade.
-    if (isContract && /partes\s+contratantes|qualificação\s+das\s+partes/i.test(block.title || "")) {
-      return;
-    }
+    // A "Qualificação das Partes" agora identifica CONTRATANTE (responsável
+    // ou próprio paciente), CONTRATADA e PACIENTE BENEFICIÁRIO — não é mais
+    // suprimida do corpo. A duplicidade é evitada pela sanitização (abaixo)
+    // e pelo bloco visual de assinatura ao final.
+
 
     // Limpa artefatos de assinatura inline em todos os parágrafos do contrato
     // (Cláusula Oitava / Foro traz underlines e rótulos no texto jurídico).
@@ -772,12 +777,30 @@ export async function buildPdf(opts: {
         const rowGap = 92;
         let by = sigBlockTop + 56;
 
-        // Linha 1: Contratante | Contratada (identificação consolidada do profissional)
+        // Linha 1: Contratante | Contratada
+        // Contratante: nome + CPF do contratante (responsável ou próprio paciente).
+        // Quando emitido em nome de responsável, inclui referência ao paciente beneficiário.
+        const ct = opts.contratante ?? null;
+        const ctNome = ct?.nome && ct.nome.trim() ? ct.nome.trim() : null;
+        const ctCpfLine = ct?.cpf && ct.cpf.trim() ? `CPF: ${ct.cpf.trim()}` : "CPF: __________________";
+        const ctVinculo = ct?.vinculo && ct.vinculo.trim() && !/próprio paciente/i.test(ct.vinculo)
+          ? ct.vinculo.trim()
+          : null;
+        const ps = opts.patientSnapshot ?? null;
         drawSignatureBlock(M + colW / 2, by, sigW, {
           role: "Contratante",
-          placeholderName: "Nome: __________________",
-          placeholderId: "CPF: __________________",
+          name: ctNome,
+          registry: ctVinculo ?? undefined,
+          placeholderName: ctNome ? undefined : "Nome: __________________",
+          placeholderId: ctCpfLine,
         });
+        if (ctVinculo && ps?.nome) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...C.muted);
+          const ben = `Paciente beneficiário: ${ps.nome}${ps.cpf ? ` · CPF ${ps.cpf}` : ""}`;
+          doc.text(ben, M + colW / 2, by + 58, { align: "center" });
+        }
         {
           const cx = M + colW + colW / 2;
           const sigX = cx - sigW / 2;

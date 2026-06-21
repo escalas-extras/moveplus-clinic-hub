@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { FileText, Eye, Download, Save, Lock, Search } from "lucide-react";
 import { toast } from "sonner";
-import { buildPdf, downloadPdf, previewPdf } from "@/lib/pdf";
-import { buildMergeData, renderTemplateSections } from "@/lib/merge-tags";
+import { buildPdf, previewPdf } from "@/lib/pdf";
+import { buildMergeData, renderTemplateSections, type ContratanteData } from "@/lib/merge-tags";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 
@@ -52,6 +54,12 @@ function DocumentosPage() {
   const [templateId, setTemplateId] = useState<string>(search.template || "");
   const [patientSearch, setPatientSearch] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Contratante (apenas para Contrato): "Próprio paciente" ou "Responsável"
+  const [contratanteMode, setContratanteMode] = useState<"paciente" | "responsavel">("paciente");
+  const [contratanteForm, setContratanteForm] = useState<ContratanteData>({
+    nome: "", cpf: "", rg: "", vinculo: "", telefone: "", endereco: "", email: "",
+  });
 
   // ----- DATA -----
   const { data: templates = [] } = useQuery({
@@ -182,6 +190,25 @@ function DocumentosPage() {
 
   // ----- RENDER -----
   const template = templates.find((t: any) => t.id === templateId);
+  const isContractTemplate = !!template && /contrato/i.test(template.name || "");
+
+  // Contratante efetivo: quando "próprio paciente", clona dados do paciente;
+  // quando "responsável", usa o formulário.
+  const effectiveContratante: ContratanteData | null = useMemo(() => {
+    if (!isContractTemplate) return null;
+    if (contratanteMode === "paciente") {
+      return {
+        nome: patient?.nome_completo ?? null,
+        cpf: patient?.cpf ?? null,
+        rg: patient?.rg ?? null,
+        vinculo: "Próprio paciente",
+        telefone: patient?.telefone ?? patient?.whatsapp ?? null,
+        endereco: [patient?.endereco, patient?.bairro, patient?.cidade, patient?.estado].filter(Boolean).join(", ") || null,
+        email: (patient as any)?.email ?? null,
+      };
+    }
+    return contratanteForm;
+  }, [isContractTemplate, contratanteMode, contratanteForm, patient]);
 
   const renderedSections = useMemo(() => {
     if (!template || !patient) return [];
@@ -192,9 +219,10 @@ function DocumentosPage() {
       professional,
       clinic,
       discharge: lastDischarge,
+      contratante: effectiveContratante,
     });
     return renderTemplateSections((template.sections as any) || [], data);
-  }, [template, patient, lastAssessment, scales, professional, clinic, lastDischarge]);
+  }, [template, patient, lastAssessment, scales, professional, clinic, lastDischarge, effectiveContratante]);
 
   const buildPdfOpts = () => ({
     title: template?.name || "Documento",
@@ -202,13 +230,28 @@ function DocumentosPage() {
     patientName: patient?.nome_completo,
     professional: professional ?? null,
     sections: renderedSections,
+    contratante: isContractTemplate
+      ? {
+          nome: effectiveContratante?.nome ?? null,
+          cpf: effectiveContratante?.cpf ?? null,
+          vinculo: effectiveContratante?.vinculo ?? null,
+        }
+      : null,
+    patientSnapshot: isContractTemplate
+      ? { nome: patient?.nome_completo ?? null, cpf: patient?.cpf ?? null }
+      : null,
   });
 
   // ----- ACTIONS -----
   const emit = useMutation({
     mutationFn: async () => {
       if (!template || !patient) throw new Error("Selecione paciente e modelo");
-      // 1) generate validation hash client-side (DB also has trigger fallback)
+      if (isContractTemplate && contratanteMode === "responsavel") {
+        const f = contratanteForm;
+        if (!f.nome?.trim() || !f.cpf?.trim() || !f.rg?.trim() || !f.vinculo?.trim() || !f.telefone?.trim() || !f.endereco?.trim()) {
+          throw new Error("Preencha os dados obrigatórios do responsável (nome, CPF, RG, vínculo, telefone, endereço).");
+        }
+      }
       const hashBytes = crypto.getRandomValues(new Uint8Array(24));
       const validation_hash = Array.from(hashBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -254,7 +297,20 @@ function DocumentosPage() {
         title: template.name,
         template_id: template.id,
         template_version: template.version,
-        content: { sections: renderedSections } as any,
+        content: {
+          sections: renderedSections,
+          ...(isContractTemplate
+            ? {
+                contratante_mode: contratanteMode,
+                contratante: effectiveContratante,
+                paciente_snapshot: {
+                  nome: patient.nome_completo,
+                  cpf: patient.cpf,
+                  rg: (patient as any).rg ?? null,
+                },
+              }
+            : {}),
+        } as any,
         body_text: renderedSections.map((s) => `## ${s.title}\n${s.body}`).join("\n\n"),
         validation_hash,
         pdf_url: path,
@@ -356,6 +412,91 @@ function DocumentosPage() {
               )}
             </div>
           </div>
+
+          {isContractTemplate && (
+            <div className="border-t pt-3 space-y-2">
+              <Label>3. Contratante</Label>
+              <RadioGroup
+                value={contratanteMode}
+                onValueChange={(v) => setContratanteMode(v as "paciente" | "responsavel")}
+                className="flex flex-col sm:flex-row gap-3 text-sm"
+              >
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="paciente" id="ct-pac" />
+                  <span>Próprio paciente</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="responsavel" id="ct-resp" />
+                  <span>Responsável / contratante financeiro</span>
+                </label>
+              </RadioGroup>
+
+              {contratanteMode === "responsavel" && (
+                <div className="grid sm:grid-cols-2 gap-2 pt-2">
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Nome completo *</Label>
+                    <Input
+                      value={contratanteForm.nome ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, nome: e.target.value }))}
+                      maxLength={120}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">CPF *</Label>
+                    <Input
+                      value={contratanteForm.cpf ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, cpf: e.target.value }))}
+                      maxLength={20}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">RG *</Label>
+                    <Input
+                      value={contratanteForm.rg ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, rg: e.target.value }))}
+                      maxLength={20}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Vínculo com o paciente *</Label>
+                    <Input
+                      value={contratanteForm.vinculo ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, vinculo: e.target.value }))}
+                      placeholder="Mãe, filho(a), cônjuge…"
+                      maxLength={60}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Telefone *</Label>
+                    <Input
+                      value={contratanteForm.telefone ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, telefone: e.target.value }))}
+                      maxLength={30}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Endereço *</Label>
+                    <Textarea
+                      value={contratanteForm.endereco ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, endereco: e.target.value }))}
+                      rows={2}
+                      maxLength={240}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">E-mail (opcional)</Label>
+                    <Input
+                      type="email"
+                      value={contratanteForm.email ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, email: e.target.value }))}
+                      maxLength={120}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
 
           <div className="flex flex-wrap gap-2 pt-2">
             <Button

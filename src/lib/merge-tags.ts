@@ -9,7 +9,18 @@ export type MergeContext = {
   clinic?: any;
   scales?: any[]; // assessment_scales rows
   discharge?: any;
+  contratante?: ContratanteData | null;
   extra?: Record<string, string>;
+};
+
+export type ContratanteData = {
+  nome?: string | null;
+  cpf?: string | null;
+  rg?: string | null;
+  vinculo?: string | null;
+  telefone?: string | null;
+  endereco?: string | null;
+  email?: string | null;
 };
 
 function fmtScale(scales: any[] | undefined, code: string): string {
@@ -121,6 +132,28 @@ export function buildMergeData(ctx: MergeContext): Record<string, string> {
     clinica_telefone: Array.isArray(c.telefones) ? c.telefones.join(" · ") : (c.telefones || "—"),
     clinica_email: Array.isArray(c.emails) ? c.emails.join(" · ") : (c.emails || "—"),
   };
+
+  // ---- Contratante (responsável financeiro ou próprio paciente) ----
+  // Quando nenhum contratante explícito é informado, faz fallback para o
+  // próprio paciente — assim contratos sem responsável continuam válidos.
+  const ct = ctx.contratante || {};
+  const ctNome = (ct.nome && ct.nome.trim()) || p.nome_completo || "—";
+  const ctCpf = (ct.cpf && ct.cpf.trim()) || p.cpf || "—";
+  const ctRg = (ct.rg && ct.rg.trim()) || p.rg || "—";
+  const ctEnd = (ct.endereco && ct.endereco.trim())
+    || [p.endereco, p.bairro, p.cidade, p.estado].filter(Boolean).join(", ") || "—";
+  const ctTel = (ct.telefone && ct.telefone.trim()) || p.telefone || p.whatsapp || "—";
+  const ctMail = (ct.email && ct.email.trim()) || p.email || "—";
+  const ctVin = (ct.vinculo && ct.vinculo.trim()) || "Próprio paciente";
+  Object.assign(data, {
+    contratante_nome: ctNome,
+    contratante_cpf: ctCpf,
+    contratante_rg: ctRg,
+    contratante_endereco: ctEnd,
+    contratante_telefone: ctTel,
+    contratante_email: ctMail,
+    contratante_vinculo: ctVin,
+  });
 
   if (ctx.extra) Object.assign(data, ctx.extra);
   return data;
