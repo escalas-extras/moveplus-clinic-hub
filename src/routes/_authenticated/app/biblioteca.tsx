@@ -190,23 +190,26 @@ function BibliotecaPage() {
                       const filename = `${open.title.replace(/\s+/g, "_")}.pdf`;
                       const blob = doc.output("blob");
                       const url = URL.createObjectURL(blob);
-                      // Abre o PDF real em nova aba (visualização imediata)
-                      window.open(url, "_blank", "noopener");
-                      // E dispara o download do arquivo PDF
+                      // Apenas download direto via <a download>. Não usamos
+                      // window.open() porque ele é frequentemente bloqueado
+                      // por bloqueadores de popup (causa raiz reportada na
+                      // clínica Move+: PDF "não gerava" — era o popup bloqueado).
                       const a = document.createElement("a");
                       a.href = url;
                       a.download = filename;
+                      a.rel = "noopener";
                       document.body.appendChild(a);
                       a.click();
                       a.remove();
                       setTimeout(() => URL.revokeObjectURL(url), 60_000);
                       toast.success("PDF gerado com sucesso");
                     } catch (e) {
-                      toast.error("Falha ao gerar PDF: " + (e as Error).message);
+                      console.error("[biblioteca] Falha ao gerar PDF", e);
+                      toast.error("Falha ao gerar PDF: " + ((e as Error)?.message || "erro desconhecido"));
                     }
                   }}
                 >
-                  <FileDown className="h-4 w-4 mr-2" /> Gerar PDF
+                  <FileDown className="h-4 w-4 mr-2" /> Baixar PDF
                 </Button>
               </div>
             </div>

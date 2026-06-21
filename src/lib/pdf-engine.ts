@@ -64,6 +64,13 @@ export type BuildPdfOpts = {
     vinculo?: string | null;
   } | null;
   patientSnapshot?: { nome?: string | null; cpf?: string | null } | null;
+  /**
+   * Quando true, o bloco de assinatura profissional NÃO é desenhado e o
+   * espaço reservado é removido. Usado em materiais institucionais da
+   * Biblioteca (cartilhas, protocolos, POPs) que não exigem responsável
+   * técnico.
+   */
+  hideSignature?: boolean;
 };
 
 export type PdfRenderCtx = {
@@ -494,7 +501,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // Compaction varia APENAS o gap entre blocos — assim a reserva nunca é
   // inferior ao espaço efetivamente desenhado (sem sobreposição com QR/rodapé).
   const qrReserve = isContract ? 64 : 0;
-  const sigReserve = sigDraw + qrReserve;
+  const sigReserve = opts.hideSignature ? 0 : sigDraw + qrReserve;
   const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
   let pages = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[0]);
   for (let t = 1; t < gapTiers.length; t++) {
@@ -558,7 +565,9 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
 
 
   doc.setPage(lastPageIdx);
-  drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigDraw, isContract);
+  if (!opts.hideSignature) {
+    drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigDraw, isContract);
+  }
 
   // Footers + QR
   const pageCount = doc.getNumberOfPages();
@@ -1033,8 +1042,8 @@ function drawSigCol(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
-  const tracked = opts.label.toUpperCase().split("").join("\u2009");
-  doc.text(tracked, cx, lineY + 10, { align: "center" });
+  // Título (abaixo da linha) — uppercase normal, sem letter-spacing exagerado.
+  doc.text(opts.label.toUpperCase(), cx, lineY + 10, { align: "center" });
 
   // Conteúdo
   let ly = lineY + 22;
