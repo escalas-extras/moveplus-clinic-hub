@@ -201,6 +201,12 @@ export async function buildPdf(opts: {
   doc.line(M, y, W - M, y);
   y += 14;
 
+  // Reserva inferior de assinatura — precisa ser conhecida antes do loop de blocos
+  // para que o ensure do bloco evite encavalar conteúdo com o bloco de assinatura
+  // (e, no contrato, evite a página de continuação com 1 linha órfã).
+  const isContract = /contrato/i.test(opts.title || "");
+  const SIG_BLOCK_H = isContract ? 360 : 185;
+
   // Page-break helper (replaceable per-block to close borders properly)
   let pageY = y;
   let ensure: (need: number) => void = (need: number) => {
@@ -219,8 +225,8 @@ export async function buildPdf(opts: {
         children: [{ kind: "paragraph" as const, text: s.body || "—" }],
       }));
 
-  for (const block of blocks) {
-    renderBlock(block);
+  for (let bi = 0; bi < blocks.length; bi++) {
+    renderBlock(blocks[bi], bi === blocks.length - 1);
   }
 
   function drawBlockTitleBar(label: string) {
@@ -240,7 +246,13 @@ export async function buildPdf(opts: {
   }
 
 
-  function renderBlock(block: PdfBlock) {
+  function renderBlock(block: PdfBlock, isLastBlock: boolean = false) {
+    // Reserva extra de espaço no fim da página para o bloco de assinatura,
+    // SOMENTE no último bloco de contrato — evita a página de "(continuação)"
+    // com 1 linha órfã seguida de grande área vazia antes da assinatura.
+    const reserveSig = isContract && isLastBlock;
+    const bottomLimit = reserveSig ? H - 80 - SIG_BLOCK_H - 24 : H - 80;
+
     // Ensure title bar + at least one content line fits together (no orphan titles)
     const MIN_TITLE_WITH_CONTENT = 56; // 20 title + 10 gap + ~26 first line + breathing
     ensure(MIN_TITLE_WITH_CONTENT);
@@ -254,7 +266,7 @@ export async function buildPdf(opts: {
     // on the new page so continuation content stays inside a visible card.
     const prevEnsure = ensure;
     ensure = (need: number) => {
-      if (y + need > H - 80) {
+      if (y + need > bottomLimit) {
         // close current segment border
         doc.setDrawColor(...C.border);
         doc.setLineWidth(0.5);
@@ -522,11 +534,10 @@ export async function buildPdf(opts: {
   const GState = (doc as any).GState;
   const normalFooterY = H - 70;
 
-  const isContract = /contrato/i.test(opts.title || "");
   const renderSignatures = true; // sempre renderiza bloco de assinatura nos documentos
+  // isContract / SIG_BLOCK_H definidos acima (perto do ensure inicial) para que o
+  // ensure do bloco possa reservar espaço da assinatura no contrato.
 
-  // Altura estimada do bloco de assinatura (não-contrato: linha + nome + profissão + registro + separador + clínica + CNPJ)
-  const SIG_BLOCK_H = isContract ? 360 : 185;
 
   // Se assinatura não cabe na última página, abre nova
   if (renderSignatures && y + SIG_BLOCK_H > H - 90) {
@@ -630,7 +641,12 @@ export async function buildPdf(opts: {
 
     if (i === pageCount && renderSignatures) {
       const desiredTop = lastPageEndY + 28;
-      const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 90);
+      // Contrato: ancora junto ao conteúdo (sem empurrar para o fundo), evitando
+      // grande área vazia entre uma linha de continuação e o bloco de assinatura.
+      // Demais documentos mantêm o comportamento anterior (assinatura ao pé).
+      const sigBlockTop = isContract
+        ? Math.min(desiredTop, H - SIG_BLOCK_H - 30)
+        : Math.max(desiredTop, H - SIG_BLOCK_H - 90);
 
 
       // Local e data — discreto, alinhado à direita para não competir com a assinatura
