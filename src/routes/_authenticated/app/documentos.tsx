@@ -297,7 +297,20 @@ function DocumentosPage() {
         title: template.name,
         template_id: template.id,
         template_version: template.version,
-        content: { sections: renderedSections } as any,
+        content: {
+          sections: renderedSections,
+          ...(isContractTemplate
+            ? {
+                contratante_mode: contratanteMode,
+                contratante: effectiveContratante,
+                paciente_snapshot: {
+                  nome: patient.nome_completo,
+                  cpf: patient.cpf,
+                  rg: (patient as any).rg ?? null,
+                },
+              }
+            : {}),
+        } as any,
         body_text: renderedSections.map((s) => `## ${s.title}\n${s.body}`).join("\n\n"),
         validation_hash,
         pdf_url: path,
