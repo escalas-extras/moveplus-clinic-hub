@@ -604,7 +604,7 @@ async function renderReceiptPdf(opts: {
   issued_at: string;
   cancelled?: boolean;
   cancellation_reason?: string | null;
-}) {
+}, mode: "preview" | "download" | "print" = "download") {
   const sections: any[] = [
     {
       title: `Recibo nº ${opts.numero}`,
@@ -629,10 +629,13 @@ async function renderReceiptPdf(opts: {
     });
   }
 
-  await generatePdf({
+  const pdfOpts = {
     title: `Recibo nº ${opts.numero}`,
     patientName: opts.patientName ?? undefined,
     sections,
     hideSignature: true,
-  } as any);
+  } as any;
+  if (mode === "preview") await previewPdf(pdfOpts);
+  else if (mode === "print") await printPdf(pdfOpts);
+  else await downloadPdf(pdfOpts);
 }
