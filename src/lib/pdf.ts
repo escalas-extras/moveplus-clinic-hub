@@ -701,33 +701,42 @@ export async function buildPdf(opts: {
 
       if (isContract) {
         const colW = (W - 2 * M) / 2;
-        const sigW = 200;
-        const rowGap = 78;
+        const sigW = 220;
+        const rowGap = 92;
         let by = sigBlockTop + 56;
 
-        // Linha 1: Contratante | Contratada
+        // Linha 1: Contratante | Contratada (identificação consolidada do profissional)
         drawSignatureBlock(M + colW / 2, by, sigW, {
           role: "Contratante",
           placeholderName: "Nome: __________________",
           placeholderId: "CPF: __________________",
         });
-        drawSignatureBlock(M + colW + colW / 2, by, sigW, {
-          name: c.razao_social || c.nome_fantasia || null,
-          role: "Contratada",
-          registry: c.cnpj ? `CNPJ: ${c.cnpj}` : undefined,
-          placeholderId: c.cnpj ? undefined : "CNPJ: __________________",
-        });
+        {
+          const cx = M + colW + colW / 2;
+          const sigX = cx - sigW / 2;
+          doc.setDrawColor(...C.text);
+          doc.setLineWidth(0.6);
+          doc.line(sigX, by, sigX + sigW, by);
 
-        // Linha 2: Profissional responsável (centralizado)
-        by += rowGap;
-        drawSignatureBlock(W / 2, by, sigW + 60, {
-          name: profNome,
-          role,
-          registry: registry ?? undefined,
-          placeholderName: profNome ? undefined : "Profissional responsável",
-        });
+          let ly = by + 12;
+          const writeLine = (txt: string, bold = false, size = 9, color: [number, number, number] = C.text) => {
+            if (!txt) return;
+            doc.setFont("helvetica", bold ? "bold" : "normal");
+            doc.setFontSize(size);
+            doc.setTextColor(...color);
+            doc.text(txt, cx, ly, { align: "center" });
+            ly += size + 1.5;
+          };
+          writeLine("CONTRATADA", true, 8, C.label);
+          if (profNome) writeLine(profNome, true, 10);
+          writeLine(role || "Fisioterapeuta", false, 9);
+          if (registry) writeLine(registry, true, 9);
+          const razao = (c.razao_social || c.nome_fantasia || "").trim();
+          if (razao) writeLine(razao, false, 8.5, C.muted);
+          if (c.cnpj) writeLine(`CNPJ: ${c.cnpj}`, false, 8.5, C.muted);
+        }
 
-        // Linha 3: Testemunhas
+        // Linha 2: Testemunhas
         by += rowGap;
         drawSignatureBlock(M + colW / 2, by, sigW, {
           role: "Testemunha 1",
