@@ -63,8 +63,10 @@ function ConfigPage() {
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<Form>();
   const logoPath = watch("logo_url");
-  const primary = watch("primary_color") || "#2f5d3a";
-  const secondary = watch("secondary_color") || "#c75c3a";
+  const primaryRaw = watch("primary_color");
+  const secondaryRaw = watch("secondary_color");
+  const primary = normalizeHex(primaryRaw, "#2f5d3a");
+  const secondary = normalizeHex(secondaryRaw, "#c75c3a");
   const clinicName = watch("nome_fantasia") || "FisioOS";
   const slogan = watch("slogan") || "Transformando atendimentos em resultados";
 
