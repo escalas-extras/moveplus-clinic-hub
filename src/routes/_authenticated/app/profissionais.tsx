@@ -130,7 +130,7 @@ function ProfPage() {
     mutationFn: async ({ id, values }: { id: string; values: Form }) => {
       if (!activeClinicId) throw new Error("Clínica ativa não identificada");
       // Whitelist somente colunas reais da tabela
-      const payload: Record<string, any> = {
+      const payload = {
         nome: values.nome,
         profissao: values.profissao,
         conselho: values.conselho || null,
@@ -141,7 +141,7 @@ function ProfPage() {
         profile_id: values.profile_id ? values.profile_id : null,
         situacao: values.situacao,
         updated_at: new Date().toISOString(),
-      };
+      } satisfies Record<string, unknown>;
       const { data, error } = await supabase
         .from("professionals")
         .update(payload)
