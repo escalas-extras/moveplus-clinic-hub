@@ -550,6 +550,15 @@ async function provisionClinicFallback(args: {
     });
   }
 
+  // Seed genérico de templates default por clínica (idempotente)
+  const { error: seedErr } = await supabaseAdmin.rpc(
+    "seed_default_document_templates",
+    { _clinic_id: clinic.id },
+  );
+  if (seedErr) {
+    console.error("[provisionClinicFallback] seed_default_document_templates", seedErr);
+  }
+
   return { clinic_id: clinic.id, slug };
 }
 
