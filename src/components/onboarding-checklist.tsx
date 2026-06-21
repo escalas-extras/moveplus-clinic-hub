@@ -30,8 +30,12 @@ export function OnboardingChecklist() {
   const { data: steps = [] } = useQuery<Step[]>({
     queryKey: ["onboarding-checklist"],
     queryFn: async () => {
+      const { data: cid } = await supabase.rpc("current_clinic_id");
+      const clinicQuery = cid
+        ? supabase.from("clinic_settings").select("nome_fantasia, logo_url").eq("clinic_id", cid as string).maybeSingle()
+        : Promise.resolve({ data: null });
       const [clinic, prof, pat, assess, template] = await Promise.all([
-        supabase.from("clinic_settings").select("nome_fantasia, logo_url").limit(1).maybeSingle(),
+        clinicQuery,
         supabase.from("professionals").select("id", { count: "exact", head: true }),
         supabase.from("patients").select("id", { count: "exact", head: true }),
         supabase.from("assessments").select("id", { count: "exact", head: true }),

@@ -39,7 +39,12 @@ function ConfigPage() {
   const qc = useQueryClient();
   const settings = useQuery({
     queryKey: ["clinic-settings"],
-    queryFn: async () => (await supabase.from("clinic_settings").select("*").limit(1).maybeSingle()).data,
+    queryFn: async () => {
+      const { data: cid } = await supabase.rpc("current_clinic_id");
+      if (!cid) return null;
+      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid as string).maybeSingle();
+      return data;
+    },
   });
 
   const { register, handleSubmit, reset, watch } = useForm<Form>();
@@ -83,7 +88,9 @@ function ConfigPage() {
         const { error } = await supabase.from("clinic_settings").update(payload).eq("id", settings.data.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("clinic_settings").insert(payload);
+        const { data: cid } = await supabase.rpc("current_clinic_id");
+        if (!cid) throw new Error("Nenhuma clínica ativa para o usuário atual.");
+        const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid as string });
         if (error) throw error;
       }
     },
