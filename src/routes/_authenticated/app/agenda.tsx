@@ -537,18 +537,29 @@ function MonthView({ items, anchor, onPick }: { items: any[]; anchor: Date; onPi
 
 /* ───────────────────────── NEW DIALOG ───────────────────────── */
 
-function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, disabled }: any) {
+function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora }: any) {
   const { register, handleSubmit, setValue, watch, reset } = useForm<Form>({
-    defaultValues: { data: initialDate, horario: "08:00", duracao_min: 60 },
+    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60 },
   });
   const patient_id = watch("patient_id");
   const professional_id = watch("professional_id");
 
+  // Reset whenever the dialog opens with a new slot
+  useEffect(() => {
+    if (open) {
+      reset({
+        patient_id: "" as any,
+        professional_id: "" as any,
+        data: initialDate,
+        horario: initialHora ?? "08:00",
+        duracao_min: 60,
+        observacao: "",
+      });
+    }
+  }, [open, initialDate, initialHora, reset]);
+
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button disabled={disabled}><Plus className="h-4 w-4 mr-2" />Novo agendamento</Button>
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo agendamento</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
