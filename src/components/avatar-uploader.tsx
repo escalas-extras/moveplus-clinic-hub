@@ -4,7 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, getCachedAvatarUrl, invalidateSignedAvatarUrl, signedAvatarUrl } from "@/lib/user-avatar";
+import {
+  AVATAR_BUCKET,
+  AVATAR_MAX,
+  AVATAR_TYPES,
+  getCachedAvatarUrl,
+  invalidateSignedAvatarUrl,
+  signedAvatarUrl,
+} from "@/lib/user-avatar";
 import { pcSet } from "@/lib/persistent-cache";
 
 /**
@@ -86,8 +93,8 @@ export function AvatarUploader({
       if (upErr) throw upErr;
       await persist(newPath);
       toast.success("Foto de perfil atualizada.");
-    } catch (e: any) {
-      toast.error("Falha no upload: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Falha no upload: " + errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -102,8 +109,8 @@ export function AvatarUploader({
       setLocalPreviewUrl(null);
       await persist(null);
       toast.success("Foto removida.");
-    } catch (e: any) {
-      toast.error("Falha ao remover: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Falha ao remover: " + errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -139,7 +146,13 @@ export function AvatarUploader({
               e.target.value = "";
             }}
           />
-          <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={busy}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
             <Upload className="h-4 w-4 mr-1" /> {busy ? "Enviando…" : "Selecionar foto"}
           </Button>
           {path && (
