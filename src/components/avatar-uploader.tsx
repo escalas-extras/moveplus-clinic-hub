@@ -4,7 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, getCachedAvatarUrl, invalidateSignedAvatarUrl, signedAvatarUrl } from "@/lib/user-avatar";
+import {
+  AVATAR_BUCKET,
+  AVATAR_MAX,
+  AVATAR_TYPES,
+  getCachedAvatarUrl,
+  invalidateSignedAvatarUrl,
+  signedAvatarUrl,
+} from "@/lib/user-avatar";
+import { pcSet } from "@/lib/persistent-cache";
 
 /**
  * Upload de avatar do usuário no bucket `user-avatars`.
@@ -26,6 +34,7 @@ export function AvatarUploader({
   const [busy, setBusy] = useState(false);
   const [broken, setBroken] = useState(false);
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => setPath(initial), [initial]);
   useEffect(() => setBroken(false), [path]);
@@ -42,9 +51,10 @@ export function AvatarUploader({
   });
 
   useEffect(() => {
-    if (previewUrl) setDisplayUrl(previewUrl);
+    if (localPreviewUrl) setDisplayUrl(localPreviewUrl);
+    else if (previewUrl) setDisplayUrl(previewUrl);
     if (!path) setDisplayUrl(null);
-  }, [path, previewUrl]);
+  }, [localPreviewUrl, path, previewUrl]);
 
   async function persist(newPath: string | null) {
     const { error } = await supabase
@@ -54,8 +64,11 @@ export function AvatarUploader({
     if (error) throw error;
     invalidateSignedAvatarUrl(newPath);
     setPath(newPath);
-    qc.invalidateQueries({ queryKey: ["user-avatar", userId] });
-    qc.invalidateQueries({ queryKey: ["avatar-preview", userId] });
+    pcSet(`fos:profile-avatar:${userId}`, { avatar_url: newPath }, 24 * 60 * 60_000);
+    qc.setQueryData(["user-avatar", userId], { avatar_url: newPath });
+    await qc.invalidateQueries({ queryKey: ["user-avatar", userId] });
+    await qc.invalidateQueries({ queryKey: ["my-profile", userId] });
+    await qc.invalidateQueries({ queryKey: ["avatar-preview", userId] });
   }
 
   async function handleFile(file: File) {
@@ -70,16 +83,22 @@ export function AvatarUploader({
     setBusy(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const newPath = `${userId}/avatar.${ext}`;
+      const previousPath = path;
+      const newPath = `${userId}/avatar-${Date.now()}.${ext}`;
       invalidateSignedAvatarUrl(newPath);
+      const objectUrl = URL.createObjectURL(file);
+      setLocalPreviewUrl(objectUrl);
       const { error: upErr } = await supabase.storage
         .from(AVATAR_BUCKET)
         .upload(newPath, file, { upsert: true, contentType: file.type });
       if (upErr) throw upErr;
       await persist(newPath);
+      if (previousPath && previousPath !== newPath && !/^https?:\/\//i.test(previousPath)) {
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousPath]);
+      }
       toast.success("Foto de perfil atualizada.");
-    } catch (e: any) {
-      toast.error("Falha no upload: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Falha no upload: " + errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -91,10 +110,11 @@ export function AvatarUploader({
       if (path && !/^https?:\/\//i.test(path)) {
         await supabase.storage.from(AVATAR_BUCKET).remove([path]);
       }
+      setLocalPreviewUrl(null);
       await persist(null);
       toast.success("Foto removida.");
-    } catch (e: any) {
-      toast.error("Falha ao remover: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Falha ao remover: " + errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -130,7 +150,13 @@ export function AvatarUploader({
               e.target.value = "";
             }}
           />
-          <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={busy}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
             <Upload className="h-4 w-4 mr-1" /> {busy ? "Enviando…" : "Selecionar foto"}
           </Button>
           {path && (
@@ -226,4 +252,8 @@ export function UserAvatar({
       <span style={{ fontSize: Math.round(size * 0.4) }}>{initial}</span>
     </div>
   );
+}
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : "Erro inesperado.";
 }
