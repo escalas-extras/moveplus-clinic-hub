@@ -153,7 +153,7 @@ export async function buildPdf(opts: {
       const monogram = (c.nome_fantasia || "FisioOS").trim().charAt(0).toUpperCase() || "F";
       doc.text(monogram, cx, cy + 12, { align: "center" });
     }
-    const tx = logo ? M + LOGO_SIZE + 14 : M;
+    const tx = M + LOGO_SIZE + 14;
     doc.setTextColor(...C.brand);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
