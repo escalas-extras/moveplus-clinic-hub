@@ -388,6 +388,7 @@ function ClinicsTab() {
   const setStatus = useServerFn(setClinicStatus);
   const assign = useServerFn(assignPlan);
   const qc = useQueryClient();
+  const [detail, setDetail] = useState<any | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-saas-clinics"],
@@ -493,8 +494,8 @@ function ClinicsTab() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled>
-                        <Eye className="h-4 w-4 mr-2" /> Visualizar (Entrega 3)
+                      <DropdownMenuItem onClick={() => setDetail(c)}>
+                        <Eye className="h-4 w-4 mr-2" /> Visualizar / Gerenciar
                       </DropdownMenuItem>
                       {c.status === "active" ? (
                         <>
