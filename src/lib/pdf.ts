@@ -141,6 +141,17 @@ export async function buildPdf(opts: {
     doc.rect(0, 0, W, HEADER_H, "F");
     if (logo) {
       try { doc.addImage(logo, "JPEG", M, 15, LOGO_SIZE, LOGO_SIZE); } catch { /* ignore */ }
+    } else {
+      // Neutral institutional monogram (no legacy brand fallback)
+      const cx = M + LOGO_SIZE / 2;
+      const cy = 15 + LOGO_SIZE / 2;
+      doc.setFillColor(...C.brand);
+      doc.circle(cx, cy, LOGO_SIZE / 2 - 6, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(34);
+      const monogram = (c.nome_fantasia || "FisioOS").trim().charAt(0).toUpperCase() || "F";
+      doc.text(monogram, cx, cy + 12, { align: "center" });
     }
     const tx = logo ? M + LOGO_SIZE + 14 : M;
     doc.setTextColor(...C.brand);
