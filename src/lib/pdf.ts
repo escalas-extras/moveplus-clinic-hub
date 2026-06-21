@@ -72,11 +72,19 @@ export async function previewPdf(opts: BuildPdfOpts) {
   window.open(url, "_blank");
 }
 
+// `printPdf` é mantido por compatibilidade, mas NUNCA chama window.print():
+// abre o PDF real em nova aba e dispara o download. O usuário usa o leitor
+// nativo de PDF do navegador para imprimir, evitando a impressão da tela HTML.
 export async function printPdf(opts: BuildPdfOpts) {
   const doc = await buildPdf(opts);
-  const url = URL.createObjectURL(doc.output("blob"));
-  const w = window.open(url, "_blank");
-  if (w) w.addEventListener("load", () => { try { w.print(); } catch { /* noop */ } });
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  try {
+    doc.save(`${opts.title.replace(/\s+/g, "_")}.pdf`);
+  } catch {
+    /* noop */
+  }
 }
 
 export const generatePdf = downloadPdf;
