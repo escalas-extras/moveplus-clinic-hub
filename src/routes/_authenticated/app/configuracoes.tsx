@@ -109,9 +109,9 @@ function ConfigPage() {
         const { error } = await supabase.from("clinic_settings").update(payload).eq("id", settings.data.id);
         if (error) throw error;
       } else {
-        const { data: cid } = await supabase.rpc("current_clinic_id");
+        const cid = await resolveActiveClinicId();
         if (!cid) throw new Error("Nenhuma clínica ativa para o usuário atual.");
-        const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid as string });
+        const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid });
         if (error) throw error;
       }
     },
