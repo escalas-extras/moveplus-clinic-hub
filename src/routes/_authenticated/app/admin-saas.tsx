@@ -1221,3 +1221,83 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
     </form>
   );
 }
+
+// ============================================================
+// Auditoria administrativa
+// ============================================================
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  "plan.create": "Plano · criação",
+  "plan.update": "Plano · edição",
+  "plan.duplicate": "Plano · duplicação",
+  "plan.activate": "Plano · ativação",
+  "plan.deactivate": "Plano · inativação",
+  "plan.delete": "Plano · exclusão",
+  "clinic.create": "Clínica · criação",
+  "clinic.activate": "Clínica · ativação",
+  "clinic.deactivate": "Clínica · inativação",
+  "clinic.suspend": "Clínica · suspensão",
+  "clinic.plan_change": "Clínica · troca de plano",
+  "clinic.branding": "Clínica · identidade visual",
+};
+
+function AuditTab() {
+  const fetchAudit = useServerFn(listSaasAudit);
+  const { data, isLoading } = useQuery({
+    queryKey: ["saas-audit"],
+    queryFn: () => fetchAudit(),
+  });
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  const rows = data ?? [];
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data/hora</TableHead>
+              <TableHead>Ação</TableHead>
+              <TableHead>Entidade</TableHead>
+              <TableHead>Usuário</TableHead>
+              <TableHead>Detalhes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r: any) => (
+              <TableRow key={r.id}>
+                <TableCell className="text-xs whitespace-nowrap">
+                  {new Date(r.created_at).toLocaleString("pt-BR")}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {AUDIT_ACTION_LABEL[r.action] ?? r.action}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs">
+                  {r.entity_type}
+                  {r.entity_id && (
+                    <div className="text-muted-foreground font-mono">
+                      {String(r.entity_id).slice(0, 8)}…
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs">{r.user_email ?? "—"}</TableCell>
+                <TableCell className="text-[11px] text-muted-foreground max-w-md truncate">
+                  {r.new_data ? JSON.stringify(r.new_data) : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">
+                  Nenhum evento registrado.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
