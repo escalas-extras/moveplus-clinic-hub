@@ -460,7 +460,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // Reserva igual ao tamanho real do bloco de assinatura + folga p/ QR.
   // Compaction varia APENAS o gap entre blocos — assim a reserva nunca é
   // inferior ao espaço efetivamente desenhado (sem sobreposição com QR/rodapé).
-  const qrReserve = isContract ? 56 : 0;
+  const qrReserve = isContract ? 64 : 0;
   const sigReserve = sigDraw + qrReserve;
   const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
   let pages = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[0]);
