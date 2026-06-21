@@ -540,36 +540,79 @@ export async function buildPdf(opts: {
   const dataStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   const localData = `${localStr}, ${dataStr}.`;
 
-  // Helper: desenha um bloco de assinatura individual
+  // Helper: assinatura institucional com hierarquia tipográfica
+  // (linha → nome destacado → profissão → registro). Campos vazios são ocultados.
   function drawSignatureBlock(
     cx: number,
     sigY: number,
     sigW: number,
-    label: string,
-    line1?: string | null,
-    line2?: string | null,
-    line3?: string | null,
+    opts: {
+      name?: string | null;
+      role?: string | null;
+      registry?: string | null;
+      placeholderName?: string; // ex.: "Nome: ____" para contratante/testemunha
+      placeholderId?: string;   // ex.: "CPF: ____"
+    },
   ) {
     doc.setDrawColor(...C.text);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(0.6);
     const sigX = cx - sigW / 2;
     doc.line(sigX, sigY, sigX + sigW, sigY);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...C.label);
-    doc.text(label.toUpperCase(), cx, sigY + 10, { align: "center" });
+    let ly = sigY + 14;
+    const hasName = !!(opts.name && opts.name.trim());
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...C.text);
-    let ly = sigY + 22;
-    for (const ln of [line1, line2, line3]) {
-      if (ln && ln.trim() && !/^—+(\s*—+)*$/.test(ln.trim())) {
-        doc.text(ln, cx, ly, { align: "center" });
-        ly += 11;
-      }
+    if (hasName) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(...C.text);
+      doc.text(opts.name!.trim(), cx, ly, { align: "center" });
+      ly += 12;
+    } else if (opts.placeholderName) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.muted);
+      doc.text(opts.placeholderName, cx, ly, { align: "center" });
+      ly += 12;
     }
+
+    if (opts.role && opts.role.trim()) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.label);
+      doc.text(opts.role.trim(), cx, ly, { align: "center" });
+      ly += 11;
+    }
+
+    if (opts.registry && opts.registry.trim()) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.label);
+      doc.text(opts.registry.trim(), cx, ly, { align: "center" });
+      ly += 11;
+    }
+
+    if (opts.placeholderId) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...C.muted);
+      doc.text(opts.placeholderId, cx, ly, { align: "center" });
+    }
+  }
+
+  // Monta linha de registro profissional sem deixar "CREFITO:" solto.
+  function buildRegistryLine(prof?: Professional | null): string | null {
+    if (!prof) return null;
+    const num = (prof.registro || "").trim();
+    if (!num) return null;
+    const council = (prof.conselho || "CREFITO").trim();
+    // Se o conselho já contém um número (ex.: "CREFITO-8 12345"), usa direto.
+    if (/\d/.test(council) && !prof.registro) return council;
+    return `${council} ${num}`;
+  }
+
+  function buildRoleLine(prof?: Professional | null): string {
+    return (prof?.profissao && prof.profissao.trim()) || "Fisioterapeuta";
   }
 
   for (let i = 1; i <= pageCount; i++) {
@@ -580,61 +623,90 @@ export async function buildPdf(opts: {
       const desiredTop = lastPageEndY + 28;
       const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 70);
 
-      // Local e data
+      // Local e data — discreto, alinhado à direita para não competir com a assinatura
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.setTextColor(...C.text);
-      doc.text(localData, M, sigBlockTop);
+      doc.setFontSize(9);
+      doc.setTextColor(...C.label);
+      doc.text(localData, W - M, sigBlockTop, { align: "right" });
+
+      const prof = opts.professional ?? null;
+      const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
+      const registry = buildRegistryLine(prof);
+      const role = buildRoleLine(prof);
 
       if (isContract) {
-        // Layout do contrato: 5 blocos
-        // Linha 1: CONTRATANTE | CONTRATADA
-        // Linha 2: PROFISSIONAL RESPONSÁVEL (centralizado)
-        // Linha 3: TESTEMUNHA 1 | TESTEMUNHA 2
         const colW = (W - 2 * M) / 2;
         const sigW = 200;
-        const rowGap = 75;
-        let by = sigBlockTop + 50;
+        const rowGap = 78;
+        let by = sigBlockTop + 56;
 
-        // Linha 1
-        drawSignatureBlock(M + colW / 2, by, sigW, "Contratante", null, "CPF: __________________", null);
-        drawSignatureBlock(M + colW + colW / 2, by, sigW, "Contratada", c.razao_social || c.nome_fantasia || null, c.cnpj ? `CNPJ: ${c.cnpj}` : "CNPJ: __________________", null);
+        // Linha 1: Contratante | Contratada
+        drawSignatureBlock(M + colW / 2, by, sigW, {
+          role: "Contratante",
+          placeholderName: "Nome: __________________",
+          placeholderId: "CPF: __________________",
+        });
+        drawSignatureBlock(M + colW + colW / 2, by, sigW, {
+          name: c.razao_social || c.nome_fantasia || null,
+          role: "Contratada",
+          registry: c.cnpj ? `CNPJ: ${c.cnpj}` : undefined,
+          placeholderId: c.cnpj ? undefined : "CNPJ: __________________",
+        });
 
-        // Linha 2: profissional responsável
+        // Linha 2: Profissional responsável (centralizado)
         by += rowGap;
-        const prof = opts.professional;
-        const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
-        const crefitoNum = prof?.registro || prof?.conselho || "";
-        const crefitoLine = crefitoNum ? `CREFITO-8 ${crefitoNum}` : "CREFITO-8: __________________";
-        drawSignatureBlock(W / 2, by, sigW + 40, "Profissional Responsável", profNome, "Fisioterapeuta", crefitoLine);
+        drawSignatureBlock(W / 2, by, sigW + 60, {
+          name: profNome,
+          role,
+          registry: registry ?? undefined,
+          placeholderName: profNome ? undefined : "Profissional responsável",
+        });
 
-        // Linha 3: testemunhas
+        // Linha 3: Testemunhas
         by += rowGap;
-        drawSignatureBlock(M + colW / 2, by, sigW, "Testemunha 1", null, "Nome: __________________", "CPF: __________________");
-        drawSignatureBlock(M + colW + colW / 2, by, sigW, "Testemunha 2", null, "Nome: __________________", "CPF: __________________");
+        drawSignatureBlock(M + colW / 2, by, sigW, {
+          role: "Testemunha 1",
+          placeholderName: "Nome: __________________",
+          placeholderId: "CPF: __________________",
+        });
+        drawSignatureBlock(M + colW + colW / 2, by, sigW, {
+          role: "Testemunha 2",
+          placeholderName: "Nome: __________________",
+          placeholderId: "CPF: __________________",
+        });
       } else {
-        // Layout padrão: assinatura única do profissional + dados da clínica
-        const sigY = sigBlockTop + 60;
-        const prof = opts.professional;
-        const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
-        const crefitoNum = prof?.registro || prof?.conselho || "";
-        const crefitoLine = crefitoNum ? `CREFITO-8 ${crefitoNum}` : "CREFITO-8: __________________";
+        // Fechamento institucional: assinatura única do profissional,
+        // seguida de bloco discreto com identidade da clínica.
+        const sigY = sigBlockTop + 64;
+        drawSignatureBlock(W / 2, sigY, 260, {
+          name: profNome,
+          role,
+          registry: registry ?? undefined,
+          placeholderName: profNome ? undefined : "Profissional responsável",
+        });
 
-        drawSignatureBlock(W / 2, sigY, 240, "Profissional Responsável", profNome, "Fisioterapeuta", crefitoLine);
+        // Separador fino
+        const sepY = sigY + 52;
+        doc.setDrawColor(...C.border);
+        doc.setLineWidth(0.3);
+        const sepW = 80;
+        doc.line(W / 2 - sepW / 2, sepY, W / 2 + sepW / 2, sepY);
 
-        // Dados da clínica logo abaixo
-        const clinicY = sigY + 56;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8.5);
-        doc.setTextColor(...C.muted);
-        const clinicLines = [
-          c.nome_fantasia || c.razao_social,
-          c.cnpj ? `CNPJ: ${c.cnpj}` : null,
-        ].filter(Boolean) as string[];
-        let cyy = clinicY;
-        for (const ln of clinicLines) {
-          doc.text(ln, W / 2, cyy, { align: "center" });
+        // Identidade institucional da clínica (subordinada à assinatura)
+        let cyy = sepY + 14;
+        const clinicName = c.nome_fantasia || c.razao_social;
+        if (clinicName) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(...C.brand);
+          doc.text(clinicName, W / 2, cyy, { align: "center" });
           cyy += 11;
+        }
+        if (c.cnpj) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(...C.muted);
+          doc.text(`CNPJ ${c.cnpj}`, W / 2, cyy, { align: "center" });
         }
       }
     }
