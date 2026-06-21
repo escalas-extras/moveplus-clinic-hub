@@ -134,6 +134,10 @@ function ConfigPage() {
         <p className="text-sm text-muted-foreground">Personalize a marca da sua clínica em todos os documentos e telas.</p>
       </div>
 
+      <MyAccountCard />
+
+
+
       {/* Preview ao vivo da identidade */}
       <Card className="p-6 border-2" style={{ borderColor: primary }}>
         <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Pré-visualização da identidade</div>
