@@ -83,7 +83,8 @@ export function AvatarUploader({
     setBusy(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const newPath = `${userId}/avatar.${ext}`;
+      const previousPath = path;
+      const newPath = `${userId}/avatar-${Date.now()}.${ext}`;
       invalidateSignedAvatarUrl(newPath);
       const objectUrl = URL.createObjectURL(file);
       setLocalPreviewUrl(objectUrl);
@@ -92,6 +93,9 @@ export function AvatarUploader({
         .upload(newPath, file, { upsert: true, contentType: file.type });
       if (upErr) throw upErr;
       await persist(newPath);
+      if (previousPath && previousPath !== newPath && !/^https?:\/\//i.test(previousPath)) {
+        await supabase.storage.from(AVATAR_BUCKET).remove([previousPath]);
+      }
       toast.success("Foto de perfil atualizada.");
     } catch (e: unknown) {
       toast.error("Falha no upload: " + errorMessage(e));
