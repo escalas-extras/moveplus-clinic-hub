@@ -1,108 +1,72 @@
-## BLOCO I — Biblioteca Premium + Fundação SaaS Multi-Clínica
+# Plano Final de Estabilização + UX Premium — FisioOS (APROVADO COM AJUSTES)
 
-Sistema em produção (Move+). Execução em 4 fases sequenciais, com validação entre cada uma. **Nada será publicado automaticamente.**
-
----
-
-### FASE 1 — Biblioteca Premium Real
-
-**1.1 Conteúdo real (substituir 43 placeholders)**
-- Popular `library_contents` com conteúdos completos (~800+ chars) nas categorias:
-  - Neurologia: AVC, Parkinson, Alzheimer, Esclerose Múltipla, Lesão Medular
-  - Ortopedia: Lombalgia, Cervicalgia, Joelho, Ombro, Artrose, Pós-op
-  - Geriatria: Quedas, Mobilidade, Exercícios domiciliares, Sentar/levantar
-  - Respiratória: Exercícios, Higiene brônquica, Orientações domiciliares
-- Estrutura por item: título, resumo, conteúdo (markdown estruturado com seções, listas, alertas, "quando procurar atendimento"), tags, categoria, status=published, scope=global, clinic_id=null
-- Inserção via `supabase--insert` (não migração — são dados)
-
-**1.2 Renderização rica no modal**
-- `src/routes/_authenticated/app/biblioteca.tsx`: substituir render cru por renderer markdown (react-markdown + remark-gfm) com estilos tipográficos (h1/h2/h3, ul/ol, blockquote para alertas, callouts).
-- Componente novo: `src/components/library/library-content-view.tsx`
-
-**1.3 PDF Engine para biblioteca**
-- Remover `window.print()`.
-- Novo builder `src/lib/pdf-builders.ts` → `buildLibraryContentPdf({ content, clinic })` usando o pdf-engine premium existente (cabeçalho white-label, título, corpo renderizado, rodapé com data/clínica, sem QR/hash por padrão).
-- Botão "Gerar PDF" no modal chama o engine.
+4 fases com checkpoint obrigatório. Nada publica automaticamente. Nenhum item é considerado resolvido só porque existe no código — exige validação visual e funcional real.
 
 ---
 
-### FASE 2 — Fundação SaaS Multi-Clínica (sem quebrar Move+)
+## FASE 1 — Correção definitiva (ordem obrigatória)
 
-**2.1 Tabela `clinic_members`** (migração)
+### Prioridade 1 — validar antes de qualquer nova implementação
+
+#### 1.1 Logo da clínica (NÃO homologada)
+Teste visual real em **Move+**, **Grasiela** e **clínica teste**, navegando Painel → Agenda → Pacientes → Documentos → Biblioteca → Configurações.
+Critério: sem piscar, sem quebrar, sem trocar para monograma, sem recarregar visualmente.
+
+#### 1.2 Busca Global (antes de Avatar)
+Validar funcionamento real para: owner, profissional, super_admin, super_admin em modo suporte.
+
+#### 1.3 Minha Conta
+Não basta existir no código — deve estar visível na interface. Reportar exatamente onde foi renderizado (sidebar acima de Sair + menu do avatar da topbar). Validar para todos os papéis.
+
+#### 1.4 Avatar (somente após Minha Conta visível)
+Upload real completo: selecionar → upload `user-avatars` → `profiles.avatar_url` → signed URL → sidebar + topbar atualizam sem logout. Nunca imagem quebrada.
+
+### Prioridade 2 — apenas após 1.1–1.4 homologados
+
+#### 1.5 Biblioteca / PDF
+PDF real (nunca print HTML) com branding por clínica (logo, cores, rodapé) em Move+, Grasiela e clínica teste. Validar download e preview.
+
+#### 1.6 Assinaturas
+Bloco idêntico para todas as clínicas:
 ```
-id, clinic_id (FK clinics), user_id (FK auth.users), role (enum: owner/admin/profissional/recepcao/financeiro),
-is_default bool, active bool, created_at
-unique(clinic_id, user_id)
+Nome do profissional
+FISIOTERAPEUTA
+CREFITO xxxxx
+Razão Social
+CNPJ xx.xxx.xxx/xxxx-xx
 ```
-+ GRANTs + RLS (usuário lê suas memberships; admin/owner gerencia da própria clínica).
 
-**2.2 Helpers SECURITY DEFINER**
-- `current_clinic_id()` → retorna `is_default=true` member da `auth.uid()`, fallback primeira ativa.
-- `is_member_of(_clinic_id uuid)` → bool.
-- `has_role_in(_clinic_id uuid, _role text)` → bool.
-- Todos com `SET search_path = public`.
-
-**2.3 Backfill seguro (Move+)**
-- Identificar/garantir 1 row em `clinics` correspondendo à Move+ (criar se não existir, usando dados de `clinic_settings`).
-- Adicionar `clinic_id uuid` (nullable) em `clinic_settings` com FK para `clinics`.
-- Preencher `clinic_settings.clinic_id` = id da Move+.
-- Inserir `clinic_members` para todos os `auth.users` existentes apontando para a Move+ com `is_default=true` e role mapeado de `user_roles` (admin→admin; physiotherapist→profissional).
-
-**Não aplicar NOT NULL em tabelas clínicas nesta fase** — apenas preparação.
-
-**2.4 Branding por clínica**
-- `src/lib/branding.ts`: trocar `LIMIT 1` por busca via `current_clinic_id()` → `clinic_settings` filtrado por `clinic_id`. Fallback FisioOS se ausente.
-- `merge-tags.ts` e `pdf-engine.ts`: receber/usar clínica resolvida.
-- `validate_document_by_hash`: já recebe o doc — passar a juntar `clinic_settings` por `clinic_id` do documento (adicionar `clinic_id` em `clinical_documents` se não existir e backfill com a Move+).
+**Checkpoint 1** só é aprovado após validação visual e funcional completa de TODOS os itens 1.1–1.6.
 
 ---
 
-### FASE 3 — Admin SaaS Inicial
+## FASE 2 — Congelamento da arquitetura
+Após OK explícito da Fase 1. Não mexer mais em: `clinic_id`, provisionamento, RLS, `can_access_clinic`, `can_manage_clinic`, `clinic_members.role`, multi-tenant.
 
-**3.1 Role `super_admin`**
-- Adicionar valor ao enum `app_role`.
-- Atribuir ao usuário owner da Move+ via migração condicional.
-
-**3.2 Rota `/app/admin-saas`** (gate `has_role(super_admin)`)
-- Lista clínicas (tabela), criar/editar/ativar/inativar.
-- Form: nome fantasia, razão social, CNPJ/CPF, telefone, email, cidade/UF, slug, plano (Starter/Professional/Clinic/Enterprise), logo, cores, responsável admin.
-- Server functions (`createServerFn` + `requireSupabaseAuth` + check super_admin):
-  - `listClinics`, `createClinic`, `updateClinic`, `toggleClinicActive`, `inviteClinicAdmin`.
-- Ao criar clínica: insere `clinics`, `clinic_settings(clinic_id=…)`, convida admin (Auth Admin API) e cria `clinic_members` com role=owner.
-
-**3.3 Campo `plan`** em `clinics` (já existe — adicionar enum check se necessário).
+**Checkpoint 2:** confirmação textual do congelamento.
 
 ---
 
-### FASE 4 — RLS Progressiva (apenas tabelas com clinic_id já backfilled)
+## FASE 3 — UX Premium
 
-Prioridade nesta fase: **apenas** `library_contents`, `document_templates`, `clinical_documents` (já têm `clinic_id` na coluna).
+- Nomenclatura: "Dashboard" → "Painel". Tela principal: "Painel Clínico" / "Resumo operacional da clínica em tempo real".
+- Painel: KPIs (Pacientes Ativos, Atendimentos do Mês, Documentos Emitidos, Reavaliações Pendentes — valor, variação, comparação, ícone) + Agenda de Hoje + Atividades Importantes (com ação rápida).
+- Menu lateral recolhível: Painel · Agenda · Pacientes · Prontuários (Avaliações/Evoluções/Reavaliações) · Documentos (Emissão/Modelos) · Biblioteca · Gestão (Indicadores/Financeiro/Relatórios) · Configurações.
+- Agenda Premium: diária/semanal/mensal estilo Google Calendar, filtros profissional/status, resumo do dia.
+- Documentos: Wizard 4 passos (Modelo → Paciente → Visualização → Emitir e Arquivar) com barra de progresso.
+- Design System: azul petróleo / verde esmeralda / laranja / vermelho via tokens. Tipografia 32/24/16/14. Cards com altura, sombra e espaçamento consistentes.
 
-- Reescrever policies para:
-  - SELECT: `scope='global' OR clinic_id = current_clinic_id() OR has_role(auth.uid(),'super_admin')`
-  - INSERT/UPDATE/DELETE: `WITH CHECK clinic_id = current_clinic_id()` (ou super_admin)
-- Backfill `clinic_id` nestas tabelas para Move+ onde nulo.
-- **Não tocar** RLS de `patients/professionals/assessments/evolutions/appointments` neste bloco — fica para BLOCO II após backfill dedicado.
-
----
-
-### Critérios de homologação (verificação ao fim)
-
-Biblioteca: conteúdo real renderizado, PDF via engine, sem markdown cru, sem PDF vazio.
-SaaS: Move+ operando, dados preservados, `clinic_members` populada, `current_clinic_id()` retornando Move+, branding/PDF corretos, admin SaaS criando clínica isolada.
-Segurança: sem afrouxar RLS, validate_document_by_hash LGPD-safe mantido.
-
-### Entrega
-Relatório final com: conteúdos criados, tabelas/funções, RLS alterada, backfill executado, testes, pendências (RLS clínica plena, NOT NULL clinic_id em tabelas operacionais, seletor de clínica ativa na UI, convites por e-mail, billing).
+**Checkpoint 3:** screenshots das telas-chave para aprovação.
 
 ---
 
-### Ordem de execução proposta
-1. Fase 1 (sem migração de schema — só dados + frontend + PDF builder).
-2. Fase 2 (migração: clinic_members + helpers + clinic_id em clinic_settings/clinical_documents + backfill Move+).
-3. Branding/PDF/merge-tags refactor.
-4. Fase 3 (super_admin + rota admin-saas + server fns).
-5. Fase 4 (RLS progressiva nas 3 tabelas seguras).
-6. Relatório.
+## FASE 4 — Auditoria 360° Final
+Classificar 🔴/🟡/🟢: Segurança, Multi-tenant, Fluxos clínicos, PDFs, Biblioteca, Agenda, UX, White Label, Provisionamento, Escalabilidade SaaS.
+Relatório final com bugs corrigidos, telas/componentes alterados, testes, pendências, validação nas 3 clínicas, confirmação de estabilidade e readiness comercial.
 
-**Aguardo aprovação para iniciar pela Fase 1.**
+**Sem publicação sem aprovação explícita.**
+
+---
+
+## Início imediato — Fase 1.1 (Logo)
+Vou abrir o preview e navegar entre as telas nas 3 clínicas observando a logo. Reporto o resultado real antes de seguir para 1.2.
