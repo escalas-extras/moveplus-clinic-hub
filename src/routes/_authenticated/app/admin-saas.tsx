@@ -1374,7 +1374,7 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
           placeholder="owner@clinica.com"
         />
         <p className="text-xs text-muted-foreground mt-1">
-          O usuário precisa já existir no sistema. Gestão de convites: Entrega 2.
+          Se o e-mail ainda não tiver conta, o sistema enviará um convite automaticamente.
         </p>
       </div>
       <Button type="submit" disabled={mut.isPending} className="w-full">
