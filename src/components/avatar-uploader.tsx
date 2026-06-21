@@ -38,6 +38,7 @@ export function AvatarUploader({
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    initialData: getCachedAvatarUrl(path) ?? undefined,
   });
 
   useEffect(() => {
