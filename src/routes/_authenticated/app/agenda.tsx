@@ -172,7 +172,7 @@ function AgendaPage() {
   const update = useMutation({
     mutationFn: async (v: Form & { id: string; status: Status }) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
-      const { id, status, ...rest } = v;
+      const { id, status, tipo: _tipo, ...rest } = v;
       const { error } = await supabase
         .from("appointments")
         .update({ ...rest, status: status as any })
@@ -559,12 +559,13 @@ function MonthView({ items, anchor, onPick }: { items: any[]; anchor: Date; onPi
 
 /* ───────────────────────── NEW DIALOG ───────────────────────── */
 
-function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora }: any) {
+function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora, disabled }: any) {
   const { register, handleSubmit, setValue, watch, reset } = useForm<Form>({
-    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60 },
+    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60, status: "agendado", tipo: "Atendimento" },
   });
   const patient_id = watch("patient_id");
   const professional_id = watch("professional_id");
+  const status = watch("status") ?? "agendado";
 
   // Reset whenever the dialog opens with a new slot
   useEffect(() => {
@@ -575,6 +576,8 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
         data: initialDate,
         horario: initialHora ?? "08:00",
         duracao_min: 60,
+        status: "agendado",
+        tipo: "Atendimento",
         observacao: "",
       });
     }
@@ -587,25 +590,37 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)}>
+            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs uppercase">Profissional</Label>
-            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
+            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} /></div>
-            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" {...register("horario")} /></div>
-            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} /></div>
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("horario")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" min={15} step={15} {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
           </div>
-          <div><Label className="text-xs uppercase">Observação</Label><Textarea rows={2} {...register("observacao")} /></div>
-          <div className="flex justify-end"><Button type="submit" disabled={create.isPending || !patient_id || !professional_id}>Agendar</Button></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><Label className="text-xs uppercase">Tipo</Label><Input {...register("tipo")} disabled={disabled} placeholder="Atendimento" /></div>
+            <div>
+              <Label className="text-xs uppercase">Status</Label>
+              <Select value={status} onValueChange={(v) => setValue("status", v as Status)} disabled={disabled}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div><Label className="text-xs uppercase">Observação</Label><Textarea rows={2} {...register("observacao")} disabled={disabled} /></div>
+          <div className="flex justify-end"><Button type="submit" disabled={disabled || create.isPending || !patient_id || !professional_id}>Agendar</Button></div>
         </form>
       </DialogContent>
     </Dialog>
