@@ -205,7 +205,8 @@ function ExploreCard({ to, icon: Icon, title, desc, color }: { to: string; icon:
   );
 }
 
-function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default", small = false }: { icon: any; label: string; value: any; hint?: string; to?: string; color?: string; tone?: "default" | "warn"; small?: boolean }) {
+function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default", small = false, emptyCta }: { icon: any; label: string; value: any; hint?: string; to?: string; color?: string; tone?: "default" | "warn"; small?: boolean; emptyCta?: string }) {
+  const isEmpty = emptyCta && (value === 0 || value === "0");
   const content = (
     <Card className={cn("p-6 h-full lift relative overflow-hidden", to && "lift-hover cursor-pointer")}>
       {/* halo interno suave na cor */}
@@ -224,11 +225,21 @@ function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default",
           </div>
           {tone === "warn" && <span className="text-[10px] uppercase tracking-wider font-semibold text-orange-600">Atenção</span>}
         </div>
-        <div className={cn("num-hero mt-4 font-semibold", small ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl")} style={{ color: tone === "warn" ? "#c75c3a" : undefined }}>
-          {value}
-        </div>
-        <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
-        {hint && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{hint}</div>}
+        {isEmpty ? (
+          <>
+            <div className="mt-5 text-sm text-muted-foreground leading-snug">Nenhum registro ainda.</div>
+            <div className="mt-2 text-sm font-medium" style={{ color }}>{emptyCta} →</div>
+            <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
+          </>
+        ) : (
+          <>
+            <div className={cn("num-hero mt-4 font-semibold", small ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl")} style={{ color: tone === "warn" ? "#c75c3a" : undefined }}>
+              {value}
+            </div>
+            <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
+            {hint && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{hint}</div>}
+          </>
+        )}
       </div>
     </Card>
   );
