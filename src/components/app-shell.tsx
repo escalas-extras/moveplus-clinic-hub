@@ -10,10 +10,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { GlobalSearch } from "@/components/global-search";
-import { UserAvatar } from "@/components/avatar-uploader";
+import { UserAvatar, AvatarUploader } from "@/components/avatar-uploader";
 import { usePlatformContext } from "@/lib/platform-context";
 import { usePlanFeatures } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
@@ -122,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Cmd/Ctrl+K → open global search
   const [searchOpen, setSearchOpen] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
@@ -184,13 +186,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* User chip */}
         <div className="border-t border-white/40 p-4">
-          <div className="flex items-center gap-3 px-1 mb-3">
+          <button
+            type="button"
+            onClick={() => setAvatarOpen(true)}
+            className="w-full flex items-center gap-3 px-1 mb-3 rounded-lg hover:bg-white/60 py-1 transition-colors text-left"
+            aria-label="Editar foto de perfil"
+          >
             <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={36} gradient={avatarGradient} />
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{userName}</div>
               <div className="text-[11px] text-muted-foreground truncate">{user?.email}</div>
             </div>
-          </div>
+          </button>
           <Button variant="outline" size="sm" className="w-full justify-start glass" onClick={logout}>
             <LogOut className="h-4 w-4 mr-2" /> Sair
           </Button>
@@ -226,7 +233,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" className="rounded-full glass">
               <Bell className="h-4 w-4" />
             </Button>
-            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
+            <button
+              type="button"
+              onClick={() => setAvatarOpen(true)}
+              className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40"
+              aria-label="Editar foto de perfil"
+              title="Editar foto de perfil"
+            >
+              <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
+            </button>
           </div>
         </header>
 
@@ -234,6 +249,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       </div>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      {user?.id && (
+        <Dialog open={avatarOpen} onOpenChange={setAvatarOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Foto de perfil</DialogTitle>
+            </DialogHeader>
+            <AvatarUploader userId={user.id} initial={avatarPath} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
