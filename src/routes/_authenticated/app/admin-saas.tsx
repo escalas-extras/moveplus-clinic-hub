@@ -477,7 +477,7 @@ function ClinicsTab() {
                           : "secondary"
                     }
                   >
-                    {c.status}
+                    {STATUS_LABEL[c.status] ?? c.status}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">{c.user_count}</TableCell>
