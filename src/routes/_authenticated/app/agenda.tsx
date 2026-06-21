@@ -461,11 +461,35 @@ function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: 
             <Link to="/app/pacientes/$id" params={{ id: a.patient_id }}><UserCircle2 className="h-4 w-4 mr-2" /> Ver paciente</Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem disabled={disabled} onClick={() => onEdit(a)}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onEdit(a); }}
+          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          <Pencil className="h-4 w-4 mr-2" /> Editar
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "confirmado")}>Marcar como Confirmado</DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "realizado")}><CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado</DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "cancelado")} className="text-rose-600"><XCircle className="h-4 w-4 mr-2" /> Cancelar</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "confirmado"); }}
+          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          Marcar como Confirmado
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "realizado"); }}
+          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "cancelado"); }}
+          className={cn("cursor-pointer text-rose-600", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          <XCircle className="h-4 w-4 mr-2" /> Cancelar
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
