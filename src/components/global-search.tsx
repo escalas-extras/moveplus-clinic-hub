@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { usePlatformContext } from "@/lib/platform-context";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,10 +14,11 @@ import {
   CalendarDays,
   UserCog,
   PenLine,
+  Building2,
 } from "lucide-react";
 
 type Hit = {
-  type: "paciente" | "documento" | "modelo" | "biblioteca" | "agenda" | "profissional";
+  type: "paciente" | "documento" | "modelo" | "biblioteca" | "agenda" | "profissional" | "clinica";
   id: string;
   title: string;
   subtitle?: string;
@@ -30,10 +32,12 @@ const TYPE_META: Record<Hit["type"], { label: string; icon: any }> = {
   biblioteca: { label: "Biblioteca", icon: BookOpen },
   agenda: { label: "Agenda", icon: CalendarDays },
   profissional: { label: "Profissionais", icon: UserCog },
+  clinica: { label: "Clínicas", icon: Building2 },
 };
 
 export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
   const { clinicId, loading: clinicLoading } = useActiveClinic();
+  const { isPlatformAdmin } = usePlatformContext();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const navigate = useNavigate();
@@ -51,17 +55,44 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   }, [open]);
 
   const term = debounced;
-  const canSearch = !!clinicId && term.length >= 2;
+  // Platform admins (super admin sem clínica ativa) buscam clínicas no Painel SaaS.
+  // Usuários com clínica ativa buscam dados clínicos da própria clínica.
+  const mode: "platform" | "clinic" | "none" = isPlatformAdmin
+    ? "platform"
+    : clinicId
+      ? "clinic"
+      : "none";
+  const canSearch = mode !== "none" && term.length >= 2;
 
   const { data: hits = [], isFetching } = useQuery<Hit[]>({
-    queryKey: ["global-search", clinicId, term],
+    queryKey: ["global-search", mode, clinicId ?? "platform", term],
     enabled: canSearch,
     staleTime: 10_000,
     queryFn: async () => {
       const like = `%${term.replace(/[%_]/g, " ")}%`;
       const results: Hit[] = [];
-      const cid = clinicId!;
 
+      if (mode === "platform") {
+        const { data: clinics } = await supabase
+          .from("clinics")
+          .select("id, nome, slug, status, plan")
+          .neq("status", "deleted")
+          .or(`nome.ilike.${like},slug.ilike.${like}`)
+          .order("nome", { ascending: true })
+          .limit(20);
+        for (const c of clinics ?? []) {
+          results.push({
+            type: "clinica",
+            id: c.id,
+            title: c.nome ?? c.slug ?? "—",
+            subtitle: [c.slug, c.plan, c.status].filter(Boolean).join(" · "),
+            to: `/app/admin-saas?clinic=${c.id}`,
+          });
+        }
+        return results;
+      }
+
+      const cid = clinicId!;
       const [pats, docs, tpls, lib, profs, appts] = await Promise.all([
         supabase
           .from("patients")
@@ -170,7 +201,12 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
     return g;
   }, [hits]);
 
-  const noClinic = !clinicId && !clinicLoading;
+  const noContext = mode === "none" && !clinicLoading;
+
+  const placeholder =
+    mode === "platform"
+      ? "Buscar clínicas por nome ou slug…"
+      : "Buscar pacientes, documentos, modelos, biblioteca, agenda…";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,7 +215,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
             autoFocus
-            placeholder="Buscar pacientes, documentos, modelos, biblioteca, agenda…"
+            placeholder={placeholder}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="border-0 focus-visible:ring-0 shadow-none h-9 px-0"
@@ -188,14 +224,20 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto">
-          {noClinic ? (
-            <EmptyMsg text="A busca global está disponível dentro de uma clínica. Super admins precisam iniciar uma sessão de suporte para pesquisar dados clínicos." />
+          {noContext ? (
+            <EmptyMsg text="A busca global está disponível dentro de uma clínica ou no Painel SaaS." />
           ) : !canSearch ? (
             <EmptyMsg text="Digite ao menos 2 caracteres para pesquisar." />
           ) : isFetching ? (
             <EmptyMsg text="Buscando…" />
           ) : hits.length === 0 ? (
-            <EmptyMsg text="Nenhum resultado encontrado nesta clínica." />
+            <EmptyMsg
+              text={
+                mode === "platform"
+                  ? "Nenhuma clínica encontrada."
+                  : "Nenhum resultado encontrado nesta clínica."
+              }
+            />
           ) : (
             <div className="py-2">
               {(Object.keys(grouped) as Hit["type"][]).map((type) => {
