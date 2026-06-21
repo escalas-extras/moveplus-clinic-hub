@@ -44,8 +44,8 @@ export function useRoles(userId?: string) {
   const { data, isLoading } = useQuery({
     queryKey: ["user-roles-combined", userId],
     enabled: !!userId,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
+    staleTime: 30_000,
+    gcTime: 60_000,
       const [rolesRes, memberRes, supportRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId!),
         supabase
