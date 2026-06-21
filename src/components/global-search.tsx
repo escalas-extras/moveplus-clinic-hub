@@ -55,12 +55,14 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   }, [open]);
 
   const term = debounced;
-  // Platform admins (super admin sem clínica ativa) buscam clínicas no Painel SaaS.
-  // Usuários com clínica ativa buscam dados clínicos da própria clínica.
-  const mode: "platform" | "clinic" | "none" = isPlatformAdmin
-    ? "platform"
-    : clinicId
-      ? "clinic"
+  // Prioridade:
+  //  - Existe clínica ativa (inclui super_admin em modo suporte) → busca dentro da clínica.
+  //  - Super admin sem clínica ativa → busca clínicas no Painel SaaS.
+  //  - Sem clínica e sem super_admin → sem contexto.
+  const mode: "platform" | "clinic" | "none" = clinicId
+    ? "clinic"
+    : isPlatformAdmin
+      ? "platform"
       : "none";
   const canSearch = mode !== "none" && term.length >= 2;
 
