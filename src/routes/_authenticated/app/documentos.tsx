@@ -62,6 +62,18 @@ function DocumentosPage() {
   });
 
   // ----- DATA -----
+  const { data: activeClinicId } = useQuery({
+    queryKey: ["active-clinic-id", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
+        supabase.rpc("current_support_session_clinic"),
+        supabase.rpc("current_clinic_id"),
+      ]);
+      return ((supportCid as string | null) ?? (ownCid as string | null) ?? null);
+    },
+  });
+
   const { data: templates = [] } = useQuery({
     queryKey: ["doc-templates-active"],
     queryFn: async () => {
@@ -76,11 +88,13 @@ function DocumentosPage() {
   });
 
   const { data: patients = [] } = useQuery({
-    queryKey: ["patients-min"],
+    queryKey: ["patients-min", activeClinicId],
+    enabled: !!activeClinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("patients")
         .select("id, nome_completo, cpf, data_nascimento, cid_principal")
+        .eq("clinic_id", activeClinicId!)
         .order("nome_completo");
       return data || [];
     },
@@ -95,21 +109,22 @@ function DocumentosPage() {
   }, [patients, patientSearch]);
 
   const { data: patient } = useQuery({
-    queryKey: ["patient-full", patientId],
-    enabled: !!patientId,
+    queryKey: ["patient-full", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
-      const { data } = await supabase.from("patients").select("*").eq("id", patientId).single();
+      const { data } = await supabase.from("patients").select("*").eq("id", patientId).eq("clinic_id", activeClinicId!).single();
       return data;
     },
   });
 
   const { data: lastAssessment } = useQuery({
-    queryKey: ["patient-last-assessment", patientId],
-    enabled: !!patientId,
+    queryKey: ["patient-last-assessment", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
         .from("assessments")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("patient_id", patientId)
         .order("data", { ascending: false })
         .limit(1)
@@ -156,12 +171,13 @@ function DocumentosPage() {
   });
 
   const { data: professional } = useQuery({
-    queryKey: ["my-professional", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["my-professional", user?.id, activeClinicId],
+    enabled: !!user?.id && !!activeClinicId,
     queryFn: async () => {
       const { data: byProfile } = await supabase
         .from("professionals")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("profile_id", user!.id)
         .maybeSingle();
       if (byProfile) return byProfile;
@@ -169,6 +185,7 @@ function DocumentosPage() {
       const { data: fallback } = await supabase
         .from("professionals")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("situacao", "ativo")
         .order("nome")
         .limit(1)
@@ -178,12 +195,13 @@ function DocumentosPage() {
   });
 
   const { data: emitted = [], refetch: refetchEmitted } = useQuery({
-    queryKey: ["clinical-documents", patientId],
-    enabled: !!patientId,
+    queryKey: ["clinical-documents", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
         .from("clinical_documents")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("patient_id", patientId)
         .order("issued_at", { ascending: false });
       return data || [];
@@ -248,6 +266,7 @@ function DocumentosPage() {
   const emit = useMutation({
     mutationFn: async () => {
       if (!template || !patient) throw new Error("Selecione paciente e modelo");
+      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
       if (isContractTemplate && contratanteMode === "responsavel") {
         const f = contratanteForm;
         if (!f.nome?.trim() || !f.cpf?.trim() || !f.rg?.trim() || !f.vinculo?.trim() || !f.telefone?.trim() || !f.endereco?.trim()) {
@@ -293,6 +312,7 @@ function DocumentosPage() {
       // 4) insert clinical_documents (already locked = official issuance)
       const nowIso = new Date().toISOString();
       const { error: insErr } = await supabase.from("clinical_documents").insert({
+        clinic_id: activeClinicId,
         patient_id: patient.id,
         professional_id: professional?.id ?? null,
         doc_type: cdocType as any,
@@ -332,7 +352,7 @@ function DocumentosPage() {
       a.download = `${(template?.name || "documento").replace(/\s+/g, "_")}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      qc.invalidateQueries({ queryKey: ["clinical-documents", patientId] });
+      qc.invalidateQueries({ queryKey: ["clinical-documents", activeClinicId, patientId] });
       refetchEmitted();
     },
     onError: (e: any) => toast.error(e.message || "Erro ao emitir"),

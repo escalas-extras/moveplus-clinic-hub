@@ -35,7 +35,8 @@ export function SupportBanner() {
     mutationFn: () => endFn(),
     onSuccess: async () => {
       toast.success("Sessão de suporte encerrada");
-      await qc.invalidateQueries();
+      await qc.cancelQueries();
+      qc.clear();
       navigate({ to: "/app/admin-saas", replace: true });
     },
     onError: (e: any) => toast.error(e.message),

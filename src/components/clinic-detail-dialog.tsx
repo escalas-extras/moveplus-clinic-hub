@@ -444,7 +444,8 @@ function SupportPanel({
       start({ data: { clinic_id: clinic.id, reason: reason || undefined } }),
     onSuccess: async () => {
       toast.success(`Modo Suporte iniciado em ${clinic.nome}`);
-      await qc.invalidateQueries();
+      await qc.cancelQueries();
+      qc.clear();
       onStart();
       // Entra na experiência real da clínica.
       navigate({ to: "/app", replace: true });
