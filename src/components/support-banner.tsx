@@ -59,7 +59,13 @@ export function SupportBanner() {
           size="sm"
           variant="outline"
           className="bg-white/80 border-amber-700 hover:bg-white"
-          onClick={() => endMut.mutate()}
+          onClick={() => {
+            if (endMut.isPending) return;
+            const ok = window.confirm(
+              `Encerrar Modo Suporte em "${clinicName}"? Você voltará ao Painel SaaS.`,
+            );
+            if (ok) endMut.mutate();
+          }}
           disabled={endMut.isPending}
         >
           <LogOut className="h-4 w-4 mr-1" /> Encerrar
