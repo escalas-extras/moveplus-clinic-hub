@@ -26,6 +26,7 @@ export function AvatarUploader({
   const [busy, setBusy] = useState(false);
   const [broken, setBroken] = useState(false);
   const [displayUrl, setDisplayUrl] = useState<string | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => setPath(initial), [initial]);
   useEffect(() => setBroken(false), [path]);
@@ -42,9 +43,10 @@ export function AvatarUploader({
   });
 
   useEffect(() => {
-    if (previewUrl) setDisplayUrl(previewUrl);
+    if (localPreviewUrl) setDisplayUrl(localPreviewUrl);
+    else if (previewUrl) setDisplayUrl(previewUrl);
     if (!path) setDisplayUrl(null);
-  }, [path, previewUrl]);
+  }, [localPreviewUrl, path, previewUrl]);
 
   async function persist(newPath: string | null) {
     const { error } = await supabase
@@ -54,8 +56,10 @@ export function AvatarUploader({
     if (error) throw error;
     invalidateSignedAvatarUrl(newPath);
     setPath(newPath);
-    qc.invalidateQueries({ queryKey: ["user-avatar", userId] });
-    qc.invalidateQueries({ queryKey: ["avatar-preview", userId] });
+    qc.setQueryData(["user-avatar", userId], { avatar_url: newPath });
+    await qc.invalidateQueries({ queryKey: ["user-avatar", userId] });
+    await qc.invalidateQueries({ queryKey: ["my-profile", userId] });
+    await qc.invalidateQueries({ queryKey: ["avatar-preview", userId] });
   }
 
   async function handleFile(file: File) {
@@ -72,6 +76,8 @@ export function AvatarUploader({
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const newPath = `${userId}/avatar.${ext}`;
       invalidateSignedAvatarUrl(newPath);
+      const objectUrl = URL.createObjectURL(file);
+      setLocalPreviewUrl(objectUrl);
       const { error: upErr } = await supabase.storage
         .from(AVATAR_BUCKET)
         .upload(newPath, file, { upsert: true, contentType: file.type });
@@ -91,6 +97,7 @@ export function AvatarUploader({
       if (path && !/^https?:\/\//i.test(path)) {
         await supabase.storage.from(AVATAR_BUCKET).remove([path]);
       }
+      setLocalPreviewUrl(null);
       await persist(null);
       toast.success("Foto removida.");
     } catch (e: any) {
