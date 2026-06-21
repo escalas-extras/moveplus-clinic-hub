@@ -2,6 +2,24 @@
 import { fmtDate, calcAge } from "./format";
 import { computeScale } from "./clinical-scales";
 
+const HUMANIZE_MAP: Record<string, string> = {
+  cid_principal: "CID não informado.",
+  cid_secundario: "CID secundário não informado.",
+  objetivos: "Objetivos terapêuticos a definir após avaliação.",
+  condutas: "Condutas serão estabelecidas após avaliação inicial.",
+  diagnostico_fisio: "Diagnóstico fisioterapêutico em elaboração.",
+  diagnostico: "Hipótese diagnóstica a ser confirmada.",
+  queixa_principal: "Queixa principal a documentar.",
+  hma: "História da moléstia atual a documentar.",
+  prognostico: "Prognóstico a definir após evolução.",
+};
+
+export function humanizeField(value: string | null | undefined, field: string): string {
+  const v = (value ?? "").toString().trim();
+  if (v && v !== "—") return v;
+  return HUMANIZE_MAP[field] ?? "";
+}
+
 export type MergeContext = {
   patient?: any;
   assessment?: any;
@@ -74,20 +92,20 @@ export function buildMergeData(ctx: MergeContext): Record<string, string> {
     convenio_nome: p.convenio_nome || "—",
     convenio_carteirinha: p.convenio_carteirinha || "—",
 
-    // ---- Clínico ----
-    diagnostico: a.diagnostico_clinico || "—",
-    diagnostico_fisio: a.diagnostico_fisio || "—",
-    queixa_principal: a.queixa_principal || "—",
-    hma: a.hma || "—",
-    cid_principal: p.cid_principal || a.diagnosis_codes?.[0] || "—",
-    cid_secundario: p.cid_secundario || a.cid_secundario || a.diagnosis_codes?.[1] || "—",
-    prognostico: a.prognostico || "—",
+    // ---- Clínico (humanizado: vazio vira frase institucional) ----
+    diagnostico: humanizeField(a.diagnostico_clinico, "diagnostico"),
+    diagnostico_fisio: humanizeField(a.diagnostico_fisio, "diagnostico_fisio"),
+    queixa_principal: humanizeField(a.queixa_principal, "queixa_principal"),
+    hma: humanizeField(a.hma, "hma"),
+    cid_principal: humanizeField(p.cid_principal || a.diagnosis_codes?.[0], "cid_principal"),
+    cid_secundario: humanizeField(p.cid_secundario || a.cid_secundario || a.diagnosis_codes?.[1], "cid_secundario"),
+    prognostico: humanizeField(a.prognostico, "prognostico"),
     goniometria: fmtGoniometry(a.rom_goniometry),
 
     // ---- Plano ----
-    objetivos: a.objetivos || "—",
-    condutas: a.condutas || "—",
-    proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "—",
+    objetivos: humanizeField(a.objetivos, "objetivos"),
+    condutas: humanizeField(a.condutas, "condutas"),
+    proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "",
 
     // ---- Profissional ----
     profissional_nome: pr.nome || "—",
