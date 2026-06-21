@@ -520,8 +520,8 @@ export async function buildPdf(opts: {
   const isContract = /contrato/i.test(opts.title || "");
   const renderSignatures = true; // sempre renderiza bloco de assinatura nos documentos
 
-  // Altura estimada do bloco de assinatura
-  const SIG_BLOCK_H = isContract ? 360 : 140;
+  // Altura estimada do bloco de assinatura (não-contrato: linha + nome + profissão + registro + separador + clínica + CNPJ)
+  const SIG_BLOCK_H = isContract ? 360 : 185;
 
   // Se assinatura não cabe na última página, abre nova
   if (renderSignatures && y + SIG_BLOCK_H > H - 90) {
@@ -531,8 +531,11 @@ export async function buildPdf(opts: {
   }
 
 
+
   const pageCount = doc.getNumberOfPages();
   const lastPageEndY = y; // posição real do cursor após renderização
+
+
 
 
   // Helper: monta cidade/UF da clínica para "local e data"
@@ -600,16 +603,17 @@ export async function buildPdf(opts: {
     }
   }
 
-  // Monta linha de registro profissional sem deixar "CREFITO:" solto.
-  function buildRegistryLine(prof?: Professional | null): string | null {
-    if (!prof) return null;
+  // Monta linha de registro profissional. Se não houver número, exibe placeholder discreto.
+  function buildRegistryLine(prof?: Professional | null): string {
+    if (!prof) return "CREFITO: __________________";
     const num = (prof.registro || "").trim();
-    if (!num) return null;
     const council = (prof.conselho || "CREFITO").trim();
+    if (!num) return `${council}: __________________`;
     // Se o conselho já contém um número (ex.: "CREFITO-8 12345"), usa direto.
     if (/\d/.test(council) && !prof.registro) return council;
     return `${council}   ${num}`;
   }
+
 
   function buildRoleLine(prof?: Professional | null): string {
     return (prof?.profissao && prof.profissao.trim()) || "Fisioterapeuta";
@@ -621,7 +625,8 @@ export async function buildPdf(opts: {
 
     if (i === pageCount && renderSignatures) {
       const desiredTop = lastPageEndY + 28;
-      const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 70);
+      const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 90);
+
 
       // Local e data — discreto, alinhado à direita para não competir com a assinatura
       doc.setFont("helvetica", "normal");
