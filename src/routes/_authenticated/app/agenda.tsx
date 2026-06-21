@@ -80,51 +80,26 @@ function AgendaPage() {
   const [view, setView] = useState<ViewMode>("dia");
   const [anchor, setAnchor] = useState<Date>(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [open, setOpen] = useState(false);
+  const [slotPrefill, setSlotPrefill] = useState<{ data: string; horario: string } | null>(null);
   const [filterProf, setFilterProf] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Status | "all">("all");
-
-  // Range based on view
-  const { rangeStart, rangeEnd } = useMemo(() => {
-    if (view === "dia")    return { rangeStart: anchor, rangeEnd: anchor };
-    if (view === "semana") { const s = startOfWeek(anchor); return { rangeStart: s, rangeEnd: addDays(s, 6) }; }
-    return { rangeStart: startOfMonth(anchor), rangeEnd: endOfMonth(anchor) };
-  }, [view, anchor]);
-
-  const list = useQuery({
-    queryKey: ["appts", clinicId, ymd(rangeStart), ymd(rangeEnd)],
-    enabled: !!clinicId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("appointments")
-        .select("id, data, horario, duracao_min, status, observacao, patient_id, professional_id, patients(nome_completo), professionals(nome)")
-        .eq("clinic_id", clinicId!)
-        .gte("data", ymd(rangeStart))
-        .lte("data", ymd(rangeEnd))
-        .order("data").order("horario");
-      return (data ?? []) as any[];
-    },
-  });
-
-  const patients = useQuery({
-    queryKey: ["patients-all", clinicId],
-    enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("patients").select("id, nome_completo").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
-  });
-  const profs = useQuery({
-    queryKey: ["professionals-active", clinicId],
-    enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("clinic_id", clinicId!).eq("situacao", "ativo").order("nome")).data ?? [],
-  });
-
+...
   const create = useMutation({
     mutationFn: async (v: Form) => {
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id } as any);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
+    onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); setSlotPrefill(null); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  function openNewSlot(dateStr: string, hour?: number) {
+    if (supportMode) return;
+    const horario = hour != null ? `${String(hour).padStart(2, "0")}:00` : "08:00";
+    setSlotPrefill({ data: dateStr, horario });
+    setOpen(true);
+  }
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Status }) => {
