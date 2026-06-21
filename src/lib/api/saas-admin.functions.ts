@@ -399,31 +399,54 @@ export const provisionClinic = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     let ownerUserId: string | null = null;
+    let ownerInvited = false;
+    let ownerExisted = false;
+    let ownerEmail: string | null = null;
+
     if (data.owner_email && data.owner_email.trim()) {
-      const email = data.owner_email.trim().toLowerCase();
+      ownerEmail = data.owner_email.trim().toLowerCase();
       const { data: usersList, error: uErr } = await supabaseAdmin.auth.admin.listUsers({
         page: 1,
         perPage: 200,
       });
       if (uErr) throw new Error("Falha ao buscar usuários: " + uErr.message);
-      const found = usersList?.users?.find((u: any) => u.email?.toLowerCase() === email);
-      if (!found) {
-        throw new Error(
-          `Usuário com email ${email} não encontrado. Convide o owner antes de provisionar a clínica.`,
-        );
+      const found = usersList?.users?.find(
+        (u: any) => u.email?.toLowerCase() === ownerEmail,
+      );
+      if (found) {
+        ownerUserId = found.id;
+        ownerExisted = !!(found as any).email_confirmed_at;
+      } else {
+        const redirectTo = `${process.env.SITE_URL ?? "https://moveplus-clinic-hub.lovable.app"}/set-password`;
+        const { data: invited, error: invErr } =
+          await supabaseAdmin.auth.admin.inviteUserByEmail(ownerEmail, {
+            redirectTo,
+          });
+        if (invErr) throw new Error("Falha ao convidar proprietário: " + invErr.message);
+        ownerUserId = invited.user?.id ?? null;
+        ownerInvited = true;
+        if (ownerUserId) {
+          await supabaseAdmin
+            .from("profiles")
+            .upsert(
+              { id: ownerUserId, email: ownerEmail, full_name: ownerEmail },
+              { onConflict: "id" },
+            );
+        }
       }
-      ownerUserId = found.id;
     }
 
     const result = await provisionClinicFallback({
       nome: data.nome,
       plan_code: data.plan_code,
       owner_user_id: ownerUserId,
+      owner_pending: ownerInvited, // pending when invited, active when user already existed
       nome_fantasia: data.nome_fantasia,
       cidade: data.cidade,
       estado: data.estado,
       supabaseAdmin,
     });
+
     await logAudit(
       supabaseAdmin,
       context.userId,
@@ -433,13 +456,32 @@ export const provisionClinic = createServerFn({ method: "POST" })
       null,
       { nome: data.nome, slug: result.slug, plan_code: data.plan_code },
     );
-    return result;
+
+    if (ownerInvited && ownerEmail) {
+      await logAudit(
+        supabaseAdmin,
+        context.userId,
+        "clinic.owner_invited",
+        "clinic",
+        result.clinic_id,
+        null,
+        { email: ownerEmail, user_id: ownerUserId },
+      );
+    }
+
+    return {
+      ...result,
+      owner_invited: ownerInvited,
+      owner_existed: ownerExisted,
+      owner_email: ownerEmail,
+    };
   });
 
 async function provisionClinicFallback(args: {
   nome: string;
   plan_code: string;
   owner_user_id: string | null;
+  owner_pending?: boolean;
   nome_fantasia?: string;
   cidade?: string;
   estado?: string;
@@ -504,12 +546,188 @@ async function provisionClinicFallback(args: {
       user_id: args.owner_user_id,
       role: "owner",
       is_default: false,
-      active: true,
+      active: args.owner_pending ? false : true,
     });
   }
 
   return { clinic_id: clinic.id, slug };
 }
+
+// ------------------------------------------------------------
+// Owner management (invite-driven)
+// ------------------------------------------------------------
+function getInviteRedirect() {
+  return `${process.env.SITE_URL ?? "https://moveplus-clinic-hub.lovable.app"}/set-password`;
+}
+
+export const resendOwnerInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ clinic_id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: owner } = await supabaseAdmin
+      .from("clinic_members")
+      .select("id, user_id")
+      .eq("clinic_id", data.clinic_id)
+      .eq("role", "owner")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!owner) throw new Error("Esta clínica não possui proprietário definido.");
+    const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(
+      owner.user_id,
+    );
+    if (uErr) throw new Error(uErr.message);
+    const email = u.user?.email;
+    if (!email) throw new Error("Proprietário sem e-mail no Auth.");
+    const { error: iErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: getInviteRedirect(),
+    });
+    if (iErr) throw new Error("Falha ao reenviar convite: " + iErr.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.owner_reinvited",
+      "clinic",
+      data.clinic_id,
+      null,
+      { email },
+    );
+    return { ok: true };
+  });
+
+export const cancelOwnerInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ clinic_id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: owner } = await supabaseAdmin
+      .from("clinic_members")
+      .select("id, user_id")
+      .eq("clinic_id", data.clinic_id)
+      .eq("role", "owner")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!owner) throw new Error("Esta clínica não possui proprietário definido.");
+    const { data: u } = await supabaseAdmin.auth.admin.getUserById(owner.user_id);
+    if (u?.user?.email_confirmed_at) {
+      throw new Error(
+        "O proprietário já ativou o acesso. Use 'Alterar e-mail' para trocá-lo.",
+      );
+    }
+    const email = u?.user?.email ?? null;
+    await supabaseAdmin.from("clinic_members").delete().eq("id", owner.id);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.owner_invite_canceled",
+      "clinic",
+      data.clinic_id,
+      null,
+      { email, user_id: owner.user_id },
+    );
+    return { ok: true };
+  });
+
+export const changeClinicOwner = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        clinic_id: z.string().uuid(),
+        new_email: z.string().email(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const newEmail = data.new_email.trim().toLowerCase();
+
+    // Remove current owner (if any)
+    const { data: prev } = await supabaseAdmin
+      .from("clinic_members")
+      .select("id, user_id")
+      .eq("clinic_id", data.clinic_id)
+      .eq("role", "owner")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    let prevEmail: string | null = null;
+    if (prev) {
+      const { data: pu } = await supabaseAdmin.auth.admin.getUserById(prev.user_id);
+      prevEmail = pu?.user?.email ?? null;
+      await supabaseAdmin.from("clinic_members").delete().eq("id", prev.id);
+    }
+
+    // Resolve/invite new user
+    const { data: list } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 200,
+    });
+    const found = list?.users?.find((u: any) => u.email?.toLowerCase() === newEmail);
+    let userId: string | null = null;
+    let pending = false;
+    if (found) {
+      userId = found.id;
+      pending = !(found as any).email_confirmed_at;
+    } else {
+      const { data: invited, error: invErr } =
+        await supabaseAdmin.auth.admin.inviteUserByEmail(newEmail, {
+          redirectTo: getInviteRedirect(),
+        });
+      if (invErr) throw new Error("Falha ao convidar proprietário: " + invErr.message);
+      userId = invited.user?.id ?? null;
+      pending = true;
+      if (userId) {
+        await supabaseAdmin
+          .from("profiles")
+          .upsert(
+            { id: userId, email: newEmail, full_name: newEmail },
+            { onConflict: "id" },
+          );
+      }
+    }
+    if (!userId) throw new Error("Falha ao resolver novo proprietário.");
+
+    await supabaseAdmin.from("clinic_members").insert({
+      clinic_id: data.clinic_id,
+      user_id: userId,
+      role: "owner",
+      is_default: false,
+      active: !pending,
+    });
+
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.owner_changed",
+      "clinic",
+      data.clinic_id,
+      { previous_email: prevEmail, previous_user_id: prev?.user_id ?? null },
+      { new_email: newEmail, new_user_id: userId, pending },
+    );
+    if (pending) {
+      await logAudit(
+        supabaseAdmin,
+        context.userId,
+        "clinic.owner_invited",
+        "clinic",
+        data.clinic_id,
+        null,
+        { email: newEmail, user_id: userId },
+      );
+    }
+    return { ok: true, pending };
+  });
+
 
 // ============================================================
 // PLANS — Catálogo comercial CRUD
