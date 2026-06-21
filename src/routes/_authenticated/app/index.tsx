@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
-import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, FileWarning, LogOut, AlertTriangle, TrendingUp, Plus } from "lucide-react";
+import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3 } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
@@ -42,7 +42,7 @@ function Dashboard() {
   const stats = useQuery({
     queryKey: ["dashboard-premium", today, monthIso, isAdmin],
     queryFn: async () => {
-      const [pacientes, novos, hoje, mesPag, sessoesMes, pendentes, reavalAtrasadas, altasMes] = await Promise.all([
+      const [pacientes, novos, hoje, mesPag, sessoesMes, pendentes, reavalPend, altasMes, docsMes] = await Promise.all([
         supabase.from("patients").select("id", { count: "exact", head: true }).eq("situacao", "ativo"),
         supabase.from("patients").select("id", { count: "exact", head: true }).gte("created_at", monthIso),
         supabase.from("appointments").select("id, horario, status, patients(nome_completo), professionals(nome)").eq("data", today).order("horario"),
@@ -51,6 +51,7 @@ function Dashboard() {
         supabase.from("financial_entries").select("id", { count: "exact", head: true }).eq("status", "pendente"),
         supabase.from("reassessment_schedule").select("id, patient_id, scheduled_for, patients(nome_completo)").lte("scheduled_for", today).is("completed_at", null).order("scheduled_for").limit(10),
         supabase.from("patient_discharges").select("id", { count: "exact", head: true }).gte("data_alta", monthIso),
+        supabase.from("assessments").select("id", { count: "exact", head: true }).gte("created_at", monthIso),
       ]);
       const fatMes = (mesPag.data ?? []).reduce((s, r) => s + Number(r.valor ?? 0), 0);
       return {
@@ -60,8 +61,9 @@ function Dashboard() {
         fatMes,
         sessoesMes: sessoesMes.count ?? 0,
         pendentes: pendentes.count ?? 0,
-        reavalAtrasadas: reavalAtrasadas.data ?? [],
+        reavalAtrasadas: reavalPend.data ?? [],
         altasMes: altasMes.count ?? 0,
+        docsMes: docsMes.count ?? 0,
       };
     },
   });
@@ -72,32 +74,33 @@ function Dashboard() {
   return (
     <div className="space-y-10">
       {/* Saudação minimalista — topbar já mostra clínica e data */}
+      {/* Saudação personalizada */}
       <div>
         <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">{greeting()}{userName ? `, ${userName}` : ""}</h1>
-        <p className="text-muted-foreground text-sm mt-2">Visão geral da operação clínica · {fmtDate(today)}</p>
+        <p className="text-muted-foreground text-sm mt-2">Gestão clínica de hoje · {brand.clinicName} · {fmtDate(today)}</p>
       </div>
 
       <OnboardingChecklist />
 
-      {/* Cards principais — estilo Apple Health */}
+      {/* Indicadores principais */}
       <section className="space-y-4">
         <div className="flex items-baseline justify-between">
           <h2 className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Indicadores</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <StatCard icon={Users} label="Pacientes ativos" value={s?.pacientesAtivos ?? "—"} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} />
-          <StatCard icon={CalendarDays} label="Atendimentos hoje" value={s?.hoje.length ?? "—"} to="/app/agenda" color={brand.secondaryColor} />
-          <StatCard icon={RefreshCw} label="Reavaliações vencidas" value={s?.reavalAtrasadas.length ?? "—"} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
-          <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? "—"} color={brand.primaryColor} />
-          <StatCard icon={LogOut} label="Altas no mês" value={s?.altasMes ?? "—"} color={brand.secondaryColor} />
-          {isAdmin && (
-            <>
-              <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={s?.pendentes ? `${s.pendentes} pendentes` : undefined} to="/app/financeiro" color={brand.primaryColor} small />
-              <StatCard icon={TrendingUp} label="Sessões/paciente" value={s && s.pacientesAtivos ? (s.sessoesMes / s.pacientesAtivos).toFixed(1) : "—"} color={brand.primaryColor} />
-              <StatCard icon={FileWarning} label="Contas pendentes" value={s?.pendentes ?? "—"} to="/app/financeiro" color={brand.primaryColor} />
-            </>
-          )}
+          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} />
+          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} />
+          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} />
+          <StatCard icon={RefreshCw} label="Reavaliações pendentes" value={s?.reavalAtrasadas.length ?? 0} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
         </div>
+        {isAdmin && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+            <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? 0} color={brand.primaryColor} small />
+            <StatCard icon={LogOut} label="Altas no mês" value={s?.altasMes ?? 0} color={brand.secondaryColor} small />
+            <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={s?.pendentes ? `${s.pendentes} pendentes` : undefined} to="/app/financeiro" color={brand.primaryColor} small />
+            <StatCard icon={TrendingUp} label="Sessões/paciente" value={s && s.pacientesAtivos ? (s.sessoesMes / s.pacientesAtivos).toFixed(1) : "0"} color={brand.primaryColor} small />
+          </div>
+        )}
       </section>
 
       {/* Alertas inteligentes */}
@@ -166,7 +169,36 @@ function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Explore o FisioOS */}
+      <section className="space-y-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Descubra</div>
+          <h2 className="text-xl font-semibold tracking-tight">Explore o {brand.appName}</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <ExploreCard to="/app/biblioteca" icon={BookOpen} title="Biblioteca" desc="Cartilhas, protocolos e materiais clínicos prontos para envio" color={brand.primaryColor} />
+          <ExploreCard to="/app/documentos" icon={FileText} title="Documentos" desc="Emita atestados, recibos e relatórios com sua marca" color={brand.secondaryColor} />
+          <ExploreCard to="/app/relatorios" icon={BarChart3} title="Relatórios" desc="Visão consolidada da operação clínica e financeira" color={brand.primaryColor} />
+          <ExploreCard to="/app/agenda" icon={CalendarDays} title="Agenda" desc="Organize atendimentos, equipe e disponibilidades" color={brand.secondaryColor} />
+        </div>
+      </section>
     </div>
+  );
+}
+
+function ExploreCard({ to, icon: Icon, title, desc, color }: { to: string; icon: any; title: string; desc: string; color: string }) {
+  return (
+    <Link to={to} className="block group">
+      <Card className="p-5 h-full lift lift-hover">
+        <div className="rounded-xl p-2.5 w-fit mb-3" style={{ background: `${color}18`, color }}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="font-semibold text-sm mb-1">{title}</div>
+        <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+        <div className="mt-3 text-xs font-medium" style={{ color }}>Abrir →</div>
+      </Card>
+    </Link>
   );
 }
 

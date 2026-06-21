@@ -237,16 +237,34 @@ function NavItem({ to, exact, icon: Icon, label, onClick }: { to: string; exact?
 
 function Logo({ brand, compact = false }: { brand: ReturnType<typeof useBranding>; compact?: boolean }) {
   const size = compact ? "h-9 w-9" : "h-11 w-11";
-  if (brand.hasOwnLogo && brand.logoUrl) {
-    return <img src={brand.logoUrl} alt={brand.clinicName} className={cn(size, "rounded-xl object-contain")} />;
+  const [broken, setBroken] = useState(false);
+  const initial = (brand.clinicName || "C").trim().charAt(0).toUpperCase();
+  const showImage = brand.hasOwnLogo && brand.logoUrl && !broken;
+  if (showImage) {
+    return (
+      <div
+        className={cn(size, "rounded-xl flex items-center justify-center overflow-hidden bg-white/80 shadow-soft p-1")}
+      >
+        <img
+          src={brand.logoUrl!}
+          alt={brand.clinicName}
+          className="max-h-full max-w-full object-contain"
+          onError={() => setBroken(true)}
+        />
+      </div>
+    );
   }
-  // Neutral institutional fallback (FisioOS / white-label) — never references legacy brand
+  // Monograma elegante com inicial da clínica (fallback institucional)
   return (
     <div
-      className={cn(size, "rounded-2xl flex items-center justify-center shadow-soft")}
+      className={cn(size, "rounded-2xl flex items-center justify-center shadow-soft text-white font-semibold")}
       style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
     >
-      <Stethoscope className={cn(compact ? "h-5 w-5" : "h-6 w-6", "text-white")} />
+      {brand.clinicName && brand.clinicName !== brand.appName ? (
+        <span className={cn(compact ? "text-sm" : "text-base")}>{initial}</span>
+      ) : (
+        <Stethoscope className={cn(compact ? "h-5 w-5" : "h-6 w-6")} />
+      )}
     </div>
   );
 }
