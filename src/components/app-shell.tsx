@@ -6,6 +6,7 @@ import {
   Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { usePlatformContext } from "@/lib/platform-context";
