@@ -149,12 +149,21 @@ function DocumentosPage() {
     queryKey: ["my-professional", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: byProfile } = await supabase
         .from("professionals")
         .select("*")
         .eq("profile_id", user!.id)
         .maybeSingle();
-      return data;
+      if (byProfile) return byProfile;
+      // Fallback: se o vínculo profile_id não existir, usa o primeiro profissional ativo da clínica.
+      const { data: fallback } = await supabase
+        .from("professionals")
+        .select("*")
+        .eq("situacao", "ativo")
+        .order("nome")
+        .limit(1)
+        .maybeSingle();
+      return fallback;
     },
   });
 
