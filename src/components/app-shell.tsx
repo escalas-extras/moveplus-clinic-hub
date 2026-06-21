@@ -58,7 +58,8 @@ const groups: NavGroup[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isAdmin } = useRoles(user?.id);
+  const { isAdmin, roles } = useRoles(user?.id);
+  const isSuperAdmin = (roles as any[]).includes("super_admin");
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const brand = useBranding();
@@ -68,8 +69,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth" });
   }
 
-  const { roles } = useRoles(user?.id);
-  const isSuperAdmin = (roles as any[]).includes("super_admin");
   const visibleGroups = groups
     .map((g) => ({ ...g, items: g.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.superAdminOnly || isSuperAdmin)) }))
     .filter((g) => g.items.length > 0);
