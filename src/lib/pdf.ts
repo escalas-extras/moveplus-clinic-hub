@@ -35,13 +35,18 @@ async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | n
 
 export async function buildPdf(opts: BuildPdfOpts) {
   const { data: cid } = await supabase.rpc("current_clinic_id");
-  let q = supabase
-    .from("clinic_settings")
-    .select(
-      "nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url",
-    );
-  q = cid ? q.eq("clinic_id", cid as string) : q.limit(1);
-  const { data: clinic } = await q.maybeSingle();
+  // Sem clínica ativa, não puxar nenhum clinic_settings (evita vazamento entre clínicas).
+  let clinic: any = null;
+  if (cid) {
+    const { data } = await supabase
+      .from("clinic_settings")
+      .select(
+        "nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url",
+      )
+      .eq("clinic_id", cid as string)
+      .maybeSingle();
+    clinic = data;
+  }
 
   const c = (clinic ?? {}) as ClinicData & { logo_url?: string | null };
   const logo = await loadClinicLogo(c.logo_url);

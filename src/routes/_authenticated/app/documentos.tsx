@@ -148,7 +148,9 @@ function DocumentosPage() {
   const { data: clinic } = useQuery({
     queryKey: ["clinic-settings"],
     queryFn: async () => {
-      const { data } = await supabase.from("clinic_settings").select("*").limit(1).maybeSingle();
+      const { data: cid } = await supabase.rpc("current_clinic_id");
+      if (!cid) return null;
+      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid as string).maybeSingle();
       return data;
     },
   });

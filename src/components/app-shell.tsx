@@ -6,6 +6,7 @@ import {
   Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { usePlatformContext } from "@/lib/platform-context";
@@ -77,9 +78,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const brand = useBranding();
 
+  const qc = useQueryClient();
   async function logout() {
+    await qc.cancelQueries();
+    qc.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", replace: true });
   }
 
   const { has: hasFeature } = usePlanFeatures();

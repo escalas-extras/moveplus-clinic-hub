@@ -99,8 +99,15 @@ function RootComponent() {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        if (event === "SIGNED_OUT") {
+          // Limpa cache totalmente para evitar vazamento de dados entre contas no mesmo browser.
+          queryClient.cancelQueries();
+          queryClient.clear();
+        } else {
+          // Em SIGNED_IN/USER_UPDATED, invalida todo o cache do usuário anterior (se houver).
+          queryClient.clear();
+        }
         router.invalidate();
-        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
       }
     });
     return () => sub.subscription.unsubscribe();
