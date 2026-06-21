@@ -187,14 +187,15 @@ function ConfigPage() {
               <Field label="Slogan"><Input {...register("slogan")} placeholder="Transformando atendimentos em resultados" /></Field>
               <Field label="Cor primária">
                 <div className="flex gap-2">
-                  <Input
+                  <input
                     type="color"
                     value={primary}
                     onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
-                    className="w-16 h-10 p-1"
+                    className="h-10 w-16 rounded-md border border-input bg-transparent p-1 cursor-pointer"
+                    aria-label="Selecionar cor primária"
                   />
                   <Input
-                    value={primary}
+                    value={primaryRaw ?? ""}
                     onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
                     placeholder="#2f5d3a"
                   />
@@ -202,14 +203,15 @@ function ConfigPage() {
               </Field>
               <Field label="Cor secundária">
                 <div className="flex gap-2">
-                  <Input
+                  <input
                     type="color"
                     value={secondary}
                     onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
-                    className="w-16 h-10 p-1"
+                    className="h-10 w-16 rounded-md border border-input bg-transparent p-1 cursor-pointer"
+                    aria-label="Selecionar cor secundária"
                   />
                   <Input
-                    value={secondary}
+                    value={secondaryRaw ?? ""}
                     onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
                     placeholder="#c75c3a"
                   />
