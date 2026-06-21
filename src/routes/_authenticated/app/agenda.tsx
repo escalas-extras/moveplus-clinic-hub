@@ -430,7 +430,7 @@ function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: 
 
 /* ───────────────────────── WEEK VIEW ───────────────────────── */
 
-function WeekView({ items, weekStart, onPick }: { items: any[]; weekStart: Date; onPick: (d: Date) => void }) {
+function WeekView({ items, weekStart, onPick, onNewOnDay, disabled }: { items: any[]; weekStart: Date; onPick: (d: Date) => void; onNewOnDay: (d: Date) => void; disabled: boolean }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = ymd(new Date());
   return (
@@ -456,9 +456,7 @@ function WeekView({ items, weekStart, onPick }: { items: any[]; weekStart: Date;
           const dayItems = items.filter((a) => a.data === key).sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
           return (
             <div key={key} className="p-2 space-y-1.5">
-              {dayItems.length === 0 ? (
-                <div className="text-[11px] text-muted-foreground/70 italic">—</div>
-              ) : dayItems.map((a) => {
+              {dayItems.map((a) => {
                 const s = (a.status ?? "agendado") as Status;
                 return (
                   <button
@@ -472,6 +470,14 @@ function WeekView({ items, weekStart, onPick }: { items: any[]; weekStart: Date;
                   </button>
                 );
               })}
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onNewOnDay(d)}
+                className="w-full text-[11px] rounded-md border border-dashed border-border/60 text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary py-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                + Novo
+              </button>
             </div>
           );
         })}
