@@ -64,6 +64,13 @@ export type BuildPdfOpts = {
     vinculo?: string | null;
   } | null;
   patientSnapshot?: { nome?: string | null; cpf?: string | null } | null;
+  /**
+   * Quando true, o bloco de assinatura profissional NÃO é desenhado e o
+   * espaço reservado é removido. Usado em materiais institucionais da
+   * Biblioteca (cartilhas, protocolos, POPs) que não exigem responsável
+   * técnico.
+   */
+  hideSignature?: boolean;
 };
 
 export type PdfRenderCtx = {
