@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { Stethoscope, Palette } from "lucide-react";
+import { LogoUploader, signedLogoUrl } from "@/components/logo-uploader";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfigPage,
@@ -27,7 +28,7 @@ type Form = {
   estado?: string;
   cep?: string;
   rodape_institucional?: string;
-  logo_url?: string;
+  logo_url?: string | null;
   app_name?: string;
   slogan?: string;
   primary_color?: string;
@@ -37,22 +38,32 @@ type Form = {
 
 function ConfigPage() {
   const qc = useQueryClient();
+  const [clinicId, setClinicId] = useState<string | null>(null);
+
   const settings = useQuery({
     queryKey: ["clinic-settings"],
     queryFn: async () => {
       const { data: cid } = await supabase.rpc("current_clinic_id");
       if (!cid) return null;
+      setClinicId(cid as string);
       const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid as string).maybeSingle();
       return data;
     },
   });
 
-  const { register, handleSubmit, reset, watch } = useForm<Form>();
-  const logoUrl = watch("logo_url");
+  const { register, handleSubmit, reset, watch, setValue } = useForm<Form>();
+  const logoPath = watch("logo_url");
   const primary = watch("primary_color") || "#2f5d3a";
   const secondary = watch("secondary_color") || "#c75c3a";
   const clinicName = watch("nome_fantasia") || "FisioOS";
   const slogan = watch("slogan") || "Transformando atendimentos em resultados";
+
+  // Preview ao vivo da logo (signed URL)
+  const { data: logoPreview } = useQuery({
+    queryKey: ["logo-preview-config", logoPath],
+    queryFn: () => signedLogoUrl(logoPath ?? null),
+    enabled: !!logoPath,
+  });
 
   useEffect(() => {
     if (settings.data) {
@@ -98,34 +109,25 @@ function ConfigPage() {
       toast.success("Configurações salvas");
       qc.invalidateQueries({ queryKey: ["clinic-settings"] });
       qc.invalidateQueries({ queryKey: ["branding"] });
+      qc.invalidateQueries({ queryKey: ["logo-preview"] });
+      qc.invalidateQueries({ queryKey: ["logo-preview-config"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  async function handleLogoUpload(file: File) {
-    const path = `branding/logo-${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
-    if (error) return toast.error(error.message);
-    const { data } = await supabase.storage.from("documents").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
-    if (data?.signedUrl) {
-      reset({ ...(watch() as any), logo_url: data.signedUrl });
-      toast.success("Logo enviada — clique em Salvar para aplicar");
-    }
-  }
-
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-3xl">Configurações & White Label</h1>
-        <p className="text-sm text-muted-foreground">Personalize a identidade visual da sua clínica em todos os documentos e telas.</p>
+        <h1 className="text-3xl">Configurações & Identidade visual</h1>
+        <p className="text-sm text-muted-foreground">Personalize a marca da sua clínica em todos os documentos e telas.</p>
       </div>
 
-      {/* Preview de branding */}
+      {/* Preview ao vivo da identidade */}
       <Card className="p-6 border-2" style={{ borderColor: primary }}>
         <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Pré-visualização da identidade</div>
         <div className="flex items-center gap-4">
-          {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="h-16 w-auto object-contain" />
+          {logoPreview ? (
+            <img src={logoPreview} alt="Logo" className="h-16 w-auto object-contain" />
           ) : (
             <div className="h-16 w-16 rounded-2xl flex items-center justify-center shadow" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
               <Stethoscope className="h-8 w-8 text-white" />
@@ -136,9 +138,9 @@ function ConfigPage() {
             <div className="text-sm" style={{ color: secondary }}>{slogan}</div>
           </div>
         </div>
-        {!logoUrl && (
+        {!logoPreview && (
           <p className="text-xs text-muted-foreground mt-3">
-            Sem logo: usamos o símbolo institucional de fisioterapia + cores escolhidas. O nome do profissional e CREFITO aparecerão nos documentos.
+            Sem logo: usamos um monograma com a inicial e suas cores da marca em todo o sistema (sidebar, PDFs, login).
           </p>
         )}
       </Card>
@@ -147,6 +149,21 @@ function ConfigPage() {
         <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-6">
           <section className="space-y-3">
             <h2 className="font-semibold flex items-center gap-2"><Palette className="h-4 w-4" />Identidade visual</h2>
+
+            {/* Upload de logo */}
+            <div>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5 block">Logo da clínica</Label>
+              {clinicId ? (
+                <LogoUploader
+                  clinicId={clinicId}
+                  value={logoPath ?? null}
+                  onChange={(v) => setValue("logo_url", v, { shouldDirty: true })}
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">Carregando…</p>
+              )}
+            </div>
+
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Nome fantasia *"><Input required {...register("nome_fantasia")} placeholder="Ex.: Clínica Vida" /></Field>
               <Field label="Slogan"><Input {...register("slogan")} placeholder="Transformando atendimentos em resultados" /></Field>
@@ -162,20 +179,8 @@ function ConfigPage() {
                   <Input {...register("secondary_color")} placeholder="#c75c3a" />
                 </div>
               </Field>
-              <Field label="Logo da clínica (URL)" className="sm:col-span-2">
-                <div className="flex gap-2">
-                  <Input {...register("logo_url")} placeholder="https://… ou faça upload" />
-                  <label className="cursor-pointer inline-flex items-center gap-1 px-3 py-2 rounded-md border text-sm hover:bg-muted">
-                    Enviar arquivo
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); }} />
-                  </label>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use o botão <strong>Enviar arquivo</strong> para fazer upload de uma imagem (PNG ou JPG). URLs que não apontam para uma imagem real (ex.: repositórios GitHub, páginas HTML) são ignoradas e o logo institucional padrão é usado nos PDFs.
-                </p>
-              </Field>
-              <Field label="CREFITO padrão (sem logo)" className="sm:col-span-2">
-                <Input {...register("crefito_default")} placeholder="CREFITO-8 12345-F (usado quando a clínica não tem logo própria)" />
+              <Field label="CREFITO padrão" className="sm:col-span-2">
+                <Input {...register("crefito_default")} placeholder="CREFITO-8 12345-F" />
               </Field>
             </div>
           </section>

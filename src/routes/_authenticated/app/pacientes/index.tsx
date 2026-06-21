@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, FileText, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Trash2, Eye, Users } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
@@ -91,10 +92,16 @@ function PacientesPage() {
         {list.isLoading ? (
           <div className="p-6 text-sm text-muted-foreground">Carregando…</div>
         ) : !list.data?.length ? (
-          <div className="p-10 text-center">
-            <FileText className="h-10 w-10 mx-auto text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">Nenhum paciente encontrado.</p>
-          </div>
+          <EmptyState
+            icon={Users}
+            title={q ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado ainda"}
+            description={
+              q
+                ? "Tente outro nome ou limpe a busca para ver toda a lista."
+                : "Comece cadastrando seu primeiro paciente para abrir prontuários, gerar documentos e agendar atendimentos."
+            }
+            action={!q ? { label: "Cadastrar primeiro paciente", onClick: () => setOpen(true) } : undefined}
+          />
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-muted/60">
