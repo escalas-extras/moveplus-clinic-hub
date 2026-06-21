@@ -83,6 +83,39 @@ function AgendaPage() {
   const [slotPrefill, setSlotPrefill] = useState<{ data: string; horario: string } | null>(null);
   const [filterProf, setFilterProf] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Status | "all">("all");
+
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    if (view === "dia")    return { rangeStart: anchor, rangeEnd: anchor };
+    if (view === "semana") { const s = startOfWeek(anchor); return { rangeStart: s, rangeEnd: addDays(s, 6) }; }
+    return { rangeStart: startOfMonth(anchor), rangeEnd: endOfMonth(anchor) };
+  }, [view, anchor]);
+
+  const list = useQuery({
+    queryKey: ["appts", clinicId, ymd(rangeStart), ymd(rangeEnd)],
+    enabled: !!clinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("appointments")
+        .select("id, data, horario, duracao_min, status, observacao, patient_id, professional_id, patients(nome_completo), professionals(nome)")
+        .eq("clinic_id", clinicId!)
+        .gte("data", ymd(rangeStart))
+        .lte("data", ymd(rangeEnd))
+        .order("data").order("horario");
+      return (data ?? []) as any[];
+    },
+  });
+
+  const patients = useQuery({
+    queryKey: ["patients-all", clinicId],
+    enabled: !!clinicId,
+    queryFn: async () => (await supabase.from("patients").select("id, nome_completo").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
+  });
+  const profs = useQuery({
+    queryKey: ["professionals-active", clinicId],
+    enabled: !!clinicId,
+    queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("clinic_id", clinicId!).eq("situacao", "ativo").order("nome")).data ?? [],
+  });
+
   const create = useMutation({
     mutationFn: async (v: Form) => {
       const { data: u } = await supabase.auth.getUser();
