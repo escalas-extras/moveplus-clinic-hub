@@ -203,7 +203,7 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
   for (const ch of block.children) {
     if (ch.kind === "paragraph") {
       let text = ch.text || "";
-      if (isContract) text = sanitizeContractParagraph(text);
+      if (isContract && isClosingClause(block.title)) text = sanitizeContractParagraph(text);
       const cleaned = cleanText(text);
       if (!cleaned) continue;
       if (ch.label) {
