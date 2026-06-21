@@ -229,18 +229,116 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
       }
     }
 
-    return (clinics ?? []).map((c: any) => ({
-      id: c.id,
-      nome: c.nome,
-      slug: c.slug,
-      plan: c.plan,
-      plan_label: planByClinic[c.id]?.name ?? c.plan ?? "—",
-      status: c.status,
-      active: c.active,
-      created_at: c.created_at,
-      user_count: counts[c.id]?.users ?? 0,
-      patient_count: patientsByClinic[c.id] ?? 0,
-    }));
+    // Owners (role=owner) per clinic
+    const ownerByClinic: Record<
+      string,
+      { member_id: string; user_id: string; active: boolean; created_at: string }
+    > = {};
+    if (ids.length) {
+      const { data: owners } = await supabaseAdmin
+        .from("clinic_members")
+        .select("id, clinic_id, user_id, active, created_at")
+        .in("clinic_id", ids)
+        .eq("role", "owner")
+        .order("created_at", { ascending: true });
+      for (const o of owners ?? []) {
+        if (!ownerByClinic[o.clinic_id])
+          ownerByClinic[o.clinic_id] = {
+            member_id: o.id,
+            user_id: o.user_id,
+            active: !!o.active,
+            created_at: o.created_at,
+          };
+      }
+    }
+
+    const ownerUserIds = Array.from(
+      new Set(Object.values(ownerByClinic).map((o) => o.user_id)),
+    );
+    const authByUser: Record<
+      string,
+      { email: string | null; confirmed_at: string | null; invited_at: string | null }
+    > = {};
+    if (ownerUserIds.length) {
+      try {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 200,
+        });
+        for (const u of list?.users ?? []) {
+          if (!ownerUserIds.includes(u.id)) continue;
+          authByUser[u.id] = {
+            email: u.email ?? null,
+            confirmed_at: (u as any).email_confirmed_at ?? null,
+            invited_at:
+              (u as any).invited_at ??
+              (u as any).confirmation_sent_at ??
+              u.created_at ??
+              null,
+          };
+        }
+      } catch (e) {
+        console.error("[listClinicsAdmin] auth.admin.listUsers", e);
+      }
+    }
+
+    // Lazy reconciliation: confirmed owner still pending → activate + audit.
+    const now = Date.now();
+    const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+    for (const [clinicId, owner] of Object.entries(ownerByClinic)) {
+      const auth = authByUser[owner.user_id];
+      if (auth?.confirmed_at && !owner.active) {
+        const { error: actErr } = await supabaseAdmin
+          .from("clinic_members")
+          .update({ active: true })
+          .eq("id", owner.member_id);
+        if (!actErr) {
+          owner.active = true;
+          await logAudit(
+            supabaseAdmin,
+            context.userId,
+            "clinic.owner_activated",
+            "clinic_member",
+            owner.member_id,
+            null,
+            { clinic_id: clinicId, email: auth.email },
+          );
+        }
+      }
+    }
+
+    return (clinics ?? []).map((c: any) => {
+      const owner = ownerByClinic[c.id];
+      const auth = owner ? authByUser[owner.user_id] : undefined;
+      let owner_status: "active" | "pending" | "expired" | "none" = "none";
+      if (owner) {
+        if (auth?.confirmed_at) owner_status = "active";
+        else if (
+          auth?.invited_at &&
+          now - new Date(auth.invited_at).getTime() > EXPIRY_MS
+        )
+          owner_status = "expired";
+        else owner_status = "pending";
+      }
+      return {
+        id: c.id,
+        nome: c.nome,
+        slug: c.slug,
+        plan: c.plan,
+        plan_label: planByClinic[c.id]?.name ?? c.plan ?? "—",
+        status: c.status,
+        active: c.active,
+        created_at: c.created_at,
+        user_count: counts[c.id]?.users ?? 0,
+        patient_count: patientsByClinic[c.id] ?? 0,
+        owner_email: auth?.email ?? null,
+        owner_user_id: owner?.user_id ?? null,
+        owner_member_id: owner?.member_id ?? null,
+        owner_status,
+        owner_invited_at: auth?.invited_at ?? null,
+        owner_confirmed_at: auth?.confirmed_at ?? null,
+      };
+    });
   });
 
 // ------------------------------------------------------------
