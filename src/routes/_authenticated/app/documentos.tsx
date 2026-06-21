@@ -283,8 +283,8 @@ function DocumentosPage() {
     mutationFn: async () => {
       if (!template || !patient) throw new Error("Selecione paciente e modelo");
       if (!activeClinicId) throw new Error("Clínica ativa não identificada");
-      if (!professional?.nome || !professional?.registro) {
-        throw new Error("Cadastre um profissional responsável em Profissionais antes de emitir documentos clínicos.");
+      if (!professionalReady) {
+        throw new Error(professionalInfo?.message ?? "Profissional responsável não disponível.");
       }
       if (isContractTemplate && contratanteMode === "responsavel") {
         const f = contratanteForm;
