@@ -119,11 +119,13 @@ function SetPasswordPage() {
         </p>
 
         {!ready ? (
-          <p className="text-sm text-muted-foreground">Validando convite…</p>
+          <p className="text-sm text-muted-foreground">Validando link…</p>
         ) : !hasSession ? (
           <div className="space-y-4">
             <p className="text-sm text-destructive">
-              Convite inválido ou expirado. Solicite ao administrador o reenvio do convite.
+              {errorMsg
+                ? `Link inválido ou expirado: ${errorMsg}`
+                : "Link inválido ou expirado. Solicite um novo em \"Esqueci minha senha\"."}
             </p>
             <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/auth" })}>
               Ir para o login
