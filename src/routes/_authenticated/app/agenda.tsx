@@ -20,6 +20,7 @@ import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/utils";
+import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
 
 export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
