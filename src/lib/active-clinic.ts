@@ -10,8 +10,10 @@
 // for the SaaS panel via `usePlatformContext`.
 
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { getActiveSupportSession } from "@/lib/api/clinic-ops.functions";
 
 export type ActiveClinicRole =
   | "owner"
@@ -73,12 +75,31 @@ async function fetchActiveClinic(userId: string) {
 
 export function useActiveClinic(): ActiveClinicContext {
   const { user } = useAuth();
+  const fetchSupport = useServerFn(getActiveSupportSession);
   const { data, isLoading } = useQuery({
     queryKey: ["active-clinic", user?.id],
     enabled: !!user?.id,
     staleTime: 30_000,
     gcTime: 60_000,
-    queryFn: () => fetchActiveClinic(user!.id),
+    queryFn: async () => {
+      const [active, support] = await Promise.all([
+        fetchActiveClinic(user!.id),
+        fetchSupport().catch(() => null),
+      ]);
+      const supportClinicId = (support as any)?.clinic_id ?? active.supportClinicId;
+      if (supportClinicId) {
+        return {
+          ...active,
+          clinicId: supportClinicId,
+          clinicRole: active.clinicRole ?? "owner",
+          isOwner: true,
+          isAdmin: true,
+          supportMode: true,
+          supportClinicId,
+        };
+      }
+      return active;
+    },
   });
   return {
     clinicId: data?.clinicId ?? null,
