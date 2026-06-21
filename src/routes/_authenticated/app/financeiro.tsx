@@ -201,7 +201,6 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild><Button disabled={disabled}><Plus className="h-4 w-4 mr-2" />Novo lançamento</Button></DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo lançamento</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
