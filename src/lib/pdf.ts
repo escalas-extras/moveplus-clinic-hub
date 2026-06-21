@@ -641,7 +641,12 @@ export async function buildPdf(opts: {
 
     if (i === pageCount && renderSignatures) {
       const desiredTop = lastPageEndY + 28;
-      const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 90);
+      // Contrato: ancora junto ao conteúdo (sem empurrar para o fundo), evitando
+      // grande área vazia entre uma linha de continuação e o bloco de assinatura.
+      // Demais documentos mantêm o comportamento anterior (assinatura ao pé).
+      const sigBlockTop = isContract
+        ? Math.min(desiredTop, H - SIG_BLOCK_H - 30)
+        : Math.max(desiredTop, H - SIG_BLOCK_H - 90);
 
 
       // Local e data — discreto, alinhado à direita para não competir com a assinatura
