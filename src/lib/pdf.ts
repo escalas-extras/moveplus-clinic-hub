@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime } from "./format";
-import logoAsset from "@/assets/logo.jpg.asset.json";
+
 
 
 type ClinicSettings = {
@@ -50,31 +50,15 @@ export type PdfBlock = { title: string; children: PdfContent[] };
 export type PdfSection = { title: string; body: string };
 
 // ---------- Logo loader ----------
-
-let cachedLogo: string | null | undefined;
-async function loadLogoDataUrl(): Promise<string | null> {
-  if (cachedLogo !== undefined) return cachedLogo;
-  try {
-    const res = await fetch(logoAsset.url);
-    const blob = await res.blob();
-    cachedLogo = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onloadend = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  } catch {
-    cachedLogo = null;
-  }
-  return cachedLogo;
-}
+// White-label: only the clinic's own logo is ever rendered as an image.
+// When none exists we return null and the header draws a neutral institutional
+// monogram (no legacy brand fallback).
 
 async function urlToDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const ct = res.headers.get("content-type") || "";
-    // Only accept real images; reject HTML, JSON, redirect pages, git repos, etc.
     if (!ct.startsWith("image/")) return null;
     const blob = await res.blob();
     if (blob.size === 0) return null;
@@ -90,25 +74,20 @@ async function urlToDataUrl(url: string): Promise<string | null> {
 }
 
 function isLikelyImageUrl(url: string): boolean {
-  // Reject obvious non-image URLs (git repos, etc.) before fetching
   if (/\.git(\?|$|#)/i.test(url)) return false;
   if (/^https?:\/\/(www\.)?github\.com\//i.test(url) && !/\/raw\//.test(url)) return false;
   return true;
 }
 
-async function loadClinicOrDefaultLogo(clinicLogoUrl?: string | null): Promise<string | null> {
-  if (clinicLogoUrl) {
-    let finalUrl = clinicLogoUrl;
-    if (!/^https?:\/\//.test(clinicLogoUrl)) {
-      const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
-      finalUrl = data.publicUrl;
-    }
-    if (isLikelyImageUrl(finalUrl)) {
-      const dataUrl = await urlToDataUrl(finalUrl);
-      if (dataUrl) return dataUrl;
-    }
+async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | null> {
+  if (!clinicLogoUrl) return null;
+  let finalUrl = clinicLogoUrl;
+  if (!/^https?:\/\//.test(clinicLogoUrl)) {
+    const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
+    finalUrl = data.publicUrl;
   }
-  return loadLogoDataUrl();
+  if (!isLikelyImageUrl(finalUrl)) return null;
+  return await urlToDataUrl(finalUrl);
 }
 
 // ---------- Colors ----------
