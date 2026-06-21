@@ -91,9 +91,9 @@ function Dashboard() {
           <h2 className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Indicadores</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} />
-          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} />
-          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} />
+          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} emptyCta="Cadastrar primeiro paciente" />
+          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} emptyCta="Agendar atendimento" />
+          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} emptyCta="Emitir primeiro documento" />
           <StatCard icon={RefreshCw} label="Reavaliações pendentes" value={s?.reavalAtrasadas.length ?? 0} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
         </div>
         {isAdmin && (
