@@ -46,7 +46,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog] =
+    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog, allClinicPlans] =
       await Promise.all([
         supabaseAdmin.from("clinics").select("id,status,created_at"),
         supabaseAdmin
@@ -62,16 +62,18 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
           .limit(5),
         supabaseAdmin
           .from("clinic_plans")
-          .select("plan_id, plans(id,code,name,monthly_price,price_cents)")
+          .select("plan_id, status, plans(id,code,name,monthly_price,price_cents)")
           .in("status", ["active", "trial"]),
         supabaseAdmin
           .from("plans")
           .select("id,code,name,monthly_price,price_cents"),
+        supabaseAdmin.from("clinic_plans").select("status"),
       ]);
 
     const clinicsRows = clinics.data ?? [];
     const active = clinicsRows.filter((c: any) => c.status === "active").length;
-    const inactive = clinicsRows.filter((c: any) => c.status !== "active").length;
+    const inactive = clinicsRows.filter((c: any) => c.status === "inactive").length;
+    const suspended = clinicsRows.filter((c: any) => c.status === "suspended").length;
 
     const uniqueUsers = new Set((members.data ?? []).map((m: any) => m.user_id));
 
@@ -82,11 +84,18 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     const docsMonth = docsRows.filter((d: any) => new Date(d.created_at) >= thisMonth)
       .length;
 
+    const thirtyAgo = new Date();
+    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const newClinics30d = clinicsRows.filter(
+      (c: any) => new Date(c.created_at) >= thirtyAgo,
+    ).length;
+
     const planCounts: Record<
       string,
-      { code: string; name: string; count: number; mrr: number }
+      { code: string; name: string; count: number; mrr: number; trial: number }
     > = {};
     let mrr = 0;
+    let trialCount = 0;
     for (const row of (planAgg.data ?? []) as any[]) {
       const p = row.plans;
       if (!p) continue;
@@ -97,11 +106,26 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
         name: p.name,
         count: 0,
         mrr: 0,
+        trial: 0,
       };
       planCounts[key].count += 1;
-      planCounts[key].mrr += price;
-      mrr += price;
+      if (row.status === "trial") {
+        planCounts[key].trial += 1;
+        trialCount += 1;
+      } else {
+        planCounts[key].mrr += price;
+        mrr += price;
+      }
     }
+
+    const paidContracts = (planAgg.data ?? []).filter(
+      (r: any) => r.status === "active",
+    ).length;
+    const avgTicket = paidContracts > 0 ? mrr / paidContracts : 0;
+
+    const canceledContracts = (allClinicPlans.data ?? []).filter(
+      (r: any) => r.status === "canceled",
+    ).length;
 
     // Monthly growth — clinics created in last 6 months
     const growth: { month: string; count: number }[] = [];
@@ -118,13 +142,23 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     }
 
     return {
-      clinics: { active, inactive, total: clinicsRows.length },
+      clinics: {
+        active,
+        inactive,
+        suspended,
+        total: clinicsRows.length,
+        new_30d: newClinics30d,
+      },
       users: { total: uniqueUsers.size },
       patients: { total: patients.count ?? 0 },
       documents: { total: docsRows.length, this_month: docsMonth },
       recent_clinics: recentClinics.data ?? [],
       plans: Object.values(planCounts),
       mrr,
+      arr: mrr * 12,
+      avg_ticket: avgTicket,
+      trial_count: trialCount,
+      canceled_count: canceledContracts,
       growth,
       plans_catalog_count: (plansCatalog.data ?? []).length,
     };
