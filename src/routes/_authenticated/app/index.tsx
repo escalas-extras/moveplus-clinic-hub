@@ -3,10 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
-import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3 } from "lucide-react";
+import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3, Sparkles, ArrowRight } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { useBranding } from "@/lib/branding";
 
 export const Route = createFileRoute("/_authenticated/app/")({
@@ -73,17 +72,46 @@ function Dashboard() {
 
   const s = stats.data;
   const userName = (user?.user_metadata as any)?.full_name?.split(" ")[0] || "";
+  const nextStep = !s || s.pacientesAtivos === 0
+    ? { label: "Cadastrar primeiro paciente", to: "/app/pacientes" as const, icon: Users }
+    : s.hoje.length === 0
+      ? { label: "Agendar próximo atendimento", to: "/app/agenda" as const, icon: CalendarDays }
+      : (s.docsMes ?? 0) === 0
+        ? { label: "Emitir primeiro documento", to: "/app/documentos" as const, icon: FileText }
+        : { label: "Ver indicadores clínicos", to: "/app/dashboard-clinico" as const, icon: BarChart3 };
+  const isNewClinic = !s || (s.pacientesAtivos <= 2 && (s.docsMes ?? 0) === 0 && (s.sessoesMes ?? 0) <= 1);
 
   return (
     <div className="space-y-10">
-      {/* Saudação minimalista — topbar já mostra clínica e data */}
-      {/* Saudação personalizada */}
-      <div>
-        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">{greeting()}{userName ? `, ${userName}` : ""}</h1>
-        <p className="text-muted-foreground text-sm mt-2">Gestão clínica de hoje · {brand.clinicName} · {fmtDate(today)}</p>
-      </div>
-
-      <OnboardingChecklist />
+      <section className="relative overflow-hidden rounded-2xl border border-white/50 p-7 sm:p-9 shadow-soft" style={{ background: `linear-gradient(135deg, ${brand.primaryColor}14, ${brand.secondaryColor}10 52%, #ffffff 100%)` }}>
+        <div className="relative grid gap-7 lg:grid-cols-[1.45fr_0.9fr] lg:items-center">
+          <div className="min-w-0">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" style={{ color: brand.primaryColor }} /> Painel da clínica
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-balance">
+              {greeting()}{userName ? `, ${userName}` : ""}
+            </h1>
+            <p className="mt-3 text-base text-muted-foreground max-w-2xl">
+              {brand.clinicName} pronta para organizar agenda, pacientes, documentos e evolução clínica com identidade própria.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to={nextStep.to} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-soft" style={{ background: brand.primaryColor }}>
+                <nextStep.icon className="h-4 w-4" /> {nextStep.label} <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link to="/app/biblioteca" className="inline-flex items-center gap-2 rounded-xl bg-white/75 px-4 py-2.5 text-sm font-medium shadow-soft hover:bg-white">
+                <BookOpen className="h-4 w-4" /> Abrir biblioteca
+              </Link>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <GrowthTile label="Pacientes ativos" value={s?.pacientesAtivos ?? 0} icon={Users} color={brand.primaryColor} />
+            <GrowthTile label="Agenda hoje" value={s?.hoje.length ?? 0} icon={CalendarDays} color={brand.secondaryColor} />
+            <GrowthTile label="Documentos no mês" value={s?.docsMes ?? 0} icon={FileText} color={brand.primaryColor} />
+            <GrowthTile label={isNewClinic ? "Pronta para crescer" : "Sessões no mês"} value={isNewClinic ? "✓" : (s?.sessoesMes ?? 0)} icon={TrendingUp} color={brand.secondaryColor} />
+          </div>
+        </div>
+      </section>
 
       {/* Indicadores principais */}
       <section className="space-y-4">
