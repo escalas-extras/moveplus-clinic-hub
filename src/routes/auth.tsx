@@ -129,7 +129,7 @@ function AuthPage() {
                   {loading ? "Enviando…" : "Enviar link de redefinição"}
                 </Button>
                 <Button type="button" variant="ghost" className="w-full" onClick={() => setMode("signin")}>
-                  Voltar ao login
+                  Voltar para entrar
                 </Button>
               </form>
             </>
