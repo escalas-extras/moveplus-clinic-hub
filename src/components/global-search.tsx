@@ -242,7 +242,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
           {noContext ? (
             <EmptyMsg text="A busca global está disponível dentro de uma clínica ou no Painel SaaS." />
           ) : !canSearch ? (
-            <EmptyMsg text="Digite ao menos 2 caracteres para pesquisar." />
+            <EmptyMsg text={mode === "platform" ? "Busque por clínicas cadastradas." : "Digite ao menos 2 caracteres para pesquisar."} />
           ) : isFetching ? (
             <EmptyMsg text="Buscando…" />
           ) : hits.length === 0 ? (
