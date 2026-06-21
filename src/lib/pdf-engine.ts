@@ -523,11 +523,11 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const lastPage = pages[pages.length - 1];
   let lastContentY = lastPage.topY;
   for (const a of lastPage.atoms) lastContentY += a.h;
-  lastContentY = Math.min(lastContentY, bottomY - sigH);
+  lastContentY = Math.min(lastContentY, bottomY - sigDraw);
 
 
   doc.setPage(lastPageIdx);
-  drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigH, isContract);
+  drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigDraw, isContract);
 
   // Footers + QR
   const pageCount = doc.getNumberOfPages();
