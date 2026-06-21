@@ -143,6 +143,9 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
   return (
     <>
       <div className="flex justify-end">
+        <Button disabled={supportMode} onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />Novo lançamento
+        </Button>
         <NewEntryDialog open={open} setOpen={setOpen} create={create} patients={patients.data ?? []} profs={profs.data ?? []} disabled={supportMode} />
       </div>
 
