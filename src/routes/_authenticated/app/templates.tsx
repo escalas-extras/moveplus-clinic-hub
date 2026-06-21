@@ -86,7 +86,7 @@ function TemplatesPage() {
       });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates"] }); toast.success("Duplicado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates", clinicId] }); toast.success("Duplicado"); },
   });
 
   const newVersion = useMutation({
@@ -100,7 +100,7 @@ function TemplatesPage() {
       });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates"] }); toast.success("Nova versão criada"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates", clinicId] }); toast.success("Nova versão criada"); },
   });
 
   const setDefault = useMutation({
@@ -111,7 +111,7 @@ function TemplatesPage() {
       const { error } = await supabase.from("document_templates").update({ is_default: true }).eq("id", t.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates"] }); toast.success("Modelo padrão definido"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates", clinicId] }); toast.success("Modelo padrão definido"); },
   });
 
   const createNew = () => {
