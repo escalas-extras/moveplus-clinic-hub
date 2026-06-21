@@ -3241,6 +3241,10 @@ export type Database = {
         }
         Returns: string
       }
+      seed_default_document_templates: {
+        Args: { _clinic_id: string }
+        Returns: undefined
+      }
       shares_clinic_with: { Args: { _other_user_id: string }; Returns: boolean }
       start_support_session: {
         Args: { _clinic_id: string; _reason?: string }
