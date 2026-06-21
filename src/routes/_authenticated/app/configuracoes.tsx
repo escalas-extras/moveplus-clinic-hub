@@ -234,6 +234,10 @@ function MyAccountCard() {
   const profileQ = useQuery({
     queryKey: ["my-profile", user?.id],
     enabled: !!user?.id,
+    staleTime: 50 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
@@ -249,7 +253,7 @@ function MyAccountCard() {
       <h2 className="font-semibold flex items-center gap-2 mb-4">
         <UserCircle2 className="h-4 w-4" /> Minha conta
       </h2>
-      <AvatarUploader userId={user.id} initial={(profileQ.data as any)?.avatar_url ?? null} />
+      <AvatarUploader userId={user.id} initial={(profileQ.data as any)?.avatar_url ?? null} initialLoading={profileQ.isLoading} />
       <div className="mt-4 text-xs text-muted-foreground">
         {(profileQ.data as any)?.full_name ?? user.email}
       </div>

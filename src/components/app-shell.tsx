@@ -6,6 +6,7 @@ import {
   Megaphone, Sparkles, PenLine, Bell, Search, Building2, UserCircle2,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
@@ -74,8 +75,9 @@ const platformGroups: NavGroup[] = [
   },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+export function AppShell({ children, initialUser = null }: { children: ReactNode; initialUser?: User | null }) {
+  const { user: authUser, loading: authLoading } = useAuth();
+  const user = authUser ?? (authLoading ? initialUser : null);
   const { isAdmin } = useRoles(user?.id);
   const { isPlatformAdmin } = usePlatformContext();
   const [open, setOpen] = useState(false);
@@ -111,10 +113,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const avatarGradient = `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})`;
 
   // Current user's avatar path (profiles.avatar_url)
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: avatarProfileLoading } = useQuery({
     queryKey: ["user-avatar", user?.id],
     enabled: !!user?.id,
-    staleTime: 60_000,
+    staleTime: 50 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("avatar_url").eq("id", user!.id).maybeSingle();
       return data;
@@ -158,7 +163,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Alterar foto de perfil"
             title="Alterar foto de perfil"
           >
-            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={34} gradient={avatarGradient} />
+            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={34} gradient={avatarGradient} isLoading={avatarProfileLoading} />
           </button>
           <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} aria-label="Abrir menu">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -208,7 +213,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Alterar foto de perfil"
             title="Alterar foto de perfil"
           >
-            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={36} gradient={avatarGradient} />
+            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={36} gradient={avatarGradient} isLoading={avatarProfileLoading} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium truncate">{userName}</div>
               <div className="text-[11px] text-muted-foreground truncate">{user?.email}</div>
@@ -260,7 +265,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-label="Alterar foto de perfil"
               title="Alterar foto de perfil"
             >
-              <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
+              <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" isLoading={avatarProfileLoading} />
             </button>
           </div>
         </header>
@@ -275,7 +280,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DialogHeader>
               <DialogTitle>Foto de perfil</DialogTitle>
             </DialogHeader>
-            <AvatarUploader userId={user.id} initial={avatarPath} />
+            <AvatarUploader userId={user.id} initial={avatarPath} initialLoading={avatarProfileLoading} />
           </DialogContent>
         </Dialog>
       )}

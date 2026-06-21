@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, signedAvatarUrl } from "@/lib/user-avatar";
+import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, invalidateSignedAvatarUrl, signedAvatarUrl } from "@/lib/user-avatar";
 
 /**
  * Upload de avatar do usuário no bucket `user-avatars`.
@@ -14,20 +14,23 @@ import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, signedAvatarUrl } from "@/lib/
 export function AvatarUploader({
   userId,
   initial,
+  initialLoading = false,
 }: {
   userId: string;
   initial: string | null;
+  initialLoading?: boolean;
 }) {
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [path, setPath] = useState<string | null>(initial);
   const [busy, setBusy] = useState(false);
   const [broken, setBroken] = useState(false);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
 
   useEffect(() => setPath(initial), [initial]);
   useEffect(() => setBroken(false), [path]);
 
-  const { data: previewUrl } = useQuery({
+  const { data: previewUrl, isLoading: previewLoading } = useQuery({
     queryKey: ["avatar-preview", userId, path],
     queryFn: () => signedAvatarUrl(path),
     enabled: !!path,
@@ -37,12 +40,18 @@ export function AvatarUploader({
     refetchOnMount: false,
   });
 
+  useEffect(() => {
+    if (previewUrl) setDisplayUrl(previewUrl);
+    if (!path) setDisplayUrl(null);
+  }, [path, previewUrl]);
+
   async function persist(newPath: string | null) {
     const { error } = await supabase
       .from("profiles")
       .update({ avatar_url: newPath })
       .eq("id", userId);
     if (error) throw error;
+    invalidateSignedAvatarUrl(newPath);
     setPath(newPath);
     qc.invalidateQueries({ queryKey: ["user-avatar", userId] });
     qc.invalidateQueries({ queryKey: ["avatar-preview", userId] });
@@ -61,6 +70,7 @@ export function AvatarUploader({
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const newPath = `${userId}/avatar.${ext}`;
+      invalidateSignedAvatarUrl(newPath);
       const { error: upErr } = await supabase.storage
         .from(AVATAR_BUCKET)
         .upload(newPath, file, { upsert: true, contentType: file.type });
@@ -92,13 +102,15 @@ export function AvatarUploader({
   return (
     <div className="flex items-center gap-4">
       <div className="w-20 h-20 rounded-full border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-        {previewUrl && !broken ? (
+        {displayUrl && !broken ? (
           <img
-            src={previewUrl}
+            src={displayUrl}
             alt="Avatar"
             className="w-full h-full object-cover"
             onError={() => setBroken(true)}
           />
+        ) : (path && previewLoading) || initialLoading ? (
+          <div className="h-full w-full bg-muted" aria-hidden="true" />
         ) : (
           <UserIcon className="h-8 w-8 text-muted-foreground" />
         )}
@@ -139,6 +151,7 @@ export function UserAvatar({
   size = 36,
   gradient,
   className,
+  isLoading: profileLoading = false,
 }: {
   userId: string | null | undefined;
   avatarPath: string | null | undefined;
@@ -146,8 +159,10 @@ export function UserAvatar({
   size?: number;
   gradient?: string;
   className?: string;
+  isLoading?: boolean;
 }) {
   const [broken, setBroken] = useState(false);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
   const { data: url, isLoading } = useQuery({
     queryKey: ["avatar-preview", userId, avatarPath],
     queryFn: () => signedAvatarUrl(avatarPath ?? null),
@@ -158,6 +173,10 @@ export function UserAvatar({
     refetchOnMount: false,
   });
   useEffect(() => setBroken(false), [avatarPath]);
+  useEffect(() => {
+    if (url) setDisplayUrl(url);
+    if (!avatarPath) setDisplayUrl(null);
+  }, [avatarPath, url]);
   const initial = (name || "U").trim().charAt(0).toUpperCase();
   const style: React.CSSProperties = {
     width: size,
@@ -167,7 +186,7 @@ export function UserAvatar({
   // Enquanto a signed URL ainda está sendo gerada e existe um avatarPath,
   // mostramos um placeholder neutro (mesmo footprint) para evitar flash do
   // monograma ao trocar de rota.
-  if (avatarPath && isLoading && !url) {
+  if (((avatarPath && isLoading) || profileLoading) && !displayUrl) {
     return (
       <div
         className={["rounded-full bg-muted shrink-0", className || ""].join(" ")}
@@ -176,14 +195,14 @@ export function UserAvatar({
       />
     );
   }
-  if (url && !broken) {
+  if (displayUrl && !broken) {
     return (
       <div
         className={["rounded-full overflow-hidden shrink-0 bg-muted", className || ""].join(" ")}
         style={{ width: size, height: size }}
       >
         <img
-          src={url}
+          src={displayUrl}
           alt={name}
           className="w-full h-full object-cover"
           loading="eager"
