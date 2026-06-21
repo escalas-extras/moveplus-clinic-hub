@@ -623,6 +623,12 @@ function ClinicsTab() {
                             <Power className="h-4 w-4 mr-2" /> Ativar
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem
+                          onClick={() => setDeleteFor(c)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Excluir clínica
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
