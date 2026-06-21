@@ -978,19 +978,21 @@ function drawSigCol(
   doc.setDrawColor(...C.ink);
   doc.setLineWidth(0.6);
   doc.line(cx - sigW / 2, sigY, cx + sigW / 2, sigY);
-  // Role label above
+  // Role label above — tracking ampliado (letras espaçadas)
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.setTextColor(...C.meta);
-  doc.text(opts.label, cx, sigY - 4, { align: "center" });
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  const tracked = opts.label.toUpperCase().split("").join("\u2009");
+  doc.text(tracked, cx, sigY - 5, { align: "center" });
 
-  let ly = sigY + 11;
+  let ly = sigY + 12;
   for (const ln of opts.lines) {
-    doc.setFont("helvetica", ln.bold ? "bold" : "normal");
+    const style = ln.italic ? "italic" : ln.bold ? "bold" : "normal";
+    doc.setFont("helvetica", style);
     doc.setFontSize(ln.size);
     doc.setTextColor(...(ln.muted ? C.meta : C.ink));
     doc.text(ln.text, cx, ly, { align: "center" });
-    ly += ln.size + 1.8;
+    ly += ln.size + 2;
   }
 }
 
