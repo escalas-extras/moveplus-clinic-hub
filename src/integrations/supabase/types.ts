@@ -2630,21 +2630,7 @@ export type Database = {
       }
     }
     Views: {
-      v_document_validation: {
-        Row: {
-          clinica_nome: string | null
-          doc_type: Database["public"]["Enums"]["document_type"] | null
-          issued_at: string | null
-          locked_at: string | null
-          paciente_iniciais: string | null
-          profissional_nome: string | null
-          profissional_registro: string | null
-          status: string | null
-          title: string | null
-          validation_hash: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
@@ -2655,6 +2641,22 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      validate_document_by_hash: {
+        Args: { _hash: string }
+        Returns: {
+          clinica_nome: string
+          doc_type: string
+          existe: boolean
+          hash: string
+          issued_at: string
+          locked_at: string
+          paciente_iniciais: string
+          profissional_nome: string
+          profissional_registro: string
+          status: string
+          title: string
+        }[]
       }
     }
     Enums: {

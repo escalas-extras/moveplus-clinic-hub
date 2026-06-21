@@ -25,12 +25,10 @@ function ValidatePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["validate-doc", hash],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("v_document_validation" as any)
-        .select("*")
-        .eq("validation_hash", hash)
-        .maybeSingle();
-      return data;
+      const { data } = await supabase.rpc("validate_document_by_hash" as any, { _hash: hash });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row || row.existe === false) return null;
+      return row;
     },
   });
 
