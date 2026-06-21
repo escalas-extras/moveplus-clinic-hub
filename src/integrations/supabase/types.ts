@@ -3273,6 +3273,10 @@ export type Database = {
         Returns: boolean
       }
       is_member_of: { Args: { _clinic_id: string }; Returns: boolean }
+      normalize_document_template_name: {
+        Args: { _name: string }
+        Returns: string
+      }
       provision_clinic: {
         Args: {
           _cidade?: string
