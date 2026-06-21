@@ -981,21 +981,26 @@ type SigLine = { text: string; bold?: boolean; muted?: boolean; italic?: boolean
 function drawSigCol(
   doc: jsPDF,
   cx: number,
-  sigY: number,
+  topY: number,
   sigW: number,
+  signSpace: number,
   opts: { label: string; lines: SigLine[] },
 ) {
+  // Linha de assinatura
+  const lineY = topY + signSpace;
   doc.setDrawColor(...C.ink);
-  doc.setLineWidth(0.6);
-  doc.line(cx - sigW / 2, sigY, cx + sigW / 2, sigY);
-  // Role label above — tracking ampliado (letras espaçadas)
+  doc.setLineWidth(0.5);
+  doc.line(cx - sigW / 2, lineY, cx + sigW / 2, lineY);
+
+  // Título (abaixo da linha) — 7.5pt uppercase bold #6B6B6B com tracking
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
   const tracked = opts.label.toUpperCase().split("").join("\u2009");
-  doc.text(tracked, cx, sigY - 5, { align: "center" });
+  doc.text(tracked, cx, lineY + 10, { align: "center" });
 
-  let ly = sigY + 12;
+  // Conteúdo
+  let ly = lineY + 22;
   for (const ln of opts.lines) {
     const style = ln.italic ? "italic" : ln.bold ? "bold" : "normal";
     doc.setFont("helvetica", style);
