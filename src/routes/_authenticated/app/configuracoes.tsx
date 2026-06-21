@@ -13,6 +13,7 @@ import { Stethoscope, Palette, UserCircle2 } from "lucide-react";
 import { LogoUploader, signedLogoUrl } from "@/components/logo-uploader";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { useAuth } from "@/lib/auth";
+import { pcSet } from "@/lib/persistent-cache";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfigPage,
@@ -119,8 +120,20 @@ function ConfigPage() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, v) => {
       toast.success("Configurações salvas");
+      if (clinicId) {
+        pcSet(`fos:branding:${clinicId}`, {
+          appName: v.app_name || "FisioOS",
+          clinicName: v.nome_fantasia || "FisioOS",
+          slogan: v.slogan || "Transformando atendimentos em resultados",
+          logoUrl: logoPreview ?? null,
+          primaryColor: v.primary_color || "#2f5d3a",
+          secondaryColor: v.secondary_color || "#c75c3a",
+          crefitoDefault: v.crefito_default || null,
+          hasOwnLogo: !!logoPreview,
+        }, 24 * 60 * 60_000);
+      }
       qc.invalidateQueries({ queryKey: ["clinic-settings"] });
       qc.invalidateQueries({ queryKey: ["branding"] });
       qc.invalidateQueries({ queryKey: ["logo-preview"] });
