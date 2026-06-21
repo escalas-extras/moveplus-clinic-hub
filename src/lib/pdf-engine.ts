@@ -1042,8 +1042,8 @@ function drawSigCol(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
-  const tracked = opts.label.toUpperCase().split("").join("\u2009");
-  doc.text(tracked, cx, lineY + 10, { align: "center" });
+  // Título (abaixo da linha) — uppercase normal, sem letter-spacing exagerado.
+  doc.text(opts.label.toUpperCase(), cx, lineY + 10, { align: "center" });
 
   // Conteúdo
   let ly = lineY + 22;
