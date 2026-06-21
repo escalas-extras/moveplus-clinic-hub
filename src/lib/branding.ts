@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlatformContext } from "@/lib/platform-context";
 
 export type Branding = {
   appName: string;
@@ -15,7 +16,7 @@ export type Branding = {
 const DEFAULTS: Branding = {
   appName: "FisioOS",
   clinicName: "FisioOS",
-  slogan: "Transformando atendimentos em resultados",
+  slogan: "Sistema operacional para clínicas de fisioterapia",
   logoUrl: null,
   primaryColor: "#0F4C5C",
   secondaryColor: "#2BB673",
@@ -23,14 +24,17 @@ const DEFAULTS: Branding = {
   hasOwnLogo: false,
 };
 
-async function loadBranding(): Promise<Branding> {
-  // Resolve clinic_id via current_clinic_id() helper; fallback to first row.
+async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
+  // Platform context (super_admin sem clínica) sempre usa branding FisioOS.
+  if (isPlatformAdmin) return DEFAULTS;
+  // Resolve clinic_id via current_clinic_id() — sem fallback para a primeira clínica.
   const { data: cid } = await supabase.rpc("current_clinic_id");
-  let q = supabase
+  if (!cid) return DEFAULTS;
+  const { data } = await supabase
     .from("clinic_settings")
-    .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default");
-  q = cid ? q.eq("clinic_id", cid as string) : q.limit(1);
-  const { data } = await q.maybeSingle();
+    .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default")
+    .eq("clinic_id", cid as string)
+    .maybeSingle();
   if (!data) return DEFAULTS;
   return {
     appName: data.app_name || DEFAULTS.appName,
@@ -45,10 +49,12 @@ async function loadBranding(): Promise<Branding> {
 }
 
 export function useBranding(): Branding {
+  const { isPlatformAdmin, loading } = usePlatformContext();
   const { data } = useQuery({
-    queryKey: ["branding"],
+    queryKey: ["branding", isPlatformAdmin],
+    enabled: !loading,
     staleTime: 5 * 60_000,
-    queryFn: loadBranding,
+    queryFn: () => loadBranding(isPlatformAdmin),
   });
   return data ?? DEFAULTS;
 }
