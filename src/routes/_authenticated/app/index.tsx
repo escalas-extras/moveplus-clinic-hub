@@ -13,13 +13,16 @@ export const Route = createFileRoute("/_authenticated/app/")({
   beforeLoad: async () => {
     const { data: sess } = await supabase.auth.getUser();
     if (!sess.user) return;
-    const [rolesRes, membersRes] = await Promise.all([
+    const [rolesRes, membersRes, supportRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
       supabase.from("clinic_members").select("id").eq("user_id", sess.user.id).eq("active", true).limit(1),
+      supabase.rpc("current_support_session_clinic"),
     ]);
     const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
     const hasClinic = (membersRes.data ?? []).length > 0;
-    if (isSuperAdmin && !hasClinic) throw redirect({ to: "/app/admin-saas" });
+    const inSupport = !!supportRes.data;
+    // Em modo suporte, o super_admin deve permanecer em /app (experiência da clínica).
+    if (isSuperAdmin && !hasClinic && !inSupport) throw redirect({ to: "/app/admin-saas" });
   },
   component: Dashboard,
 });
