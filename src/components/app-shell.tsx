@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
+import { ClinicLogo } from "@/components/clinic-logo";
 import { fmtDate } from "@/lib/format";
 import { SupportBanner } from "@/components/support-banner";
 

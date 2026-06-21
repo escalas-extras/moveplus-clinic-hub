@@ -26,17 +26,15 @@ const DEFAULTS: Branding = {
   hasOwnLogo: false,
 };
 
-async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
-  // Platform context (super_admin sem clínica e SEM modo suporte ativo) usa branding FisioOS.
-  // Durante uma support_session, mesmo um super_admin deve ver o branding da clínica acessada.
+async function resolveClinicId(isPlatformAdmin: boolean): Promise<string | null> {
   const { data: supportCid } = await supabase.rpc("current_support_session_clinic");
-  if (isPlatformAdmin && !supportCid) return DEFAULTS;
-  let cid: string | null = (supportCid as string | null) ?? null;
-  if (!cid) {
-    const { data: ownCid } = await supabase.rpc("current_clinic_id");
-    cid = (ownCid as string | null) ?? null;
-  }
-  if (!cid) return DEFAULTS;
+  if (isPlatformAdmin && !supportCid) return null;
+  if (supportCid) return supportCid as string;
+  const { data: ownCid } = await supabase.rpc("current_clinic_id");
+  return (ownCid as string | null) ?? null;
+}
+
+async function loadBranding(cid: string): Promise<Branding> {
   const { data } = await supabase
     .from("clinic_settings")
     .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default")
@@ -56,17 +54,33 @@ async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
   } satisfies Branding;
 }
 
-export function useBranding(): Branding {
-  const { isPlatformAdmin, loading } = usePlatformContext();
+export function useBranding(): Branding & { isLoading: boolean } {
+  const { isPlatformAdmin, loading: ctxLoading } = usePlatformContext();
   const { user } = useAuth();
-  const { data } = useQuery({
-    // queryKey inclui user.id para evitar reuso de cache entre usuários/clínicas no mesmo browser.
-    queryKey: ["branding", user?.id ?? "anon", isPlatformAdmin],
-    enabled: !loading && !!user?.id,
+
+  // Resolve clinic_id separadamente, com cache estável, evitando refetch
+  // de branding por oscilação transitória do platform-context.
+  const { data: clinicId, isLoading: cidLoading } = useQuery({
+    queryKey: ["branding-clinic-id", user?.id ?? "anon"],
+    enabled: !ctxLoading && !!user?.id,
     staleTime: 5 * 60_000,
-    queryFn: () => loadBranding(isPlatformAdmin),
+    gcTime: 30 * 60_000,
+    queryFn: () => resolveClinicId(isPlatformAdmin),
   });
-  return data ?? DEFAULTS;
+
+  // Branding por clinic_id: chave estável → não pisca ao trocar de rota.
+  const { data, isLoading: brLoading } = useQuery({
+    queryKey: ["branding", clinicId ?? "none"],
+    enabled: !ctxLoading && !cidLoading && !!clinicId,
+    staleTime: 15 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    queryFn: () => loadBranding(clinicId!),
+  });
+
+  const isLoading = ctxLoading || cidLoading || (!!clinicId && brLoading);
+  return { ...(data ?? DEFAULTS), isLoading };
 }
 
 export const FISIOOS_DEFAULTS = DEFAULTS;
