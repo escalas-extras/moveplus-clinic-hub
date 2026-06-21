@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
-import { Stethoscope, Palette } from "lucide-react";
+import { Stethoscope, Palette, UserCircle2 } from "lucide-react";
 import { LogoUploader, signedLogoUrl } from "@/components/logo-uploader";
+import { AvatarUploader } from "@/components/avatar-uploader";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfigPage,
@@ -132,6 +134,10 @@ function ConfigPage() {
         <p className="text-sm text-muted-foreground">Personalize a marca da sua clínica em todos os documentos e telas.</p>
       </div>
 
+      <MyAccountCard />
+
+
+
       {/* Preview ao vivo da identidade */}
       <Card className="p-6 border-2" style={{ borderColor: primary }}>
         <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Pré-visualização da identidade</div>
@@ -220,6 +226,34 @@ function ConfigPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+function MyAccountCard() {
+  const { user } = useAuth();
+  const profileQ = useQuery({
+    queryKey: ["my-profile", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url, full_name, email")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  if (!user?.id) return null;
+  return (
+    <Card className="p-6">
+      <h2 className="font-semibold flex items-center gap-2 mb-4">
+        <UserCircle2 className="h-4 w-4" /> Minha conta
+      </h2>
+      <AvatarUploader userId={user.id} initial={(profileQ.data as any)?.avatar_url ?? null} />
+      <div className="mt-4 text-xs text-muted-foreground">
+        {(profileQ.data as any)?.full_name ?? user.email}
+      </div>
+    </Card>
   );
 }
 

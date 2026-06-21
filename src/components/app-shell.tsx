@@ -5,10 +5,12 @@ import {
   ShieldCheck, Activity, FileText, RefreshCw, BarChart3, BookOpen, Home as HomeIcon,
   Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
+import { GlobalSearch } from "@/components/global-search";
+import { UserAvatar } from "@/components/avatar-uploader";
 import { usePlatformContext } from "@/lib/platform-context";
 import { usePlanFeatures } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
@@ -102,9 +104,34 @@ export function AppShell({ children }: { children: ReactNode }) {
     .filter((g) => g.items.length > 0);
 
   const userName = (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
-  const initial = (userName || "U").charAt(0).toUpperCase();
   const today = new Date();
   const todayLabel = today.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+  const avatarGradient = `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})`;
+
+  // Current user's avatar path (profiles.avatar_url)
+  const { data: profile } = useQuery({
+    queryKey: ["user-avatar", user?.id],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("avatar_url").eq("id", user!.id).maybeSingle();
+      return data;
+    },
+  });
+  const avatarPath = (profile as any)?.avatar_url ?? null;
+
+  // Cmd/Ctrl+K → open global search
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -158,12 +185,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* User chip */}
         <div className="border-t border-white/40 p-4">
           <div className="flex items-center gap-3 px-1 mb-3">
-            <div
-              className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-              style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
-            >
-              {initial}
-            </div>
+            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={36} gradient={avatarGradient} />
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{userName}</div>
               <div className="text-[11px] text-muted-foreground truncate">{user?.email}</div>
@@ -186,28 +208,32 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden xl:flex items-center gap-2 glass rounded-full px-4 py-2 w-80 text-sm text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="hidden xl:flex items-center gap-2 glass rounded-full px-4 py-2 w-80 text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+              aria-label="Abrir busca global"
+            >
               <Search className="h-4 w-4 shrink-0" />
               <span className="truncate flex-1">Buscar paciente, documento…</span>
               <kbd className="ml-auto shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-white/70">⌘K</kbd>
-            </div>
+            </button>
+
+            <Button variant="ghost" size="icon" className="rounded-full glass xl:hidden" onClick={() => setSearchOpen(true)} aria-label="Buscar">
+              <Search className="h-4 w-4" />
+            </Button>
 
             <Button variant="ghost" size="icon" className="rounded-full glass">
               <Bell className="h-4 w-4" />
             </Button>
-            <div
-              className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-soft"
-              style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
-              title={userName}
-            >
-              {initial}
-            </div>
+            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
           </div>
         </header>
 
         <div className="px-6 py-8 sm:px-10 lg:px-12 lg:py-12 max-w-[1400px] mx-auto">{children}</div>
       </main>
       </div>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }

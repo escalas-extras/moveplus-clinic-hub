@@ -176,6 +176,7 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
     const { data: clinics, error } = await supabaseAdmin
       .from("clinics")
       .select("id, nome, slug, plan, status, active, created_at, settings_id")
+      .neq("status", "deleted")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
@@ -1111,3 +1112,116 @@ export const listSaasAudit = createServerFn({ method: "GET" })
     }));
   });
 
+
+// ------------------------------------------------------------
+// Clinic delete (soft delete)
+// ------------------------------------------------------------
+const clinicCountsInput = z.object({ id: z.string().uuid() });
+
+export const getClinicCounts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => clinicCountsInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const cid = data.id;
+    const head = { count: "exact" as const, head: true };
+
+    const [clinic, members, patients, docs, profs, attachments] = await Promise.all([
+      supabaseAdmin.from("clinics").select("id, nome, slug, status").eq("id", cid).maybeSingle(),
+      supabaseAdmin.from("clinic_members").select("id", head).eq("clinic_id", cid),
+      supabaseAdmin.from("patients").select("id", head).eq("clinic_id", cid),
+      supabaseAdmin.from("clinical_documents").select("id", head).eq("clinic_id", cid),
+      supabaseAdmin.from("professionals").select("id", head).eq("clinic_id", cid),
+      supabaseAdmin.from("patient_attachments").select("id", head),
+    ]);
+
+    return {
+      clinic: clinic.data,
+      counts: {
+        members: members.count ?? 0,
+        patients: patients.count ?? 0,
+        documents: docs.count ?? 0,
+        professionals: profs.count ?? 0,
+        attachments: attachments.count ?? 0,
+      },
+    };
+  });
+
+const deleteClinicInput = z.object({
+  id: z.string().uuid(),
+  confirm_name: z.string().min(1, "Confirmação obrigatória"),
+  acknowledge_documents: z.boolean().optional(),
+});
+
+export const softDeleteClinic = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => deleteClinicInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: clinic, error: cErr } = await supabaseAdmin
+      .from("clinics")
+      .select("id, nome, slug, status")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (cErr) throw new Error(cErr.message);
+    if (!clinic) throw new Error("Clínica não encontrada.");
+    if (clinic.status === "deleted") throw new Error("Clínica já está excluída.");
+
+    const expected = (clinic.slug || clinic.nome || "").trim().toLowerCase();
+    const given = data.confirm_name.trim().toLowerCase();
+    if (given !== expected) {
+      await logAudit(supabaseAdmin, context.userId, "clinic.delete_failed", "clinic", clinic.id, clinic, {
+        reason: "confirmation_mismatch",
+      });
+      throw new Error(`Confirmação incorreta. Digite exatamente: ${clinic.slug ?? clinic.nome}`);
+    }
+
+    // Move+ extra guard
+    const isMovePlus = /move\s*\+?\s*60?\s*\+?/i.test(clinic.nome || "") || clinic.slug === "move-plus";
+    if (isMovePlus && data.confirm_name.trim() !== "EXCLUIR MOVE 60+") {
+      throw new Error('Para excluir a Move+ é necessário digitar exatamente: EXCLUIR MOVE 60+');
+    }
+
+    // Documents emitted require explicit acknowledgement
+    const { count: docCount } = await supabaseAdmin
+      .from("clinical_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", clinic.id);
+    if ((docCount ?? 0) > 0 && !data.acknowledge_documents) {
+      throw new Error(
+        `Esta clínica possui ${docCount} documentos clínicos emitidos. Confirme novamente para prosseguir com a exclusão lógica.`,
+      );
+    }
+
+    await logAudit(supabaseAdmin, context.userId, "clinic.delete_requested", "clinic", clinic.id, clinic, {
+      docCount,
+    });
+
+    // Soft delete: status = 'deleted', active = false
+    const { error: upErr } = await supabaseAdmin
+      .from("clinics")
+      .update({ status: "deleted", active: false })
+      .eq("id", clinic.id);
+    if (upErr) {
+      await logAudit(supabaseAdmin, context.userId, "clinic.delete_failed", "clinic", clinic.id, clinic, {
+        error: upErr.message,
+      });
+      throw new Error("Falha ao excluir: " + upErr.message);
+    }
+
+    // Disable members so they lose access immediately (auth users preserved).
+    await supabaseAdmin
+      .from("clinic_members")
+      .update({ active: false })
+      .eq("clinic_id", clinic.id);
+
+    await logAudit(supabaseAdmin, context.userId, "clinic.deleted", "clinic", clinic.id, clinic, {
+      docCount,
+      soft: true,
+    });
+
+    return { ok: true, soft: true };
+  });
