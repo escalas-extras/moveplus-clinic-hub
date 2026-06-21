@@ -348,19 +348,12 @@ function BrandingPanel({ clinicId }: { clinicId: string }) {
           onChange={(e) => set("slogan", e.target.value)}
         />
       </Field>
-      <Field label="Logo URL">
-        <Input
-          value={current?.logo_url ?? ""}
-          onChange={(e) => set("logo_url", e.target.value)}
-          placeholder="https://..."
-        />
-      </Field>
       <div className="sm:col-span-2">
         <Label className="text-xs">Logotipo</Label>
         <LogoUploader
           clinicId={clinicId}
           value={current?.logo_url ?? null}
-          onChange={(v) => set("logo_url", v)}
+          onChange={(v: string | null) => set("logo_url", v)}
         />
       </div>
       <Field label="Nome da aplicação">
