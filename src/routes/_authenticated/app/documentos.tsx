@@ -266,6 +266,7 @@ function DocumentosPage() {
   const emit = useMutation({
     mutationFn: async () => {
       if (!template || !patient) throw new Error("Selecione paciente e modelo");
+      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
       if (isContractTemplate && contratanteMode === "responsavel") {
         const f = contratanteForm;
         if (!f.nome?.trim() || !f.cpf?.trim() || !f.rg?.trim() || !f.vinculo?.trim() || !f.telefone?.trim() || !f.endereco?.trim()) {
