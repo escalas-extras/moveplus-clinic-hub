@@ -246,9 +246,9 @@ function AgendaPage() {
           <p className="mt-1.5 text-[15px] text-muted-foreground capitalize">{headerLabel}</p>
         </div>
         <div className="shrink-0">
-          <Button disabled={supportMode} onClick={() => openNewSlot(ymd(anchor))}>
+          <SupportGuardButton supportMode={supportMode} onClick={() => openNewSlot(ymd(anchor))} tooltip="Modo Suporte ativo — novo agendamento bloqueado">
             <Plus className="h-4 w-4 mr-2" />Novo agendamento
-          </Button>
+          </SupportGuardButton>
           <NewAppointmentDialog
             open={open}
             setOpen={(o: boolean) => { setOpen(o); if (!o) setSlotPrefill(null); }}
