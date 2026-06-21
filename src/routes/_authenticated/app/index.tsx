@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
@@ -10,6 +10,17 @@ import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { useBranding } from "@/lib/branding";
 
 export const Route = createFileRoute("/_authenticated/app/")({
+  beforeLoad: async () => {
+    const { data: sess } = await supabase.auth.getUser();
+    if (!sess.user) return;
+    const [rolesRes, membersRes] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
+      supabase.from("clinic_members").select("id").eq("user_id", sess.user.id).eq("active", true).limit(1),
+    ]);
+    const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
+    const hasClinic = (membersRes.data ?? []).length > 0;
+    if (isSuperAdmin && !hasClinic) throw redirect({ to: "/app/admin-saas" });
+  },
   component: Dashboard,
 });
 
