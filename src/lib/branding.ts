@@ -23,28 +23,32 @@ const DEFAULTS: Branding = {
   hasOwnLogo: false,
 };
 
+async function loadBranding(): Promise<Branding> {
+  // Resolve clinic_id via current_clinic_id() helper; fallback to first row.
+  const { data: cid } = await supabase.rpc("current_clinic_id");
+  let q = supabase
+    .from("clinic_settings")
+    .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default");
+  q = cid ? q.eq("clinic_id", cid as string) : q.limit(1);
+  const { data } = await q.maybeSingle();
+  if (!data) return DEFAULTS;
+  return {
+    appName: data.app_name || DEFAULTS.appName,
+    clinicName: data.nome_fantasia || DEFAULTS.appName,
+    slogan: data.slogan || DEFAULTS.slogan,
+    logoUrl: data.logo_url || null,
+    primaryColor: data.primary_color || DEFAULTS.primaryColor,
+    secondaryColor: data.secondary_color || DEFAULTS.secondaryColor,
+    crefitoDefault: data.crefito_default || null,
+    hasOwnLogo: !!data.logo_url,
+  } satisfies Branding;
+}
+
 export function useBranding(): Branding {
   const { data } = useQuery({
     queryKey: ["branding"],
     staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("clinic_settings")
-        .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default")
-        .limit(1)
-        .maybeSingle();
-      if (!data) return DEFAULTS;
-      return {
-        appName: data.app_name || DEFAULTS.appName,
-        clinicName: data.nome_fantasia || DEFAULTS.appName,
-        slogan: data.slogan || DEFAULTS.slogan,
-        logoUrl: data.logo_url || null,
-        primaryColor: data.primary_color || DEFAULTS.primaryColor,
-        secondaryColor: data.secondary_color || DEFAULTS.secondaryColor,
-        crefitoDefault: data.crefito_default || null,
-        hasOwnLogo: !!data.logo_url,
-      } satisfies Branding;
-    },
+    queryFn: loadBranding,
   });
   return data ?? DEFAULTS;
 }
