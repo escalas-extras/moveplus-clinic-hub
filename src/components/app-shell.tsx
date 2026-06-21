@@ -143,7 +143,6 @@ export function AppShell({ children, initialUser = null }: { children: ReactNode
 
   return (
     <div className="min-h-screen flex flex-col">
-      <SupportBanner />
       <div className="flex flex-1 min-h-0">
 
       {/* Mobile top bar */}
@@ -230,45 +229,49 @@ export function AppShell({ children, initialUser = null }: { children: ReactNode
       </aside>
 
       <main className="flex-1 min-w-0 pt-16 lg:pt-0">
-        {/* Desktop premium top bar */}
-        <header className="hidden lg:flex sticky top-0 z-20 h-20 items-center justify-between gap-6 px-10 glass-topbar">
-          <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{todayLabel}</div>
-            <div className="text-lg font-semibold tracking-tight truncate" style={{ color: brand.primaryColor }}>
-              {brand.clinicName}
-              <span className="ml-2 text-sm font-normal text-muted-foreground italic">· {brand.slogan}</span>
+        <div className="sticky top-0 z-30">
+          <SupportBanner />
+          {/* Desktop premium top bar */}
+          <header className="hidden lg:flex h-20 items-center justify-between gap-6 px-10 glass-topbar">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{todayLabel}</div>
+              <div className="text-lg font-semibold tracking-tight truncate" style={{ color: brand.primaryColor }}>
+                {brand.clinicName}
+                <span className="ml-2 text-sm font-normal text-muted-foreground italic">· {brand.slogan}</span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="hidden xl:flex items-center gap-2 glass rounded-full px-4 py-2 w-80 text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
-              aria-label="Abrir busca global"
-            >
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="truncate flex-1">Buscar paciente, documento…</span>
-              <kbd className="ml-auto shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-white/70">⌘K</kbd>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="hidden xl:flex items-center gap-2 glass rounded-full px-4 py-2 w-80 text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+                aria-label="Abrir busca global"
+              >
+                <Search className="h-4 w-4 shrink-0" />
+                <span className="truncate flex-1">Buscar paciente, documento…</span>
+                <kbd className="ml-auto shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/60 border border-white/70">⌘K</kbd>
+              </button>
 
-            <Button variant="ghost" size="icon" className="rounded-full glass xl:hidden" onClick={() => setSearchOpen(true)} aria-label="Buscar">
-              <Search className="h-4 w-4" />
-            </Button>
+              <Button variant="ghost" size="icon" className="rounded-full glass xl:hidden" onClick={() => setSearchOpen(true)} aria-label="Buscar">
+                <Search className="h-4 w-4" />
+              </Button>
 
-            <Button variant="ghost" size="icon" className="rounded-full glass">
-              <Bell className="h-4 w-4" />
-            </Button>
-            <button
-              type="button"
-              onClick={() => setAvatarOpen(true)}
-              className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer hover:opacity-90 transition-opacity"
-              aria-label="Alterar foto de perfil"
-              title="Alterar foto de perfil"
-            >
-              <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" isLoading={avatarProfileLoading} />
-            </button>
-          </div>
-        </header>
+              <Button variant="ghost" size="icon" className="rounded-full glass">
+                <Bell className="h-4 w-4" />
+              </Button>
+              <button
+                type="button"
+                onClick={() => setAvatarOpen(true)}
+                className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer hover:opacity-90 transition-opacity"
+                aria-label="Alterar foto de perfil"
+                title="Alterar foto de perfil"
+              >
+                <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" isLoading={avatarProfileLoading} />
+              </button>
+            </div>
+          </header>
+        </div>
+
 
         <div className="px-6 py-8 sm:px-10 lg:px-12 lg:py-12 max-w-[1400px] mx-auto">{children}</div>
       </main>

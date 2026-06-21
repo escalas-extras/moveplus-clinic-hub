@@ -44,7 +44,7 @@ export function SupportBanner() {
   if (!data) return null;
   const clinicName = (data as any).clinics?.nome ?? "Clínica";
   return (
-    <div className="sticky top-0 z-50 w-full bg-amber-500 text-amber-950 shadow">
+    <div className="w-full bg-amber-500 text-amber-950 shadow">
       <div className="max-w-[1400px] mx-auto px-4 py-2 flex items-center justify-between gap-3 text-sm">
         <div className="flex items-center gap-2 min-w-0">
           <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -59,7 +59,13 @@ export function SupportBanner() {
           size="sm"
           variant="outline"
           className="bg-white/80 border-amber-700 hover:bg-white"
-          onClick={() => endMut.mutate()}
+          onClick={() => {
+            if (endMut.isPending) return;
+            const ok = window.confirm(
+              `Encerrar Modo Suporte em "${clinicName}"? Você voltará ao Painel SaaS.`,
+            );
+            if (ok) endMut.mutate();
+          }}
           disabled={endMut.isPending}
         >
           <LogOut className="h-4 w-4 mr-1" /> Encerrar
