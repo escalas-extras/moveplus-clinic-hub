@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer } from "lucide-react";
+import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
-import { generatePdf } from "@/lib/pdf";
+import { downloadPdf, previewPdf, printPdf } from "@/lib/pdf";
 import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
@@ -23,6 +23,23 @@ export const Route = createFileRoute("/_authenticated/app/financeiro")({
 });
 
 type Form = { patient_id: string; professional_id: string; data: string; valor: number; forma_pagamento?: any; status: "pago" | "pendente"; observacoes?: string };
+
+function requiredDate(value?: string | null) {
+  const v = value?.trim();
+  return v ? v : null;
+}
+
+function requiredText(value: unknown, label: string) {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (!v) throw new Error(`${label} é obrigatório.`);
+  return v;
+}
+
+function requiredAmount(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) throw new Error("Informe um valor maior que zero.");
+  return n;
+}
 
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
@@ -65,12 +82,13 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     queryKey: ["fin", clinicId],
     enabled: !!clinicId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("financial_entries")
         .select("*, patients(nome_completo, cpf), professionals(nome, conselho, registro, profissao)")
         .eq("clinic_id", clinicId!)
         .order("data", { ascending: false })
         .limit(200);
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -87,14 +105,26 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     },
   });
 
-  const patients = useQuery({ queryKey: ["patients-all", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("patients").select("id, nome_completo").order("nome_completo")).data ?? [] });
-  const profs = useQuery({ queryKey: ["professionals-active", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("situacao", "ativo").order("nome")).data ?? [] });
+  const patients = useQuery({ queryKey: ["patients-all", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("patients").select("id, nome_completo").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [] });
+  const profs = useQuery({ queryKey: ["professionals-active", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("clinic_id", clinicId!).eq("situacao", "ativo").order("nome")).data ?? [] });
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       const { data: u } = await supabase.auth.getUser();
-      const payload: any = { ...v, created_by: u.user?.id };
-      if (clinicId) payload.clinic_id = clinicId;
+      const payload: any = {
+        clinic_id: clinicId,
+        patient_id: requiredText(v.patient_id, "Paciente"),
+        professional_id: requiredText(v.professional_id, "Profissional"),
+        data: requiredDate(v.data),
+        valor: requiredAmount(v.valor),
+        forma_pagamento: v.forma_pagamento || null,
+        status: v.status ?? "pendente",
+        observacoes: v.observacoes?.trim() || null,
+        created_by: u.user?.id ?? null,
+      };
+      if (!payload.data) throw new Error("Data é obrigatória.");
       const { error } = await supabase.from("financial_entries").insert(payload);
       if (error) throw error;
     },
@@ -104,7 +134,9 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
 
   const markPaid = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("financial_entries").update({ status: "pago" }).eq("id", id);
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      const { error } = await supabase.from("financial_entries").update({ status: "pago" }).eq("id", id).eq("clinic_id", clinicId);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },
@@ -112,6 +144,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
 
   async function emitReceipt(entry: any) {
     if (!clinicId) return toast.error("Clínica ativa não identificada.");
+    if (supportMode) return toast.error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
     const { data: u } = await supabase.auth.getUser();
     const payload: any = {
       financial_entry_id: entry.id,
@@ -135,7 +168,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
       payment_method: entry.forma_pagamento,
       payment_date: entry.data,
       issued_at: new Date().toISOString(),
-    });
+    }, "download");
     toast.success(`Recibo nº ${rec!.numero} emitido`);
     qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
   }
@@ -203,29 +236,29 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo lançamento</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
+          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)}>
+            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs uppercase">Profissional</Label>
-            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
+            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} /></div>
-            <div><Label className="text-xs uppercase">Valor</Label><Input type="number" step="0.01" {...register("valor", { valueAsNumber: true })} /></div>
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Valor</Label><Input type="number" step="0.01" min="0.01" required {...register("valor", { valueAsNumber: true })} disabled={disabled} /></div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs uppercase">Forma</Label>
-              <Select value={forma} onValueChange={(v) => setValue("forma_pagamento", v)}>
+              <Select value={forma} onValueChange={(v) => setValue("forma_pagamento", v)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {["pix", "dinheiro", "cartao", "transferencia"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -234,7 +267,7 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
             </div>
             <div>
               <Label className="text-xs uppercase">Status</Label>
-              <Select value={status} onValueChange={(v) => setValue("status", v as any)}>
+              <Select value={status} onValueChange={(v) => setValue("status", v as any)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pago">Pago</SelectItem>
@@ -243,8 +276,8 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
               </Select>
             </div>
           </div>
-          <div><Label className="text-xs uppercase">Observações</Label><Textarea rows={2} {...register("observacoes")} /></div>
-          <div className="flex justify-end"><Button type="submit" disabled={create.isPending || !patient_id || !professional_id}>Salvar</Button></div>
+          <div><Label className="text-xs uppercase">Observações</Label><Textarea rows={2} {...register("observacoes")} disabled={disabled} /></div>
+          <div className="flex justify-end"><Button type="submit" disabled={disabled || create.isPending || !patient_id || !professional_id}>Salvar</Button></div>
         </form>
       </DialogContent>
     </Dialog>
@@ -291,17 +324,19 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   const create = useMutation({
     mutationFn: async (v: ReceiptForm) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       const { data: u } = await supabase.auth.getUser();
       const payload: any = {
         clinic_id: clinicId,
-        patient_id: v.patient_id,
+        patient_id: requiredText(v.patient_id, "Paciente"),
         financial_entry_id: v.financial_entry_id || null,
-        description: v.description,
-        valor: v.amount,
-        data: v.payment_date,
+        description: requiredText(v.description, "Descrição"),
+        valor: requiredAmount(v.amount),
+        data: requiredDate(v.payment_date),
         forma_pagamento: v.payment_method,
-        created_by: u.user?.id,
+        created_by: u.user?.id ?? null,
       };
+      if (!payload.data) throw new Error("Data de pagamento é obrigatória.");
       const { data, error } = await supabase.from("receipts").insert(payload).select("numero").single();
       if (error) throw error;
       return data!.numero as number;
@@ -319,7 +354,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
         payment_method: v.payment_method,
         payment_date: v.payment_date,
         issued_at: new Date().toISOString(),
-      });
+      }, "download");
       qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -327,18 +362,22 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
 
   const cancel = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase
         .from("receipts")
         .update({ status: "cancelado", cancelled_at: new Date().toISOString(), cancelled_by: u.user?.id, cancellation_reason: reason } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("clinic_id", clinicId)
+        .neq("status", "cancelado");
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Recibo cancelado"); setCancelOf(null); qc.invalidateQueries({ queryKey: ["receipts", clinicId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  async function reprint(r: any) {
+  async function reprint(r: any, mode: "preview" | "download" | "print") {
     await renderReceiptPdf({
       numero: r.numero,
       patientName: r.patients?.nome_completo,
@@ -350,7 +389,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
       issued_at: r.created_at,
       cancelled: r.status === "cancelado",
       cancellation_reason: r.cancellation_reason,
-    });
+    }, mode);
   }
 
   return (
@@ -397,7 +436,9 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex gap-1">
-                    <Button size="sm" variant="outline" onClick={() => reprint(r)}><Printer className="h-3 w-3 mr-1" />PDF</Button>
+                    <Button size="sm" variant="outline" onClick={() => reprint(r, "preview")}><Eye className="h-3 w-3 mr-1" />Ver</Button>
+                    <Button size="sm" variant="outline" onClick={() => reprint(r, "download")}><FileDown className="h-3 w-3 mr-1" />Baixar</Button>
+                    <Button size="sm" variant="outline" onClick={() => reprint(r, "print")}><Printer className="h-3 w-3 mr-1" />Imprimir</Button>
                     {r.status !== "cancelado" && (
                       <Button size="sm" variant="outline" disabled={supportMode} onClick={() => setCancelOf(r)} className="text-rose-600 hover:text-rose-700">
                         <XCircle className="h-3 w-3 mr-1" />Cancelar
@@ -454,7 +495,7 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => { setValue("patient_id", v); setValue("financial_entry_id", null); }}>
+            <Select value={patient_id ?? ""} onValueChange={(v) => { setValue("patient_id", v); setValue("financial_entry_id", null); }} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
             </Select>
@@ -465,7 +506,7 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
             <Select
               value={financial_entry_id ?? "none"}
               onValueChange={(v) => setValue("financial_entry_id", v === "none" ? null : v)}
-              disabled={!patient_id}
+              disabled={disabled || !patient_id}
             >
               <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
               <SelectContent>
@@ -479,21 +520,21 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
 
           <div>
             <Label className="text-xs uppercase">Descrição do serviço</Label>
-            <Textarea rows={2} {...register("description", { required: true })} />
+            <Textarea rows={2} {...register("description", { required: true })} disabled={disabled} />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div>
               <Label className="text-xs uppercase">Valor</Label>
-              <Input type="number" step="0.01" {...register("amount", { valueAsNumber: true, required: true })} />
+              <Input type="number" step="0.01" min="0.01" {...register("amount", { valueAsNumber: true, required: true })} disabled={disabled} />
             </div>
             <div>
               <Label className="text-xs uppercase">Data</Label>
-              <Input type="date" {...register("payment_date", { required: true })} />
+              <Input type="date" {...register("payment_date", { required: true })} disabled={disabled} />
             </div>
             <div>
               <Label className="text-xs uppercase">Forma</Label>
-              <Select value={payment_method} onValueChange={(v) => setValue("payment_method", v as any)}>
+              <Select value={payment_method} onValueChange={(v) => setValue("payment_method", v as any)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {["pix", "dinheiro", "cartao", "transferencia"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -503,7 +544,7 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={create.isPending || !patient_id}>Emitir recibo</Button>
+            <Button type="submit" disabled={disabled || create.isPending || !patient_id}>Emitir recibo</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -563,7 +604,7 @@ async function renderReceiptPdf(opts: {
   issued_at: string;
   cancelled?: boolean;
   cancellation_reason?: string | null;
-}) {
+}, mode: "preview" | "download" | "print" = "download") {
   const sections: any[] = [
     {
       title: `Recibo nº ${opts.numero}`,
@@ -588,10 +629,13 @@ async function renderReceiptPdf(opts: {
     });
   }
 
-  await generatePdf({
+  const pdfOpts = {
     title: `Recibo nº ${opts.numero}`,
     patientName: opts.patientName ?? undefined,
     sections,
     hideSignature: true,
-  } as any);
+  } as any;
+  if (mode === "preview") await previewPdf(pdfOpts);
+  else if (mode === "print") await printPdf(pdfOpts);
+  else await downloadPdf(pdfOpts);
 }

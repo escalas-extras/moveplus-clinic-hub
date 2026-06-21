@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
 });
 
-type Form = { patient_id: string; professional_id: string; data: string; horario: string; duracao_min: number; observacao?: string };
+type Form = { patient_id: string; professional_id: string; data: string; horario: string; duracao_min: number; status: Status; tipo?: string; observacao?: string };
 type ViewMode = "dia" | "semana" | "mes";
 type Status = "agendado" | "confirmado" | "realizado" | "cancelado";
 
@@ -118,16 +118,37 @@ function AgendaPage() {
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      if (!v.patient_id || !v.professional_id || !v.data || !v.horario) {
+        throw new Error("Preencha paciente, profissional, data e horário.");
+      }
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id } as any);
+      const tipo = (v.tipo ?? "Atendimento").trim();
+      const observacao = [tipo && `Tipo: ${tipo}`, v.observacao?.trim()].filter(Boolean).join("\n") || null;
+      const payload = {
+        clinic_id: clinicId,
+        patient_id: v.patient_id,
+        professional_id: v.professional_id,
+        data: v.data || null,
+        horario: v.horario,
+        duracao_min: Number.isFinite(Number(v.duracao_min)) ? Number(v.duracao_min) : 60,
+        status: v.status ?? "agendado",
+        observacao,
+        created_by: u.user?.id ?? null,
+      };
+      const { error } = await supabase.from("appointments").insert(payload as any).select("id").single();
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); setSlotPrefill(null); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(translateError(e?.message)),
   });
 
   function openNewSlot(dateStr: string, hour?: number) {
-    if (supportMode) return;
+    if (supportMode) {
+      toast.error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      return;
+    }
     const horario = hour != null ? `${String(hour).padStart(2, "0")}:00` : "08:00";
     setSlotPrefill({ data: dateStr, horario });
     setOpen(true);
@@ -151,10 +172,22 @@ function AgendaPage() {
   const update = useMutation({
     mutationFn: async (v: Form & { id: string; status: Status }) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
-      const { id, status, ...rest } = v;
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      if (!v.patient_id || !v.professional_id || !v.data || !v.horario) {
+        throw new Error("Preencha paciente, profissional, data e horário.");
+      }
+      const { id, status, tipo: _tipo, ...rest } = v;
+      const payload = {
+        ...rest,
+        data: rest.data || null,
+        horario: rest.horario,
+        observacao: rest.observacao?.trim() || null,
+        duracao_min: Number.isFinite(Number(rest.duracao_min)) ? Number(rest.duracao_min) : 60,
+        status: status as any,
+      };
       const { error } = await supabase
         .from("appointments")
-        .update({ ...rest, status: status as any })
+        .update(payload as any)
         .eq("id", id)
         .eq("clinic_id", clinicId);
       if (error) throw error;
@@ -223,6 +256,7 @@ function AgendaPage() {
             profs={profs.data ?? []}
             initialDate={slotPrefill?.data ?? ymd(anchor)}
             initialHora={slotPrefill?.horario ?? "08:00"}
+            disabled={supportMode}
           />
         </div>
       </header>
@@ -537,12 +571,13 @@ function MonthView({ items, anchor, onPick }: { items: any[]; anchor: Date; onPi
 
 /* ───────────────────────── NEW DIALOG ───────────────────────── */
 
-function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora }: any) {
+function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora, disabled }: any) {
   const { register, handleSubmit, setValue, watch, reset } = useForm<Form>({
-    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60 },
+    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60, status: "agendado", tipo: "Atendimento" },
   });
   const patient_id = watch("patient_id");
   const professional_id = watch("professional_id");
+  const status = watch("status") ?? "agendado";
 
   // Reset whenever the dialog opens with a new slot
   useEffect(() => {
@@ -553,6 +588,8 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
         data: initialDate,
         horario: initialHora ?? "08:00",
         duracao_min: 60,
+        status: "agendado",
+        tipo: "Atendimento",
         observacao: "",
       });
     }
@@ -565,25 +602,37 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)}>
+            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs uppercase">Profissional</Label>
-            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
+            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} /></div>
-            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" {...register("horario")} /></div>
-            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} /></div>
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("horario")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" min={15} step={15} {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
           </div>
-          <div><Label className="text-xs uppercase">Observação</Label><Textarea rows={2} {...register("observacao")} /></div>
-          <div className="flex justify-end"><Button type="submit" disabled={create.isPending || !patient_id || !professional_id}>Agendar</Button></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><Label className="text-xs uppercase">Tipo</Label><Input {...register("tipo")} disabled={disabled} placeholder="Atendimento" /></div>
+            <div>
+              <Label className="text-xs uppercase">Status</Label>
+              <Select value={status} onValueChange={(v) => setValue("status", v as Status)} disabled={disabled}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ALL_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div><Label className="text-xs uppercase">Observação</Label><Textarea rows={2} {...register("observacao")} disabled={disabled} /></div>
+          <div className="flex justify-end"><Button type="submit" disabled={disabled || create.isPending || !patient_id || !professional_id}>Agendar</Button></div>
         </form>
       </DialogContent>
     </Dialog>
@@ -657,8 +706,8 @@ function EditAppointmentDialog({ appt, onClose, update, patients, profs, disable
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} disabled={disabled} /></div>
-            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" {...register("horario")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("horario")} disabled={disabled} /></div>
             <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
           </div>
           <div>
