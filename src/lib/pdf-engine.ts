@@ -312,23 +312,32 @@ type Page = {
   contentH: number;
 };
 
+type Page = {
+  atoms: Atom[];
+  blockSegments: Array<{ blockId: number; startIdx: number; endIdx: number; isContinuation: boolean }>;
+  contentH: number;
+  topY: number;
+};
+
 function compose(
   groups: BlockGroup[],
-  topY: number,
+  topYFirst: number,
+  topYRest: number,
   bottomY: number,
   signatureReserveH: number,
   blockGap: number,
 ): Page[] {
   const pages: Page[] = [];
-  let cur: Page = { atoms: [], blockSegments: [], contentH: 0 };
-  let y = topY;
+  let cur: Page = { atoms: [], blockSegments: [], contentH: 0, topY: topYFirst };
+  let y = topYFirst;
   const pageBottom = bottomY;
 
   const flush = () => {
     pages.push(cur);
-    cur = { atoms: [], blockSegments: [], contentH: 0 };
-    y = topY;
+    cur = { atoms: [], blockSegments: [], contentH: 0, topY: topYRest };
+    y = topYRest;
   };
+
 
   const isLastGroup = (gi: number) => gi === groups.length - 1;
 
