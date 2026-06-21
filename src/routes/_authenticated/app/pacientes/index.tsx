@@ -25,11 +25,23 @@ function PacientesPage() {
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
+  const { data: activeClinicId } = useQuery({
+    queryKey: ["active-clinic-id", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
+        supabase.rpc("current_support_session_clinic"),
+        supabase.rpc("current_clinic_id"),
+      ]);
+      return ((supportCid as string | null) ?? (ownCid as string | null) ?? null);
+    },
+  });
 
   const list = useQuery({
-    queryKey: ["patients", q],
+    queryKey: ["patients", activeClinicId, q],
+    enabled: !!activeClinicId,
     queryFn: async () => {
-      let query = supabase.from("patients").select("*").order("nome_completo");
+      let query = supabase.from("patients").select("*").eq("clinic_id", activeClinicId!).order("nome_completo");
       if (q) query = query.ilike("nome_completo", `%${q}%`);
       const { data, error } = await query;
       if (error) throw error;
@@ -39,8 +51,9 @@ function PacientesPage() {
 
   const create = useMutation({
     mutationFn: async (input: PatientInput) => {
+      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("patients").insert({ ...input, created_by: u.user?.id } as any);
+      const { error } = await supabase.from("patients").insert({ ...input, clinic_id: activeClinicId, created_by: u.user?.id } as any);
       if (error) throw error;
     },
     onSuccess: () => {
