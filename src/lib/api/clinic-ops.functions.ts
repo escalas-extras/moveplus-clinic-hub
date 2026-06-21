@@ -330,7 +330,7 @@ export const updateClinicBranding = createServerFn({ method: "POST" })
     } else {
       const { data: ins, error } = await supabaseAdmin
         .from("clinic_settings")
-        .insert({ clinic_id, ...patch })
+        .insert({ clinic_id, ...patch } as any)
         .select("id")
         .single();
       if (error) throw new Error(error.message);
