@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Home, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/home-care")({
   component: HomeCarePage,
@@ -21,20 +22,23 @@ type Visit = {
 type Patient = { id: string; nome_completo: string };
 
 function HomeCarePage() {
+  const { clinicId } = useActiveClinic();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<Visit> & { patient_id?: string }>({ visit_date: new Date().toISOString().slice(0, 10) });
 
   async function load() {
-    const [v, p] = await Promise.all([
-      supabase.from("home_care_visits").select("*").order("visit_date", { ascending: false }),
-      supabase.from("patients").select("id,nome_completo").order("nome_completo"),
-    ]);
-    setVisits((v.data ?? []) as Visit[]);
-    setPatients((p.data ?? []) as Patient[]);
+    if (!clinicId) return;
+    const patientsRes = await supabase.from("patients").select("id,nome_completo").eq("clinic_id", clinicId).order("nome_completo");
+    const patientIds = (patientsRes.data ?? []).map((p: any) => p.id);
+    const visitsRes = patientIds.length
+      ? await supabase.from("home_care_visits").select("*").in("patient_id", patientIds).order("visit_date", { ascending: false })
+      : { data: [] as any[] };
+    setVisits((visitsRes.data ?? []) as Visit[]);
+    setPatients((patientsRes.data ?? []) as Patient[]);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [clinicId]);
 
   async function save() {
     if (!form.patient_id) { toast.error("Selecione um paciente"); return; }

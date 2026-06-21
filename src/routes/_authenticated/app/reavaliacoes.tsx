@@ -6,18 +6,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fmtDate } from "@/lib/format";
 import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/reavaliacoes")({
   component: ReassessmentsPage,
 });
 
 function ReassessmentsPage() {
+  const { clinicId } = useActiveClinic();
   const { data: items = [] } = useQuery({
-    queryKey: ["reassessments-pending"],
+    queryKey: ["reassessments-pending", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("reassessment_schedule")
         .select("id, scheduled_for, completed_at, interval_days, patient_id, patients(nome_completo)")
+        .eq("clinic_id", clinicId!)
         .order("scheduled_for", { ascending: true });
       return data || [];
     },

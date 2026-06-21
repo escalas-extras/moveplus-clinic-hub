@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, ClipboardCheck, Clock, FileText, RefreshCw, Activity } from "lucide-react";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/diferenciais")({
   component: DiferenciaisPage,
@@ -11,16 +12,19 @@ export const Route = createFileRoute("/_authenticated/app/diferenciais")({
 type KPI = { label: string; value: number; icon: typeof Sparkles; color: string; sub?: string };
 
 function DiferenciaisPage() {
+  const { clinicId } = useActiveClinic();
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!clinicId) return;
     (async () => {
+      setLoading(true);
       const [a, e, d, r, ev] = await Promise.all([
-        supabase.from("assessments").select("id", { count: "exact", head: true }),
-        supabase.from("evolutions").select("id", { count: "exact", head: true }),
-        supabase.from("clinical_documents").select("id", { count: "exact", head: true }),
-        supabase.from("reassessment_schedule").select("id", { count: "exact", head: true }),
+        supabase.from("assessments").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
+        supabase.from("evolutions").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
+        supabase.from("clinical_documents").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
+        supabase.from("reassessment_schedule").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId),
         supabase.from("home_care_visits").select("id", { count: "exact", head: true }),
       ]);
       const aCount = a.count ?? 0;
@@ -35,7 +39,7 @@ function DiferenciaisPage() {
       ]);
       setLoading(false);
     })();
-  }, []);
+  }, [clinicId]);
 
   return (
     <div className="space-y-6">
