@@ -2973,42 +2973,80 @@ export type Database = {
       }
       receipts: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          clinic_id: string
           created_at: string
+          created_by: string | null
           data: string
-          financial_entry_id: string
+          description: string | null
+          financial_entry_id: string | null
           forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
           id: string
           numero: number
           patient_id: string
           pdf_path: string | null
-          professional_id: string
+          professional_id: string | null
+          status: string
+          updated_at: string
           valor: number
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          clinic_id: string
           created_at?: string
+          created_by?: string | null
           data?: string
-          financial_entry_id: string
+          description?: string | null
+          financial_entry_id?: string | null
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
-          numero?: number
+          numero: number
           patient_id: string
           pdf_path?: string | null
-          professional_id: string
+          professional_id?: string | null
+          status?: string
+          updated_at?: string
           valor: number
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          clinic_id?: string
           created_at?: string
+          created_by?: string | null
           data?: string
-          financial_entry_id?: string
+          description?: string | null
+          financial_entry_id?: string | null
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
           numero?: number
           patient_id?: string
           pdf_path?: string | null
-          professional_id?: string
+          professional_id?: string | null
+          status?: string
+          updated_at?: string
           valor?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "receipts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_usage"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "receipts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "receipts_financial_entry_id_fkey"
             columns: ["financial_entry_id"]
