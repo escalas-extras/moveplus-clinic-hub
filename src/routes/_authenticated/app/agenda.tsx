@@ -64,6 +64,16 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
 
+function translateError(msg?: string): string {
+  if (!msg) return "Não foi possível salvar. Tente novamente.";
+  const m = msg.toLowerCase();
+  if (m.includes("modo suporte")) return "Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.";
+  if (m.includes("row-level security") || m.includes("permission")) return "Você não tem permissão para alterar este agendamento.";
+  if (m.includes("locked") || m.includes("bloqueado")) return "Registro bloqueado: não pode ser alterado.";
+  if (m.includes("limite contratado")) return msg;
+  return msg;
+}
+
 function AgendaPage() {
   const qc = useQueryClient();
   const { clinicId, supportMode } = useActiveClinic();
