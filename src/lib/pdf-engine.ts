@@ -586,7 +586,7 @@ function drawHeader(doc: jsPDF, c: ClinicData, logo: string | null, W: number) {
 
   if (logo) {
     try {
-      doc.addImage(logo, dataUrlImageFormat(logo), M, logoY, logoSize, logoSize);
+      doc.addImage(logo, dataUrlImageFormat(logo) ?? "PNG", M, logoY, logoSize, logoSize);
     } catch {
       drawMonogram(doc, c, M, logoY, logoSize);
     }
