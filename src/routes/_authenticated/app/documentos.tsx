@@ -413,6 +413,91 @@ function DocumentosPage() {
             </div>
           </div>
 
+          {isContractTemplate && (
+            <div className="border-t pt-3 space-y-2">
+              <Label>3. Contratante</Label>
+              <RadioGroup
+                value={contratanteMode}
+                onValueChange={(v) => setContratanteMode(v as "paciente" | "responsavel")}
+                className="flex flex-col sm:flex-row gap-3 text-sm"
+              >
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="paciente" id="ct-pac" />
+                  <span>Próprio paciente</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem value="responsavel" id="ct-resp" />
+                  <span>Responsável / contratante financeiro</span>
+                </label>
+              </RadioGroup>
+
+              {contratanteMode === "responsavel" && (
+                <div className="grid sm:grid-cols-2 gap-2 pt-2">
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Nome completo *</Label>
+                    <Input
+                      value={contratanteForm.nome ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, nome: e.target.value }))}
+                      maxLength={120}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">CPF *</Label>
+                    <Input
+                      value={contratanteForm.cpf ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, cpf: e.target.value }))}
+                      maxLength={20}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">RG *</Label>
+                    <Input
+                      value={contratanteForm.rg ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, rg: e.target.value }))}
+                      maxLength={20}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Vínculo com o paciente *</Label>
+                    <Input
+                      value={contratanteForm.vinculo ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, vinculo: e.target.value }))}
+                      placeholder="Mãe, filho(a), cônjuge…"
+                      maxLength={60}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Telefone *</Label>
+                    <Input
+                      value={contratanteForm.telefone ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, telefone: e.target.value }))}
+                      maxLength={30}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">Endereço *</Label>
+                    <Textarea
+                      value={contratanteForm.endereco ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, endereco: e.target.value }))}
+                      rows={2}
+                      maxLength={240}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs">E-mail (opcional)</Label>
+                    <Input
+                      type="email"
+                      value={contratanteForm.email ?? ""}
+                      onChange={(e) => setContratanteForm((f) => ({ ...f, email: e.target.value }))}
+                      maxLength={120}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+
           <div className="flex flex-wrap gap-2 pt-2">
             <Button
               variant="outline"
