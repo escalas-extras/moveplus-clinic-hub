@@ -22,8 +22,8 @@ export type ClinicData = {
 };
 
 export type Professional = {
-  nome: string;
-  profissao: string;
+  nome: string | null;
+  profissao: string | null;
   conselho: string | null;
   registro: string | null;
 };
