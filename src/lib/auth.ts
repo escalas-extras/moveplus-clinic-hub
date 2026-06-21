@@ -46,6 +46,7 @@ export function useRoles(userId?: string) {
     enabled: !!userId,
     staleTime: 30_000,
     gcTime: 60_000,
+    queryFn: async () => {
       const [rolesRes, memberRes, supportRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId!),
         supabase
