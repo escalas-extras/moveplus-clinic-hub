@@ -176,7 +176,7 @@ function BibliotecaPage() {
                   onClick={async () => {
                     if (!open) return;
                     try {
-                      await downloadPdf(
+                      const doc = await buildPdf(
                         buildLibraryContentPdfOpts({
                           title: open.title,
                           type: open.type,
@@ -186,6 +186,20 @@ function BibliotecaPage() {
                           tags: open.tags,
                         }),
                       );
+                      const filename = `${open.title.replace(/\s+/g, "_")}.pdf`;
+                      const blob = doc.output("blob");
+                      const url = URL.createObjectURL(blob);
+                      // Abre o PDF real em nova aba (visualização imediata)
+                      window.open(url, "_blank", "noopener");
+                      // E dispara o download do arquivo PDF
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                      toast.success("PDF gerado com sucesso");
                     } catch (e) {
                       toast.error("Falha ao gerar PDF: " + (e as Error).message);
                     }
