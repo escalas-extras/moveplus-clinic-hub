@@ -19,6 +19,15 @@
   --font-display: "Inter", "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
 
+  /* Tipografia escala FisioOS (32 / 24 / 16 / 14) */
+  --text-display: 2rem;       /* 32px — títulos de página */
+  --text-heading: 1.5rem;     /* 24px — títulos de seção */
+  --text-body: 1rem;          /* 16px — corpo */
+  --text-meta: 0.875rem;      /* 14px — metadados */
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
   --radius-sm: calc(var(--radius) - 8px);
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
