@@ -80,6 +80,7 @@ function Dashboard() {
         ? { label: "Emitir primeiro documento", to: "/app/documentos" as const, icon: FileText }
         : { label: "Ver indicadores clínicos", to: "/app/dashboard-clinico" as const, icon: BarChart3 };
   const isNewClinic = !s || (s.pacientesAtivos <= 2 && (s.docsMes ?? 0) === 0 && (s.sessoesMes ?? 0) <= 1);
+  const NextStepIcon = nextStep.icon;
 
   return (
     <div className="space-y-10">
@@ -97,7 +98,7 @@ function Dashboard() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to={nextStep.to} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-soft" style={{ background: brand.primaryColor }}>
-                <nextStep.icon className="h-4 w-4" /> {nextStep.label} <ArrowRight className="h-4 w-4" />
+                <NextStepIcon className="h-4 w-4" /> {nextStep.label} <ArrowRight className="h-4 w-4" />
               </Link>
               <Link to="/app/biblioteca" className="inline-flex items-center gap-2 rounded-xl bg-white/75 px-4 py-2.5 text-sm font-medium shadow-soft hover:bg-white">
                 <BookOpen className="h-4 w-4" /> Abrir biblioteca
