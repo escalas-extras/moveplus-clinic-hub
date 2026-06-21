@@ -251,9 +251,9 @@ function AgendaPage() {
           {list.isLoading ? (
             <Card className="p-8 text-center text-sm text-muted-foreground">Carregando…</Card>
           ) : view === "dia" ? (
-            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} onEdit={(a) => setEditing(a)} disabled={supportMode} onNew={() => setOpen(true)} />
+            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} onEdit={(a) => setEditing(a)} disabled={supportMode} onNew={() => openNewSlot(ymd(anchor))} onSlotClick={(h) => openNewSlot(ymd(anchor), h)} />
           ) : view === "semana" ? (
-            <WeekView items={filtered} weekStart={startOfWeek(anchor)} onPick={(d) => { setAnchor(d); setView("dia"); }} />
+            <WeekView items={filtered} weekStart={startOfWeek(anchor)} onPick={(d) => { setAnchor(d); setView("dia"); }} onNewOnDay={(d) => openNewSlot(ymd(d))} disabled={supportMode} />
           ) : (
             <MonthView items={filtered} anchor={anchor} onPick={(d) => { setAnchor(d); setView("dia"); }} />
           )}
