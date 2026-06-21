@@ -380,14 +380,18 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }:
           {hours.map((h) => (
             <li key={h} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 min-h-[56px]">
               <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2,"0")}:00</div>
-              <button
-                type="button"
-                disabled={disabled}
+              <SupportGuardClickable
+                supportMode={disabled}
                 onClick={() => onSlotClick(h)}
-                className="rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
+                tooltip="Horário vazio bloqueado no Modo Suporte"
               >
-                {disabled ? "—" : "+ Novo agendamento"}
-              </button>
+                <button
+                  type="button"
+                  className="w-full rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {disabled ? "—" : "+ Novo agendamento"}
+                </button>
+              </SupportGuardClickable>
             </li>
           ))}
         </ul>
