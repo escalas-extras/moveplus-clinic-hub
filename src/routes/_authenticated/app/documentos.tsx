@@ -55,6 +55,12 @@ function DocumentosPage() {
   const [patientSearch, setPatientSearch] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // Contratante (apenas para Contrato): "Próprio paciente" ou "Responsável"
+  const [contratanteMode, setContratanteMode] = useState<"paciente" | "responsavel">("paciente");
+  const [contratanteForm, setContratanteForm] = useState<ContratanteData>({
+    nome: "", cpf: "", rg: "", vinculo: "", telefone: "", endereco: "", email: "",
+  });
+
   // ----- DATA -----
   const { data: templates = [] } = useQuery({
     queryKey: ["doc-templates-active"],
