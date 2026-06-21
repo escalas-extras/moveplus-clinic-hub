@@ -349,10 +349,43 @@ export async function buildPdf(opts: {
       doc.setFontSize(9.5);
       doc.setTextColor(...C.text);
       const lines = doc.splitTextToSize(ch.text || "—", contentW - 20);
-      for (const ln of lines) {
-        ensure(12);
-        doc.text(ln, M + 10, y);
-        y += 12;
+      const lineH = 12;
+      const MIN_KEEP = 4; // controle de viúvas/órfãs: mínimo de linhas juntas
+
+      // Calcula quantas linhas cabem antes do limite inferior atual
+      const avail = Math.max(0, getBottom() - y);
+      const linesFit = Math.floor(avail / lineH);
+      let firstChunk = lines.length;
+
+      if (linesFit < lines.length) {
+        // precisará quebrar — decide o ponto evitando órfãs e viúvas
+        const remainIfFitAll = lines.length - linesFit;
+        if (remainIfFitAll < MIN_KEEP) {
+          // empurrar linhas para garantir >= MIN_KEEP na próxima página
+          firstChunk = Math.max(0, lines.length - MIN_KEEP);
+        } else {
+          firstChunk = linesFit;
+        }
+        // evita órfã (< MIN_KEEP linhas no início): move o parágrafo inteiro
+        if (firstChunk > 0 && firstChunk < MIN_KEEP) firstChunk = 0;
+      }
+
+      for (let i = 0; i < firstChunk; i++) {
+        doc.text(lines[i], M + 10, y);
+        y += lineH;
+      }
+      if (firstChunk < lines.length) {
+        // força quebra
+        ensure(getBottom() - y + 1);
+        // reaplica estado tipográfico (drawBlockTitleBar já restaura, mas defensivo)
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(...C.text);
+        for (let i = firstChunk; i < lines.length; i++) {
+          ensure(lineH);
+          doc.text(lines[i], M + 10, y);
+          y += lineH;
+        }
       }
       return;
     }
