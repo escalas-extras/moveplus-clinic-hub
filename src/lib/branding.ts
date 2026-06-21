@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlatformContext } from "@/lib/platform-context";
 import { useAuth } from "@/lib/auth";
 import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import { pcGet, pcSet } from "@/lib/persistent-cache";
 
 export type Branding = {
   appName: string;
@@ -26,6 +27,12 @@ const DEFAULTS: Branding = {
   hasOwnLogo: false,
 };
 
+const BRAND_TTL_MS = 24 * 60 * 60_000; // 24h — only as instant-render hint
+const CID_TTL_MS = 24 * 60 * 60_000;
+
+const cidKey = (uid: string) => `fos:clinic-id:${uid}`;
+const brandKey = (cid: string) => `fos:branding:${cid}`;
+
 async function resolveClinicId(isPlatformAdmin: boolean): Promise<string | null> {
   const { data: supportCid } = await supabase.rpc("current_support_session_clinic");
   if (isPlatformAdmin && !supportCid) return null;
@@ -42,7 +49,7 @@ async function loadBranding(cid: string): Promise<Branding> {
     .maybeSingle();
   if (!data) return DEFAULTS;
   const resolvedLogo = await resolveClinicLogoUrl(data.logo_url);
-  return {
+  const branding: Branding = {
     appName: data.app_name || DEFAULTS.appName,
     clinicName: data.nome_fantasia || DEFAULTS.appName,
     slogan: data.slogan || DEFAULTS.slogan,
@@ -51,35 +58,44 @@ async function loadBranding(cid: string): Promise<Branding> {
     secondaryColor: data.secondary_color || DEFAULTS.secondaryColor,
     crefitoDefault: data.crefito_default || null,
     hasOwnLogo: !!resolvedLogo,
-  } satisfies Branding;
+  };
+  pcSet(brandKey(cid), branding, BRAND_TTL_MS);
+  return branding;
 }
 
 export function useBranding(): Branding & { isLoading: boolean } {
   const { isPlatformAdmin, loading: ctxLoading } = usePlatformContext();
   const { user } = useAuth();
 
-  // Resolve clinic_id separadamente, com cache estável, evitando refetch
-  // de branding por oscilação transitória do platform-context.
+  const initialCid = user?.id ? pcGet<string>(cidKey(user.id)) : null;
+
   const { data: clinicId, isLoading: cidLoading } = useQuery({
     queryKey: ["branding-clinic-id", user?.id ?? "anon"],
     enabled: !ctxLoading && !!user?.id,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    queryFn: () => resolveClinicId(isPlatformAdmin),
+    initialData: initialCid ?? undefined,
+    queryFn: async () => {
+      const cid = await resolveClinicId(isPlatformAdmin);
+      if (user?.id && cid) pcSet(cidKey(user.id), cid, CID_TTL_MS);
+      return cid;
+    },
   });
 
-  // Branding por clinic_id: chave estável → não pisca ao trocar de rota.
+  const initialBrand = clinicId ? pcGet<Branding>(brandKey(clinicId)) : null;
+
   const { data, isLoading: brLoading } = useQuery({
     queryKey: ["branding", clinicId ?? "none"],
-    enabled: !ctxLoading && !cidLoading && !!clinicId,
+    enabled: !ctxLoading && !!clinicId,
     staleTime: 15 * 60_000,
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    initialData: initialBrand ?? undefined,
     queryFn: () => loadBranding(clinicId!),
   });
 
-  const isLoading = ctxLoading || cidLoading || (!!clinicId && brLoading);
+  const isLoading = ctxLoading || cidLoading || (!!clinicId && brLoading && !data);
   return { ...(data ?? DEFAULTS), isLoading };
 }
 
