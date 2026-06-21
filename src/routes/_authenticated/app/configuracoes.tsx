@@ -63,8 +63,10 @@ function ConfigPage() {
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<Form>();
   const logoPath = watch("logo_url");
-  const primary = watch("primary_color") || "#2f5d3a";
-  const secondary = watch("secondary_color") || "#c75c3a";
+  const primaryRaw = watch("primary_color");
+  const secondaryRaw = watch("secondary_color");
+  const primary = normalizeHex(primaryRaw, "#2f5d3a");
+  const secondary = normalizeHex(secondaryRaw, "#c75c3a");
   const clinicName = watch("nome_fantasia") || "FisioOS";
   const slogan = watch("slogan") || "Transformando atendimentos em resultados";
 
@@ -185,14 +187,15 @@ function ConfigPage() {
               <Field label="Slogan"><Input {...register("slogan")} placeholder="Transformando atendimentos em resultados" /></Field>
               <Field label="Cor primária">
                 <div className="flex gap-2">
-                  <Input
+                  <input
                     type="color"
                     value={primary}
                     onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
-                    className="w-16 h-10 p-1"
+                    className="h-10 w-16 rounded-md border border-input bg-transparent p-1 cursor-pointer"
+                    aria-label="Selecionar cor primária"
                   />
                   <Input
-                    value={primary}
+                    value={primaryRaw ?? ""}
                     onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
                     placeholder="#2f5d3a"
                   />
@@ -200,14 +203,15 @@ function ConfigPage() {
               </Field>
               <Field label="Cor secundária">
                 <div className="flex gap-2">
-                  <Input
+                  <input
                     type="color"
                     value={secondary}
                     onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
-                    className="w-16 h-10 p-1"
+                    className="h-10 w-16 rounded-md border border-input bg-transparent p-1 cursor-pointer"
+                    aria-label="Selecionar cor secundária"
                   />
                   <Input
-                    value={secondary}
+                    value={secondaryRaw ?? ""}
                     onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
                     placeholder="#c75c3a"
                   />
@@ -286,4 +290,15 @@ function Field({ label, children, className }: { label: string; children: React.
       {children}
     </div>
   );
+}
+
+function normalizeHex(value: string | undefined | null, fallback: string): string {
+  if (!value) return fallback;
+  const v = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) {
+    const r = v[1], g = v[2], b = v[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
 }
