@@ -287,3 +287,94 @@
 .dark .glass-sidebar { background: rgba(20, 28, 40, 0.72); border-color: rgba(255,255,255,0.08); }
 .dark .glass-topbar { background: rgba(20, 28, 40, 0.70); border-color: rgba(255,255,255,0.07); }
 
+/* ===========================================================
+ * UX Premium Linear — refinos globais (visual apenas)
+ * - bordas mais perceptíveis em cards
+ * - sidebar com indicador lateral sólido no item ativo
+ * - hover suave (150-200ms) em itens de navegação
+ * - títulos com contraste superior
+ * =========================================================== */
+
+/* Cards — borda mais marcada, hover Linear-like */
+.glass-card {
+  border: 1.5px solid rgba(15, 23, 42, 0.10);
+  transition:
+    transform 180ms cubic-bezier(.2,.7,.2,1),
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+.glass-card:hover {
+  border-color: rgba(15, 23, 42, 0.14);
+}
+.dark .glass-card {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.dark .glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Sidebar — itens com hover elegante + barra lateral ativa */
+[data-sidebar="menu-button"],
+[data-sidebar="menu-sub-button"] {
+  position: relative;
+  transition:
+    background-color 170ms ease,
+    color 170ms ease;
+}
+[data-sidebar="menu-button"]:hover,
+[data-sidebar="menu-sub-button"]:hover {
+  background-color: color-mix(in oklab, var(--fos-primary) 8%, transparent);
+  color: var(--fos-primary);
+}
+.dark [data-sidebar="menu-button"]:hover,
+.dark [data-sidebar="menu-sub-button"]:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Item ativo: fundo discretamente mais escuro + barra lateral sólida */
+[data-sidebar="menu-button"][data-active="true"],
+[data-sidebar="menu-sub-button"][data-active="true"] {
+  background-color: color-mix(in oklab, var(--fos-primary) 12%, transparent);
+  color: var(--fos-primary);
+  font-weight: 600;
+}
+[data-sidebar="menu-button"][data-active="true"]::before,
+[data-sidebar="menu-sub-button"][data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  border-radius: 4px;
+  background: var(--fos-primary);
+}
+.dark [data-sidebar="menu-button"][data-active="true"],
+.dark [data-sidebar="menu-sub-button"][data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+}
+
+/* Botões — feedback visual mais perceptível no hover (sem alterar identidade) */
+@layer base {
+  button, [role="button"] {
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+  }
+}
+
+/* Tipografia — títulos com contraste superior */
+@layer base {
+  h1, h2, h3 {
+    color: oklch(0.22 0.03 255);
+    letter-spacing: -0.03em;
+  }
+  h4, h5 {
+    color: oklch(0.26 0.03 255);
+  }
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5 {
+    color: oklch(0.98 0.005 250);
+  }
+}
+
+
