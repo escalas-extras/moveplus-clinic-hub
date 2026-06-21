@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Megaphone, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/marketing")({
   component: MarketingPage,
@@ -17,22 +18,30 @@ export const Route = createFileRoute("/_authenticated/app/marketing")({
 type Item = { id: string; scheduled_for: string; title: string; description: string | null; category: string | null; channel: string | null; status: string | null };
 
 function MarketingPage() {
+  const { clinicId } = useActiveClinic();
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<Item>>({ scheduled_for: new Date().toISOString().slice(0, 10), status: "planejado" });
 
   async function load() {
-    const { data } = await supabase.from("marketing_calendar").select("*").order("scheduled_for");
+    if (!clinicId) { setItems([]); return; }
+    const { data } = await supabase
+      .from("marketing_calendar")
+      .select("*")
+      .eq("clinic_id", clinicId)
+      .order("scheduled_for");
     setItems((data ?? []) as Item[]);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [clinicId]);
 
   async function save() {
     if (!form.title || !form.scheduled_for) { toast.error("Preencha título e data"); return; }
+    if (!clinicId) { toast.error("Sem clínica ativa."); return; }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("marketing_calendar").insert({
       title: form.title, description: form.description ?? null, scheduled_for: form.scheduled_for,
       category: form.category ?? null, channel: form.channel ?? null, status: form.status ?? "planejado",
+      clinic_id: clinicId,
       created_by: u.user?.id,
     });
     if (error) { toast.error(error.message); return; }

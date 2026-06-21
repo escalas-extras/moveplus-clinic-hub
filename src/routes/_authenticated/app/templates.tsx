@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Copy, GitBranch, Trash2, Save, Star } from "lucide-react";
 import { toast } from "sonner";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 const DOC_TYPES = [
   { value: "avaliacao_inicial", label: "Avaliação Inicial" },
@@ -32,16 +33,20 @@ type Section = { order: number; title: string; content: string };
 
 function TemplatesPage() {
   const qc = useQueryClient();
+  const { clinicId } = useActiveClinic();
   const [docType, setDocType] = useState("avaliacao_inicial");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: templates = [] } = useQuery({
-    queryKey: ["templates", docType],
+    // Bloco B: queryKey inclui clinicId para evitar reuso entre clínicas.
+    queryKey: ["templates", clinicId, docType],
+    enabled: !!clinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("document_templates")
         .select("*")
         .eq("doc_type", docType)
+        .eq("clinic_id", clinicId!)
         .order("version", { ascending: false });
       return data || [];
     },
@@ -63,7 +68,7 @@ function TemplatesPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["templates"] });
+      qc.invalidateQueries({ queryKey: ["templates", clinicId] });
       toast.success("Modelo salvo");
     },
     onError: (e: any) => toast.error(e.message),
@@ -81,7 +86,7 @@ function TemplatesPage() {
       });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates"] }); toast.success("Duplicado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates", clinicId] }); toast.success("Duplicado"); },
   });
 
   const newVersion = useMutation({
@@ -95,7 +100,7 @@ function TemplatesPage() {
       });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates"] }); toast.success("Nova versão criada"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates", clinicId] }); toast.success("Nova versão criada"); },
   });
 
   const setDefault = useMutation({
@@ -106,11 +111,16 @@ function TemplatesPage() {
       const { error } = await supabase.from("document_templates").update({ is_default: true }).eq("id", t.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates"] }); toast.success("Modelo padrão definido"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["templates", clinicId] }); toast.success("Modelo padrão definido"); },
   });
 
   const createNew = () => {
+    if (!clinicId) {
+      toast.error("Sem clínica ativa.");
+      return;
+    }
     upsert.mutate({
+      clinic_id: clinicId,
       doc_type: docType,
       name: "Novo modelo",
       is_active: true,

@@ -29,7 +29,17 @@ async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | n
   return await urlToDataUrl(resolved);
 }
 
-export async function buildPdf(opts: BuildPdfOpts) {
+/**
+ * Builds a PDF for a given clinic. Branding (logo, cores, rodapé) é sempre
+ * resolvido a partir da `clinic_id` da clínica PROPRIETÁRIA do documento —
+ * nunca da clínica logada quando elas divergem.
+ *
+ * Bloco D: `opts.clinicId` permite que documentos históricos, materiais
+ * abertos durante uma sessão de suporte ou geração em background usem
+ * exatamente o branding correto. Quando omitido, faz fallback para a
+ * clínica ativa (sessão de suporte → clínica do usuário).
+ */
+export async function buildPdf(opts: BuildPdfOpts & { clinicId?: string | null }) {
   // Documentos clínicos exigem profissional responsável (nome + conselho/registro).
   // Materiais institucionais da biblioteca passam hideSignature=true e ficam isentos.
   if (!opts.hideSignature) {
@@ -43,12 +53,16 @@ export async function buildPdf(opts: BuildPdfOpts) {
     }
   }
 
-  const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
-    supabase.rpc("current_support_session_clinic"),
-    supabase.rpc("current_clinic_id"),
-  ]);
-  const cid = (supportCid as string | null) ?? (ownCid as string | null);
-  // Sem clínica ativa, não puxar nenhum clinic_settings (evita vazamento entre clínicas).
+  let cid: string | null = opts.clinicId ?? null;
+  if (!cid) {
+    const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
+      supabase.rpc("current_support_session_clinic"),
+      supabase.rpc("current_clinic_id"),
+    ]);
+    cid = (supportCid as string | null) ?? (ownCid as string | null);
+  }
+
+  // Sem clínica resolvida, não puxar nenhum clinic_settings (evita vazamento entre clínicas).
   let clinic: any = null;
   if (cid) {
     const { data } = await supabase
@@ -66,23 +80,23 @@ export async function buildPdf(opts: BuildPdfOpts) {
   return renderPdf(opts, { clinic: c, logo });
 }
 
+
 // ---------- Public helpers ----------
 
-export async function downloadPdf(opts: BuildPdfOpts) {
+export async function downloadPdf(opts: BuildPdfOpts & { clinicId?: string | null }) {
   const doc = await buildPdf(opts);
   doc.save(`${opts.title.replace(/\s+/g, "_")}.pdf`);
 }
 
-export async function previewPdf(opts: BuildPdfOpts) {
+export async function previewPdf(opts: BuildPdfOpts & { clinicId?: string | null }) {
   const doc = await buildPdf(opts);
   const url = URL.createObjectURL(doc.output("blob"));
   window.open(url, "_blank");
 }
 
 // `printPdf` é mantido por compatibilidade, mas NUNCA chama window.print():
-// abre o PDF real em nova aba e dispara o download. O usuário usa o leitor
-// nativo de PDF do navegador para imprimir, evitando a impressão da tela HTML.
-export async function printPdf(opts: BuildPdfOpts) {
+// abre o PDF real em nova aba e dispara o download.
+export async function printPdf(opts: BuildPdfOpts & { clinicId?: string | null }) {
   const doc = await buildPdf(opts);
   const blob = doc.output("blob");
   const url = URL.createObjectURL(blob);
@@ -93,6 +107,7 @@ export async function printPdf(opts: BuildPdfOpts) {
     /* noop */
   }
 }
+
 
 export const generatePdf = downloadPdf;
 
