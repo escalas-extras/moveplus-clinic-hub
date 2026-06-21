@@ -449,9 +449,6 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button disabled={disabled}><Plus className="h-4 w-4 mr-2" />Novo recibo</Button>
-      </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Emitir recibo</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
