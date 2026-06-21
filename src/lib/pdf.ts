@@ -534,7 +534,7 @@ export async function buildPdf(opts: {
 
   const pageCount = doc.getNumberOfPages();
   const lastPageEndY = y; // posição real do cursor após renderização
-  console.log("[PDF DEBUG] lastPageEndY", lastPageEndY, "pageCount", pageCount, "SIG_BLOCK_H", SIG_BLOCK_H);
+
 
 
 
@@ -626,7 +626,6 @@ export async function buildPdf(opts: {
     if (i === pageCount && renderSignatures) {
       const desiredTop = lastPageEndY + 28;
       const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 90);
-      console.log("[PDF DEBUG] desiredTop", desiredTop, "sigBlockTop", sigBlockTop, "H", H);
 
 
       // Local e data — discreto, alinhado à direita para não competir com a assinatura
