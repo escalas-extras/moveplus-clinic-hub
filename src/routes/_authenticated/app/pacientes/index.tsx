@@ -39,7 +39,7 @@ function PacientesPage() {
   const create = useMutation({
     mutationFn: async (input: PatientInput) => {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("patients").insert({ ...input, created_by: u.user?.id });
+      const { error } = await supabase.from("patients").insert({ ...input, created_by: u.user?.id } as any);
       if (error) throw error;
     },
     onSuccess: () => {
