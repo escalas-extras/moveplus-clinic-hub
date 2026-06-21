@@ -6,6 +6,7 @@ import {
   Megaphone, Sparkles, PenLine, Bell, Search, Building2, UserCircle2,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
@@ -74,8 +75,9 @@ const platformGroups: NavGroup[] = [
   },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+export function AppShell({ children, initialUser = null }: { children: ReactNode; initialUser?: User | null }) {
+  const { user: authUser, loading: authLoading } = useAuth();
+  const user = authUser ?? (authLoading ? initialUser : null);
   const { isAdmin } = useRoles(user?.id);
   const { isPlatformAdmin } = usePlatformContext();
   const [open, setOpen] = useState(false);
