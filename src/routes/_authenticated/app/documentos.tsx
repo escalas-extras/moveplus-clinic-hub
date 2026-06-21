@@ -190,6 +190,25 @@ function DocumentosPage() {
 
   // ----- RENDER -----
   const template = templates.find((t: any) => t.id === templateId);
+  const isContractTemplate = !!template && /contrato/i.test(template.name || "");
+
+  // Contratante efetivo: quando "próprio paciente", clona dados do paciente;
+  // quando "responsável", usa o formulário.
+  const effectiveContratante: ContratanteData | null = useMemo(() => {
+    if (!isContractTemplate) return null;
+    if (contratanteMode === "paciente") {
+      return {
+        nome: patient?.nome_completo ?? null,
+        cpf: patient?.cpf ?? null,
+        rg: patient?.rg ?? null,
+        vinculo: "Próprio paciente",
+        telefone: patient?.telefone ?? patient?.whatsapp ?? null,
+        endereco: [patient?.endereco, patient?.bairro, patient?.cidade, patient?.estado].filter(Boolean).join(", ") || null,
+        email: patient?.email ?? null,
+      };
+    }
+    return contratanteForm;
+  }, [isContractTemplate, contratanteMode, contratanteForm, patient]);
 
   const renderedSections = useMemo(() => {
     if (!template || !patient) return [];
@@ -200,9 +219,10 @@ function DocumentosPage() {
       professional,
       clinic,
       discharge: lastDischarge,
+      contratante: effectiveContratante,
     });
     return renderTemplateSections((template.sections as any) || [], data);
-  }, [template, patient, lastAssessment, scales, professional, clinic, lastDischarge]);
+  }, [template, patient, lastAssessment, scales, professional, clinic, lastDischarge, effectiveContratante]);
 
   const buildPdfOpts = () => ({
     title: template?.name || "Documento",
@@ -210,6 +230,16 @@ function DocumentosPage() {
     patientName: patient?.nome_completo,
     professional: professional ?? null,
     sections: renderedSections,
+    contratante: isContractTemplate
+      ? {
+          nome: effectiveContratante?.nome ?? null,
+          cpf: effectiveContratante?.cpf ?? null,
+          vinculo: effectiveContratante?.vinculo ?? null,
+        }
+      : null,
+    patientSnapshot: isContractTemplate
+      ? { nome: patient?.nome_completo ?? null, cpf: patient?.cpf ?? null }
+      : null,
   });
 
   // ----- ACTIONS -----
