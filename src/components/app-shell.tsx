@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X,
   ShieldCheck, Activity, FileText, RefreshCw, BarChart3, BookOpen, Home as HomeIcon,
-  Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2,
+  Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2, UserCircle2,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
