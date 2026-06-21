@@ -204,7 +204,7 @@ function DocumentosPage() {
         vinculo: "Próprio paciente",
         telefone: patient?.telefone ?? patient?.whatsapp ?? null,
         endereco: [patient?.endereco, patient?.bairro, patient?.cidade, patient?.estado].filter(Boolean).join(", ") || null,
-        email: patient?.email ?? null,
+        email: (patient as any)?.email ?? null,
       };
     }
     return contratanteForm;
