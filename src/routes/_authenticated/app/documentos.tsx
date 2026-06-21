@@ -170,7 +170,7 @@ function DocumentosPage() {
     },
   });
 
-  const { data: professional } = useQuery({
+  const { data: professionalInfo } = useQuery({
     queryKey: ["my-professional", user?.id, activeClinicId],
     enabled: !!user?.id && !!activeClinicId,
     queryFn: async () => {
@@ -180,19 +180,35 @@ function DocumentosPage() {
         .eq("clinic_id", activeClinicId!)
         .eq("profile_id", user!.id)
         .maybeSingle();
-      if (byProfile) return byProfile;
-      // Fallback: se o vínculo profile_id não existir, usa o primeiro profissional ativo da clínica.
-      const { data: fallback } = await supabase
-        .from("professionals")
-        .select("*")
-        .eq("clinic_id", activeClinicId!)
-        .eq("situacao", "ativo")
-        .order("nome")
-        .limit(1)
-        .maybeSingle();
-      return fallback;
+      if (!byProfile) {
+        return {
+          professional: null,
+          status: "no-link" as const,
+          message: "Seu usuário ainda não está vinculado a um profissional responsável.",
+        };
+      }
+      if (byProfile.situacao !== "ativo") {
+        return { professional: byProfile, status: "inactive" as const, message: "O profissional responsável está inativo." };
+      }
+      if (!byProfile.conselho?.trim()) {
+        return {
+          professional: byProfile,
+          status: "missing-conselho" as const,
+          message: "Preencha o conselho profissional do responsável antes de emitir documentos.",
+        };
+      }
+      if (!byProfile.registro?.trim()) {
+        return {
+          professional: byProfile,
+          status: "missing-registro" as const,
+          message: "Preencha o número de registro profissional antes de emitir documentos.",
+        };
+      }
+      return { professional: byProfile, status: "ok" as const, message: "" };
     },
   });
+  const professional = professionalInfo?.professional ?? null;
+  const professionalReady = professionalInfo?.status === "ok";
 
   const { data: emitted = [], refetch: refetchEmitted } = useQuery({
     queryKey: ["clinical-documents", activeClinicId, patientId],
@@ -267,8 +283,8 @@ function DocumentosPage() {
     mutationFn: async () => {
       if (!template || !patient) throw new Error("Selecione paciente e modelo");
       if (!activeClinicId) throw new Error("Clínica ativa não identificada");
-      if (!professional?.nome || !professional?.registro) {
-        throw new Error("Cadastre um profissional responsável em Profissionais antes de emitir documentos clínicos.");
+      if (!professionalReady) {
+        throw new Error(professionalInfo?.message ?? "Profissional responsável não disponível.");
       }
       if (isContractTemplate && contratanteMode === "responsavel") {
         const f = contratanteForm;
@@ -523,17 +539,16 @@ function DocumentosPage() {
           )}
 
 
-          {activeClinicId && !professional && (
+          {activeClinicId && professionalInfo && !professionalReady && (
             <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm space-y-2">
               <div className="font-medium text-amber-900 dark:text-amber-200">
-                Profissional responsável não cadastrado
+                Profissional responsável indisponível
               </div>
               <p className="text-amber-800 dark:text-amber-300/90 text-xs">
-                Cadastre um profissional responsável em <strong>Profissionais</strong> antes de emitir documentos clínicos.
-                O CREFITO padrão em Configurações é apenas administrativo e não substitui o cadastro do profissional.
+                {professionalInfo.message}
               </p>
               <Link to="/app/profissionais">
-                <Button size="sm" variant="outline">Cadastrar profissional</Button>
+                <Button size="sm" variant="outline">Abrir Profissionais</Button>
               </Link>
             </div>
           )}
@@ -548,13 +563,13 @@ function DocumentosPage() {
             </Button>
             <Button
               variant="outline"
-              disabled={!template || !patient || !professional}
+              disabled={!template || !patient || !professionalReady}
               onClick={() => previewPdf(buildPdfOpts())}
             >
               <FileText className="h-4 w-4 mr-2" /> Abrir PDF
             </Button>
             <Button
-              disabled={!template || !patient || !professional || emit.isPending}
+              disabled={!template || !patient || !professionalReady || emit.isPending}
               onClick={() => emit.mutate()}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -562,6 +577,7 @@ function DocumentosPage() {
             </Button>
           </div>
         </Card>
+
 
         {/* Coluna direita — documentos emitidos do paciente */}
         <Card className="p-4 space-y-2">
