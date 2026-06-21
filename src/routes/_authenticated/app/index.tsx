@@ -169,7 +169,36 @@ function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Explore o FisioOS */}
+      <section className="space-y-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Descubra</div>
+          <h2 className="text-xl font-semibold tracking-tight">Explore o {brand.appName}</h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <ExploreCard to="/app/biblioteca" icon={BookOpen} title="Biblioteca" desc="Cartilhas, protocolos e materiais clínicos prontos para envio" color={brand.primaryColor} />
+          <ExploreCard to="/app/documentos" icon={FileText} title="Documentos" desc="Emita atestados, recibos e relatórios com sua marca" color={brand.secondaryColor} />
+          <ExploreCard to="/app/relatorios" icon={BarChart3} title="Relatórios" desc="Visão consolidada da operação clínica e financeira" color={brand.primaryColor} />
+          <ExploreCard to="/app/agenda" icon={CalendarDays} title="Agenda" desc="Organize atendimentos, equipe e disponibilidades" color={brand.secondaryColor} />
+        </div>
+      </section>
     </div>
+  );
+}
+
+function ExploreCard({ to, icon: Icon, title, desc, color }: { to: string; icon: any; title: string; desc: string; color: string }) {
+  return (
+    <Link to={to} className="block group">
+      <Card className="p-5 h-full lift lift-hover">
+        <div className="rounded-xl p-2.5 w-fit mb-3" style={{ background: `${color}18`, color }}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="font-semibold text-sm mb-1">{title}</div>
+        <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+        <div className="mt-3 text-xs font-medium" style={{ color }}>Abrir →</div>
+      </Card>
+    </Link>
   );
 }
 
