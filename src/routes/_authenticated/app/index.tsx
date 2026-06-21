@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
-import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, FileWarning, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3 } from "lucide-react";
+import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3 } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
