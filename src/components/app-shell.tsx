@@ -144,7 +144,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile top bar */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-16 glass-topbar flex items-center justify-between px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <Logo brand={brand} compact />
+          <ClinicLogo brand={brand} isLoading={brand.isLoading} compact />
           <span className="font-semibold truncate" style={{ color: brand.primaryColor }}>{brand.clinicName}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -175,7 +175,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {/* Brand header */}
         <div className="hidden lg:flex items-center gap-3 px-6 h-20 border-b border-white/40">
-          <Logo brand={brand} />
+          <ClinicLogo brand={brand} isLoading={brand.isLoading} />
           <div className="leading-tight min-w-0">
             <div className="font-semibold text-[15px] truncate tracking-tight" style={{ color: brand.primaryColor }}>{brand.clinicName}</div>
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground truncate">
@@ -307,44 +307,3 @@ function NavItem({ to, exact, icon: Icon, label, onClick }: { to: string; exact?
   );
 }
 
-function Logo({ brand, compact = false }: { brand: ReturnType<typeof useBranding>; compact?: boolean }) {
-  const size = compact ? "h-9 w-9" : "h-11 w-11";
-  const [broken, setBroken] = useState(false);
-  const initial = (brand.clinicName || "C").trim().charAt(0).toUpperCase();
-  const rawLogo = brand.logoUrl?.trim();
-  const showImage = brand.hasOwnLogo && !!rawLogo && !broken;
-  if (showImage) {
-    return (
-      <div
-        className={cn(size, "rounded-xl flex items-center justify-center overflow-hidden bg-white/80 shadow-soft p-1")}
-      >
-        <img
-          src={rawLogo!}
-          alt={brand.clinicName}
-          className="max-h-full max-w-full object-contain"
-          referrerPolicy="no-referrer"
-          onError={() => setBroken(true)}
-          onLoad={(e) => {
-            // Imagem com 0x0 (resposta inválida) também conta como quebrada.
-            const img = e.currentTarget;
-            if (!img.naturalWidth || !img.naturalHeight) setBroken(true);
-          }}
-        />
-      </div>
-    );
-  }
-  // Monograma elegante com inicial da clínica (fallback institucional).
-  return (
-    <div
-      className={cn(size, "rounded-2xl flex items-center justify-center shadow-soft text-white font-semibold")}
-      style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
-      aria-label={brand.clinicName}
-    >
-      {brand.clinicName && brand.clinicName !== brand.appName ? (
-        <span className={cn(compact ? "text-sm" : "text-base")}>{initial}</span>
-      ) : (
-        <Stethoscope className={cn(compact ? "h-5 w-5" : "h-6 w-6")} />
-      )}
-    </div>
-  );
-}
