@@ -97,7 +97,7 @@ const S = {
   PAD_Y: 9,
   LINE_H: 13,
   LABEL_H: 11,
-  SIG_CONTRACT_H: 168,
+  SIG_CONTRACT_H: 200,
   SIG_DEFAULT_H: 90,
   TOP_AFTER_HEADER: 22,
   TITLE_TO_DIVIDER: 8,
@@ -865,9 +865,14 @@ function drawContractSignatures(
   profRegistry: string | null,
 ) {
   const colW = (W - 2 * M) / 2;
-  const sigW = 210;
-  const row1Y = startY + 30;
-  const row2Y = row1Y + 88;
+  const sigW = 200;
+
+  // Espaço acima da linha (para assinatura manual / carimbo).
+  const SPACE_PARTY = 28;     // contratante e contratada
+  const SPACE_WITNESS = 40;   // testemunhas — mais espaço p/ caligrafia
+  // Bloco completo: signSpace + label(10) + linhas
+  const row1Top = startY;
+  const row2Top = row1Top + SPACE_PARTY + 10 + 5 * 11 + 14; // gap entre linhas
 
   const ct = opts.contratante ?? null;
   const ctNome = cleanText(ct?.nome ?? "") || null;
@@ -877,13 +882,13 @@ function drawContractSignatures(
   const ps = opts.patientSnapshot ?? null;
   const psNome = cleanText(ps?.nome ?? "");
 
-  // CONTRATANTE — inclui paciente beneficiário subordinado
+  // CONTRATANTE — paciente beneficiário subordinado
   const contratanteLines: SigLine[] = [
     ctNome
       ? { text: ctNome, bold: true, size: T.sigName }
       : { text: "Nome: ____________________", muted: true, size: T.sigRole },
     ctCpf
-      ? { text: `CPF ${ctCpf}`, size: T.sigMeta, muted: true }
+      ? { text: `CPF ${ctCpf}`, size: T.sigMeta }
       : { text: "CPF: ____________________", muted: true, size: T.sigMeta },
     ...(isResponsavel ? [{ text: ctVinculo, size: T.sigMeta, muted: true } as SigLine] : []),
   ];
@@ -892,37 +897,42 @@ function drawContractSignatures(
     contratanteLines.push({ text: "Paciente beneficiário", size: 7, muted: true });
     contratanteLines.push({ text: psNome, size: T.sigMeta, italic: true });
   }
-  drawSigCol(doc, M + colW / 2, row1Y, sigW, { label: "CONTRATANTE", lines: contratanteLines });
+  drawSigCol(doc, M + colW / 2, row1Top, sigW, SPACE_PARTY, {
+    label: "CONTRATANTE",
+    lines: contratanteLines,
+  });
 
   // CONTRATADA
   const cnpj = cleanText(c.cnpj ?? "");
   const razao = cleanText(c.razao_social ?? "") || cleanText(c.nome_fantasia ?? "");
-  drawSigCol(doc, M + colW + colW / 2, row1Y, sigW, {
+  drawSigCol(doc, M + colW + colW / 2, row1Top, sigW, SPACE_PARTY, {
     label: "CONTRATADA",
     lines: [
-      profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
+      profNome
+        ? { text: profNome, bold: true, size: T.sigName }
+        : { text: "Profissional responsável", muted: true, size: T.sigRole },
       { text: profRole, size: T.sigRole },
       profRegistry
-        ? { text: profRegistry, bold: true, size: T.sigMeta }
-        : { text: "CREFITO: ____________________", muted: true, size: T.sigMeta },
+        ? { text: profRegistry, bold: true, size: 9 }
+        : { text: "CREFITO: __________________", muted: true, size: 9 },
       ...(razao ? [{ text: razao, size: T.sigMeta, muted: true } as SigLine] : []),
       ...(cnpj ? [{ text: `CNPJ ${cnpj}`, size: T.sigMeta, muted: true } as SigLine] : []),
     ],
   });
 
-  // Testemunhas — mesma largura das colunas superiores
-  drawSigCol(doc, M + colW / 2, row2Y, sigW, {
+  // Testemunhas — área útil ampliada para preenchimento manual
+  drawSigCol(doc, M + colW / 2, row2Top, sigW, SPACE_WITNESS, {
     label: "TESTEMUNHA 1",
     lines: [
       { text: "Nome: ____________________", muted: true, size: T.sigRole },
-      { text: "CPF: ____________________", muted: true, size: T.sigMeta },
+      { text: "CPF: _____________________", muted: true, size: T.sigMeta },
     ],
   });
-  drawSigCol(doc, M + colW + colW / 2, row2Y, sigW, {
+  drawSigCol(doc, M + colW + colW / 2, row2Top, sigW, SPACE_WITNESS, {
     label: "TESTEMUNHA 2",
     lines: [
       { text: "Nome: ____________________", muted: true, size: T.sigRole },
-      { text: "CPF: ____________________", muted: true, size: T.sigMeta },
+      { text: "CPF: _____________________", muted: true, size: T.sigMeta },
     ],
   });
 }
@@ -939,7 +949,7 @@ function drawProfessionalSignature(
 ) {
   const cx = W / 2;
   const sigY = startY + 38;
-  drawSigCol(doc, cx, sigY, 280, {
+  drawSigCol(doc, cx, sigY, 280, 0, {
     label: profRole.toUpperCase(),
     lines: [
       profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
@@ -971,21 +981,26 @@ type SigLine = { text: string; bold?: boolean; muted?: boolean; italic?: boolean
 function drawSigCol(
   doc: jsPDF,
   cx: number,
-  sigY: number,
+  topY: number,
   sigW: number,
+  signSpace: number,
   opts: { label: string; lines: SigLine[] },
 ) {
+  // Linha de assinatura
+  const lineY = topY + signSpace;
   doc.setDrawColor(...C.ink);
-  doc.setLineWidth(0.6);
-  doc.line(cx - sigW / 2, sigY, cx + sigW / 2, sigY);
-  // Role label above — tracking ampliado (letras espaçadas)
+  doc.setLineWidth(0.5);
+  doc.line(cx - sigW / 2, lineY, cx + sigW / 2, lineY);
+
+  // Título (abaixo da linha) — 7.5pt uppercase bold #6B6B6B com tracking
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
   const tracked = opts.label.toUpperCase().split("").join("\u2009");
-  doc.text(tracked, cx, sigY - 5, { align: "center" });
+  doc.text(tracked, cx, lineY + 10, { align: "center" });
 
-  let ly = sigY + 12;
+  // Conteúdo
+  let ly = lineY + 22;
   for (const ln of opts.lines) {
     const style = ln.italic ? "italic" : ln.bold ? "bold" : "normal";
     doc.setFont("helvetica", style);
