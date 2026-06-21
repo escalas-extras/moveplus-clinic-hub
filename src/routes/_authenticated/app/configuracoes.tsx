@@ -289,3 +289,14 @@ function Field({ label, children, className }: { label: string; children: React.
     </div>
   );
 }
+
+function normalizeHex(value: string | undefined | null, fallback: string): string {
+  if (!value) return fallback;
+  const v = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) {
+    const r = v[1], g = v[2], b = v[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fallback;
+}
