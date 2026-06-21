@@ -356,6 +356,9 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   return (
     <>
       <div className="flex justify-end">
+        <Button disabled={supportMode} onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />Novo recibo
+        </Button>
         <NewReceiptDialog
           open={open}
           setOpen={setOpen}
