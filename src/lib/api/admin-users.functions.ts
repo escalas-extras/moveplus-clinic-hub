@@ -4,6 +4,28 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const RoleEnum = z.enum(["admin", "physiotherapist"]);
 
+// Allow platform admin/super_admin OR clinic owner/admin of the user's current clinic.
+async function ensureCanManageUsers(context: { supabase: any; userId: string }) {
+  const [{ data: isAdmin }, { data: isSuper }, { data: clinicId }] = await Promise.all([
+    context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" }),
+    context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" }),
+    context.supabase.rpc("current_clinic_id"),
+  ]);
+  if (isAdmin || isSuper) return;
+  if (clinicId) {
+    const { data: isOwner } = await context.supabase.rpc("has_role_in", {
+      _clinic_id: clinicId,
+      _role: "owner",
+    });
+    const { data: isClinicAdmin } = await context.supabase.rpc("has_role_in", {
+      _clinic_id: clinicId,
+      _role: "admin",
+    });
+    if (isOwner || isClinicAdmin) return;
+  }
+  throw new Error("Forbidden");
+}
+
 export const inviteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
