@@ -53,6 +53,7 @@ import {
   duplicatePlan,
   togglePlanActive,
   reorderPlans,
+  listSaasAudit,
 } from "@/lib/api/saas-admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -115,7 +116,7 @@ const BRL = (v: number | null | undefined) =>
     : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function AdminSaasPage() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("painel");
   const [openNew, setOpenNew] = useState(false);
 
   return (
@@ -124,10 +125,10 @@ function AdminSaasPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Building2 className="h-6 w-6" /> Admin SaaS
+              <Building2 className="h-6 w-6" /> Painel SaaS
             </h1>
             <p className="text-muted-foreground text-sm">
-              Gestão de clínicas, planos e operação multi-tenant do FisioOS.
+              Gestão comercial de clínicas, planos e operação multi-tenant.
             </p>
           </div>
           <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -147,12 +148,13 @@ function AdminSaasPage() {
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="painel">Painel</TabsTrigger>
             <TabsTrigger value="clinics">Clínicas</TabsTrigger>
             <TabsTrigger value="plans">Planos contratados</TabsTrigger>
             <TabsTrigger value="catalog">Catálogo de Planos</TabsTrigger>
+            <TabsTrigger value="audit">Auditoria</TabsTrigger>
           </TabsList>
-          <TabsContent value="dashboard" className="mt-4">
+          <TabsContent value="painel" className="mt-4">
             <DashboardTab />
           </TabsContent>
           <TabsContent value="clinics" className="mt-4">
@@ -164,11 +166,22 @@ function AdminSaasPage() {
           <TabsContent value="catalog" className="mt-4">
             <CatalogTab />
           </TabsContent>
+          <TabsContent value="audit" className="mt-4">
+            <AuditTab />
+          </TabsContent>
         </Tabs>
       </div>
     </AppShell>
   );
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  active: "Ativo",
+  inactive: "Inativo",
+  suspended: "Suspenso",
+  trial: "Teste",
+  canceled: "Cancelado",
+};
 
 // ============================================================
 // Dashboard
@@ -192,24 +205,49 @@ function DashboardTab() {
           icon={<Building2 className="h-4 w-4" />}
           label="Clínicas ativas"
           value={String(data.clinics.active)}
-          hint={`${data.clinics.inactive} inativa(s)`}
+          hint={`${data.clinics.inactive} inativa(s) · ${data.clinics.suspended ?? 0} suspensa(s)`}
         />
         <Kpi
           icon={<DollarSign className="h-4 w-4" />}
-          label="MRR estimado"
+          label="Receita mensal (MRR)"
           value={BRL(data.mrr)}
-          hint="Receita recorrente mensal"
+          hint={`ARR estimado ${BRL(data.arr ?? data.mrr * 12)}`}
         />
         <Kpi
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Ticket médio"
+          value={BRL(data.avg_ticket ?? 0)}
+          hint={`${data.trial_count ?? 0} em teste`}
+        />
+        <Kpi
+          icon={<Activity className="h-4 w-4" />}
+          label="Novas clínicas (30 dias)"
+          value={String(data.clinics.new_30d ?? 0)}
+          hint={`${data.canceled_count ?? 0} contratos cancelados`}
+        />
+      </div>
+
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <Kpi
           icon={<Users className="h-4 w-4" />}
-          label="Usuários"
+          label="Usuários ativos"
           value={String(data.users.total)}
+        />
+        <Kpi
+          icon={<UserCheck className="h-4 w-4" />}
+          label="Pacientes"
+          value={String(data.patients.total)}
         />
         <Kpi
           icon={<FileText className="h-4 w-4" />}
           label="Documentos"
           value={String(data.documents.total)}
           hint={`${data.documents.this_month} este mês`}
+        />
+        <Kpi
+          icon={<Package className="h-4 w-4" />}
+          label="Planos no catálogo"
+          value={String(data.plans_catalog_count ?? 0)}
         />
       </div>
 
@@ -303,7 +341,7 @@ function DashboardTab() {
                     <Badge
                       variant={c.status === "active" ? "default" : "secondary"}
                     >
-                      {c.status}
+                      {STATUS_LABEL[c.status] ?? c.status}
                     </Badge>
                   </div>
                 </li>
@@ -439,7 +477,7 @@ function ClinicsTab() {
                           : "secondary"
                     }
                   >
-                    {c.status}
+                    {STATUS_LABEL[c.status] ?? c.status}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">{c.user_count}</TableCell>
@@ -1181,5 +1219,85 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
         {mut.isPending ? "Provisionando..." : "Criar clínica"}
       </Button>
     </form>
+  );
+}
+
+// ============================================================
+// Auditoria administrativa
+// ============================================================
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  "plan.create": "Plano · criação",
+  "plan.update": "Plano · edição",
+  "plan.duplicate": "Plano · duplicação",
+  "plan.activate": "Plano · ativação",
+  "plan.deactivate": "Plano · inativação",
+  "plan.delete": "Plano · exclusão",
+  "clinic.create": "Clínica · criação",
+  "clinic.activate": "Clínica · ativação",
+  "clinic.deactivate": "Clínica · inativação",
+  "clinic.suspend": "Clínica · suspensão",
+  "clinic.plan_change": "Clínica · troca de plano",
+  "clinic.branding": "Clínica · identidade visual",
+};
+
+function AuditTab() {
+  const fetchAudit = useServerFn(listSaasAudit);
+  const { data, isLoading } = useQuery({
+    queryKey: ["saas-audit"],
+    queryFn: () => fetchAudit(),
+  });
+
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  const rows = data ?? [];
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data/hora</TableHead>
+              <TableHead>Ação</TableHead>
+              <TableHead>Entidade</TableHead>
+              <TableHead>Usuário</TableHead>
+              <TableHead>Detalhes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r: any) => (
+              <TableRow key={r.id}>
+                <TableCell className="text-xs whitespace-nowrap">
+                  {new Date(r.created_at).toLocaleString("pt-BR")}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {AUDIT_ACTION_LABEL[r.action] ?? r.action}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs">
+                  {r.entity_type}
+                  {r.entity_id && (
+                    <div className="text-muted-foreground font-mono">
+                      {String(r.entity_id).slice(0, 8)}…
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs">{r.user_email ?? "—"}</TableCell>
+                <TableCell className="text-[11px] text-muted-foreground max-w-md truncate">
+                  {r.new_data ? JSON.stringify(r.new_data) : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">
+                  Nenhum evento registrado.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

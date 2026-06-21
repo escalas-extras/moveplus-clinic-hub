@@ -13,6 +13,30 @@ async function assertSuperAdmin(supabase: any, userId: string) {
   if (!data) throw new Error("Acesso restrito a super administradores.");
 }
 
+async function logAudit(
+  supabaseAdmin: any,
+  userId: string,
+  action: string,
+  entityType: string,
+  entityId: string | null,
+  oldData: any = null,
+  newData: any = null,
+) {
+  try {
+    await supabaseAdmin.from("saas_audit_log").insert({
+      user_id: userId,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      old_data: oldData,
+      new_data: newData,
+    });
+  } catch (e) {
+    // best-effort
+    console.error("[saas_audit_log]", e);
+  }
+}
+
 // ------------------------------------------------------------
 // Dashboard
 // ------------------------------------------------------------
@@ -22,7 +46,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog] =
+    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog, allClinicPlans] =
       await Promise.all([
         supabaseAdmin.from("clinics").select("id,status,created_at"),
         supabaseAdmin
@@ -38,16 +62,18 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
           .limit(5),
         supabaseAdmin
           .from("clinic_plans")
-          .select("plan_id, plans(id,code,name,monthly_price,price_cents)")
+          .select("plan_id, status, plans(id,code,name,monthly_price,price_cents)")
           .in("status", ["active", "trial"]),
         supabaseAdmin
           .from("plans")
           .select("id,code,name,monthly_price,price_cents"),
+        supabaseAdmin.from("clinic_plans").select("status"),
       ]);
 
     const clinicsRows = clinics.data ?? [];
     const active = clinicsRows.filter((c: any) => c.status === "active").length;
-    const inactive = clinicsRows.filter((c: any) => c.status !== "active").length;
+    const inactive = clinicsRows.filter((c: any) => c.status === "inactive").length;
+    const suspended = clinicsRows.filter((c: any) => c.status === "suspended").length;
 
     const uniqueUsers = new Set((members.data ?? []).map((m: any) => m.user_id));
 
@@ -58,11 +84,18 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     const docsMonth = docsRows.filter((d: any) => new Date(d.created_at) >= thisMonth)
       .length;
 
+    const thirtyAgo = new Date();
+    thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+    const newClinics30d = clinicsRows.filter(
+      (c: any) => new Date(c.created_at) >= thirtyAgo,
+    ).length;
+
     const planCounts: Record<
       string,
-      { code: string; name: string; count: number; mrr: number }
+      { code: string; name: string; count: number; mrr: number; trial: number }
     > = {};
     let mrr = 0;
+    let trialCount = 0;
     for (const row of (planAgg.data ?? []) as any[]) {
       const p = row.plans;
       if (!p) continue;
@@ -73,11 +106,26 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
         name: p.name,
         count: 0,
         mrr: 0,
+        trial: 0,
       };
       planCounts[key].count += 1;
-      planCounts[key].mrr += price;
-      mrr += price;
+      if (row.status === "trial") {
+        planCounts[key].trial += 1;
+        trialCount += 1;
+      } else {
+        planCounts[key].mrr += price;
+        mrr += price;
+      }
     }
+
+    const paidContracts = (planAgg.data ?? []).filter(
+      (r: any) => r.status === "active",
+    ).length;
+    const avgTicket = paidContracts > 0 ? mrr / paidContracts : 0;
+
+    const canceledContracts = (allClinicPlans.data ?? []).filter(
+      (r: any) => r.status === "canceled",
+    ).length;
 
     // Monthly growth — clinics created in last 6 months
     const growth: { month: string; count: number }[] = [];
@@ -94,13 +142,23 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     }
 
     return {
-      clinics: { active, inactive, total: clinicsRows.length },
+      clinics: {
+        active,
+        inactive,
+        suspended,
+        total: clinicsRows.length,
+        new_30d: newClinics30d,
+      },
       users: { total: uniqueUsers.size },
       patients: { total: patients.count ?? 0 },
       documents: { total: docsRows.length, this_month: docsMonth },
       recent_clinics: recentClinics.data ?? [],
       plans: Object.values(planCounts),
       mrr,
+      arr: mrr * 12,
+      avg_ticket: avgTicket,
+      trial_count: trialCount,
+      canceled_count: canceledContracts,
       growth,
       plans_catalog_count: (plansCatalog.data ?? []).length,
     };
@@ -198,11 +256,29 @@ export const setClinicStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: prev } = await supabaseAdmin
+      .from("clinics")
+      .select("status")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await supabaseAdmin
       .from("clinics")
       .update({ status: data.status })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      data.status === "active"
+        ? "clinic.activate"
+        : data.status === "suspended"
+          ? "clinic.suspend"
+          : "clinic.deactivate",
+      "clinic",
+      data.id,
+      prev,
+      { status: data.status },
+    );
     return { ok: true };
   });
 
@@ -241,7 +317,7 @@ export const provisionClinic = createServerFn({ method: "POST" })
       ownerUserId = found.id;
     }
 
-    return await provisionClinicFallback({
+    const result = await provisionClinicFallback({
       nome: data.nome,
       plan_code: data.plan_code,
       owner_user_id: ownerUserId,
@@ -250,6 +326,16 @@ export const provisionClinic = createServerFn({ method: "POST" })
       estado: data.estado,
       supabaseAdmin,
     });
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.create",
+      "clinic",
+      result.clinic_id,
+      null,
+      { nome: data.nome, slug: result.slug, plan_code: data.plan_code },
+    );
+    return result;
   });
 
 async function provisionClinicFallback(args: {
@@ -400,13 +486,15 @@ export const createPlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: row, error } = await supabaseAdmin
+    const row = toRow(data);
+    const { data: inserted, error } = await supabaseAdmin
       .from("plans")
-      .insert(toRow(data))
+      .insert(row)
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { id: row.id };
+    await logAudit(supabaseAdmin, context.userId, "plan.create", "plan", inserted.id, null, row);
+    return { id: inserted.id };
   });
 
 export const updatePlan = createServerFn({ method: "POST" })
@@ -417,11 +505,15 @@ export const updatePlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { data: prev } = await supabaseAdmin
       .from("plans")
-      .update(toRow(data.patch))
-      .eq("id", data.id);
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    const row = toRow(data.patch);
+    const { error } = await supabaseAdmin.from("plans").update(row).eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(supabaseAdmin, context.userId, "plan.update", "plan", data.id, prev, row);
     return { ok: true };
   });
 
@@ -438,6 +530,15 @@ export const togglePlanActive = createServerFn({ method: "POST" })
       .update({ active: data.active })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      data.active ? "plan.activate" : "plan.deactivate",
+      "plan",
+      data.id,
+      null,
+      { active: data.active },
+    );
     return { ok: true };
   });
 
@@ -466,14 +567,27 @@ export const duplicatePlan = createServerFn({ method: "POST" })
       newCode = `${src.code}-copy-${n}`;
     }
     const { id, created_at, updated_at, ...rest } = src as any;
-    const { error } = await supabaseAdmin.from("plans").insert({
-      ...rest,
-      code: newCode,
-      name: `${src.name} (cópia)`,
-      active: false,
-      featured: false,
-    });
+    const { data: inserted, error } = await supabaseAdmin
+      .from("plans")
+      .insert({
+        ...rest,
+        code: newCode,
+        name: `${src.name} (cópia)`,
+        active: false,
+        featured: false,
+      })
+      .select("id")
+      .single();
     if (error) throw new Error(error.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "plan.duplicate",
+      "plan",
+      inserted.id,
+      { from_plan_id: data.id },
+      { code: newCode },
+    );
     return { ok: true };
   });
 
@@ -490,8 +604,14 @@ export const deletePlan = createServerFn({ method: "POST" })
       .limit(1);
     if ((cps ?? []).length > 0)
       throw new Error("Plano em uso por clínicas. Inative em vez de excluir.");
+    const { data: prev } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await supabaseAdmin.from("plans").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(supabaseAdmin, context.userId, "plan.delete", "plan", data.id, prev, null);
     return { ok: true };
   });
 
@@ -570,6 +690,16 @@ export const assignPlan = createServerFn({ method: "POST" })
       notes: data.notes ?? null,
     });
 
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.plan_change",
+      "clinic",
+      data.clinic_id,
+      { plan_code: (current as any)?.plans?.code ?? null },
+      { plan_code: plan.code, notes: data.notes ?? null },
+    );
+
     return { ok: true };
   });
 
@@ -590,4 +720,33 @@ export const listPlanChangeAudit = createServerFn({ method: "GET" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     return rows ?? [];
+  });
+
+// ------------------------------------------------------------
+// Auditoria administrativa (todos os eventos)
+// ------------------------------------------------------------
+export const listSaasAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("saas_audit_log")
+      .select("id, created_at, user_id, action, entity_type, entity_id, old_data, new_data")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+
+    const userIds = Array.from(
+      new Set((rows ?? []).map((r: any) => r.user_id).filter(Boolean)),
+    );
+    const emails: Record<string, string> = {};
+    if (userIds.length) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
+      for (const p of profiles ?? []) emails[p.id] = p.email ?? "";
+    }
+    return (rows ?? []).map((r: any) => ({ ...r, user_email: emails[r.user_id] ?? null }));
   });

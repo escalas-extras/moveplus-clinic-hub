@@ -2865,6 +2865,39 @@ export type Database = {
           },
         ]
       }
+      saas_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       support_sessions: {
         Row: {
           clinic_id: string
@@ -3011,8 +3044,18 @@ export type Database = {
     Functions: {
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
       current_clinic_id: { Args: never; Returns: string }
+      current_plan_limits: {
+        Args: never
+        Returns: {
+          max_documents_month: number
+          max_patients: number
+          max_storage_mb: number
+          max_users: number
+        }[]
+      }
       current_professional_id: { Args: never; Returns: string }
       generate_clinic_slug: { Args: { _name: string }; Returns: string }
+      has_plan_feature: { Args: { _feature: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

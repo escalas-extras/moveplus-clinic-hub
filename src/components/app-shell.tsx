@@ -9,41 +9,42 @@ import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
 import { usePlatformContext } from "@/lib/platform-context";
+import { usePlanFeatures } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
 
-type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean };
+type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean; feature?: string };
 type NavGroup = { title: string; items: NavItemDef[]; platform?: boolean };
 
 const groups: NavGroup[] = [
   {
     title: "Principal",
     items: [
-      { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-      { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
-      { to: "/app/pacientes", label: "Pacientes", icon: Users },
-      { to: "/app/reavaliacoes", label: "Reavaliações", icon: RefreshCw },
-      { to: "/app/home-care", label: "Home Care", icon: HomeIcon },
+      { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
+      { to: "/app/agenda", label: "Agenda", icon: CalendarDays, feature: "agenda" },
+      { to: "/app/pacientes", label: "Pacientes", icon: Users, feature: "pacientes" },
+      { to: "/app/reavaliacoes", label: "Reavaliações", icon: RefreshCw, feature: "avaliacoes" },
+      { to: "/app/home-care", label: "Home Care", icon: HomeIcon, feature: "home_care" },
     ],
   },
   {
     title: "Documentação",
     items: [
-      { to: "/app/documentos", label: "Documentos", icon: FileText },
-      { to: "/app/templates", label: "Modelos", icon: PenLine, adminOnly: true },
-      { to: "/app/biblioteca", label: "Biblioteca", icon: BookOpen },
+      { to: "/app/documentos", label: "Documentos", icon: FileText, feature: "documentos" },
+      { to: "/app/templates", label: "Modelos", icon: PenLine, adminOnly: true, feature: "documentos" },
+      { to: "/app/biblioteca", label: "Biblioteca", icon: BookOpen, feature: "biblioteca" },
     ],
   },
   {
     title: "Gestão",
     items: [
-      { to: "/app/dashboard-clinico", label: "Indicadores", icon: Activity },
-      { to: "/app/relatorios", label: "Relatórios", icon: BarChart3 },
-      { to: "/app/marketing", label: "Marketing", icon: Megaphone },
+      { to: "/app/dashboard-clinico", label: "Indicadores", icon: Activity, feature: "relatorios" },
+      { to: "/app/relatorios", label: "Relatórios", icon: BarChart3, feature: "relatorios" },
+      { to: "/app/marketing", label: "Marketing", icon: Megaphone, feature: "marketing" },
       { to: "/app/diferenciais", label: "Diferenciais", icon: Sparkles },
-      { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true },
+      { to: "/app/financeiro", label: "Financeiro", icon: Wallet, adminOnly: true, feature: "financeiro" },
       { to: "/app/profissionais", label: "Profissionais", icon: UserCog, adminOnly: true },
     ],
   },
@@ -51,7 +52,7 @@ const groups: NavGroup[] = [
     title: "Sistema",
     items: [
       { to: "/app/usuarios", label: "Usuários", icon: ShieldCheck, adminOnly: true },
-      { to: "/app/admin-saas", label: "Admin SaaS", icon: Building2, superAdminOnly: true },
+      { to: "/app/admin-saas", label: "Painel SaaS", icon: Building2, superAdminOnly: true },
       { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
     ],
   },
@@ -62,7 +63,7 @@ const platformGroups: NavGroup[] = [
     title: "Plataforma",
     platform: true,
     items: [
-      { to: "/app/admin-saas", label: "Admin SaaS", icon: Building2, superAdminOnly: true },
+      { to: "/app/admin-saas", label: "Painel SaaS", icon: Building2, superAdminOnly: true },
     ],
   },
 ];
@@ -80,9 +81,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth" });
   }
 
+  const { has: hasFeature } = usePlanFeatures();
   const activeGroups = isPlatformAdmin ? platformGroups : groups;
   const visibleGroups = activeGroups
-    .map((g) => ({ ...g, items: g.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.superAdminOnly || isSuperAdmin)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) =>
+          (!i.adminOnly || isAdmin) &&
+          (!i.superAdminOnly || isSuperAdmin) &&
+          (!i.feature || hasFeature(i.feature)),
+      ),
+    }))
     .filter((g) => g.items.length > 0);
 
   const userName = (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
