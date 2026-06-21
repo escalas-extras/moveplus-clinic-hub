@@ -32,7 +32,9 @@ const brandKey = (cid: string) => `fos:branding:${cid}`;
 async function loadBranding(cid: string): Promise<Branding> {
   const { data } = await supabase
     .from("clinic_settings")
-    .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default")
+    .select(
+      "nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default",
+    )
     .eq("clinic_id", cid)
     .maybeSingle();
   if (!data) return DEFAULTS;
