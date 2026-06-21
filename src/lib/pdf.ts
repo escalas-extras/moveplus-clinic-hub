@@ -205,12 +205,15 @@ export async function buildPdf(opts: {
   // para que o ensure do bloco evite encavalar conteúdo com o bloco de assinatura
   // (e, no contrato, evite a página de continuação com 1 linha órfã).
   const isContract = /contrato/i.test(opts.title || "");
-  const SIG_BLOCK_H = isContract ? 360 : 185;
+  const SIG_BLOCK_H = isContract ? 220 : 185;
 
-  // Page-break helper (replaceable per-block to close borders properly)
+  // Page-break helper (replaceable per-block to close borders properly).
+  // getBottom() exposes o limite inferior corrente para que o renderer
+  // de parágrafo possa calcular espaço restante (controle de viúvas/órfãs).
   let pageY = y;
+  let getBottom: () => number = () => H - 80;
   let ensure: (need: number) => void = (need: number) => {
-    if (y + need > H - 80) {
+    if (y + need > getBottom()) {
       doc.addPage();
       y = M + 8;
       pageY = y;
