@@ -67,15 +67,10 @@ export function PdfPreviewDialog({
     }
   };
 
+  // Em vez de chamar window.print() (que pode acabar imprimindo a tela do app
+  // em alguns navegadores), abrimos o PDF real em nova aba. O leitor nativo
+  // do navegador oferece o botão Imprimir já apontando para o PDF.
   const handlePrint = () => {
-    const frame = iframeRef.current;
-    if (frame?.contentWindow) {
-      try {
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-        return;
-      } catch { /* fallback below */ }
-    }
     if (url) window.open(url, "_blank");
   };
 
