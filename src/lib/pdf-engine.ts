@@ -501,7 +501,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // Compaction varia APENAS o gap entre blocos — assim a reserva nunca é
   // inferior ao espaço efetivamente desenhado (sem sobreposição com QR/rodapé).
   const qrReserve = isContract ? 64 : 0;
-  const sigReserve = sigDraw + qrReserve;
+  const sigReserve = opts.hideSignature ? 0 : sigDraw + qrReserve;
   const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
   let pages = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[0]);
   for (let t = 1; t < gapTiers.length; t++) {
