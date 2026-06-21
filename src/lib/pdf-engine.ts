@@ -514,8 +514,8 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // Document title strip
   let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
   doc.setTextColor(...C.ink);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(T.docTitle);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.docTitle + 1);
   doc.text(opts.title, M, titleY);
   if (opts.subtitle) {
     titleY += 12;
