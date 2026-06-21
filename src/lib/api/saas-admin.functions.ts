@@ -486,13 +486,15 @@ export const createPlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: row, error } = await supabaseAdmin
+    const row = toRow(data);
+    const { data: inserted, error } = await supabaseAdmin
       .from("plans")
-      .insert(toRow(data))
+      .insert(row)
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { id: row.id };
+    await logAudit(supabaseAdmin, context.userId, "plan.create", "plan", inserted.id, null, row);
+    return { id: inserted.id };
   });
 
 export const updatePlan = createServerFn({ method: "POST" })
@@ -503,11 +505,15 @@ export const updatePlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { data: prev } = await supabaseAdmin
       .from("plans")
-      .update(toRow(data.patch))
-      .eq("id", data.id);
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    const row = toRow(data.patch);
+    const { error } = await supabaseAdmin.from("plans").update(row).eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(supabaseAdmin, context.userId, "plan.update", "plan", data.id, prev, row);
     return { ok: true };
   });
 
@@ -524,6 +530,15 @@ export const togglePlanActive = createServerFn({ method: "POST" })
       .update({ active: data.active })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      data.active ? "plan.activate" : "plan.deactivate",
+      "plan",
+      data.id,
+      null,
+      { active: data.active },
+    );
     return { ok: true };
   });
 
@@ -552,14 +567,27 @@ export const duplicatePlan = createServerFn({ method: "POST" })
       newCode = `${src.code}-copy-${n}`;
     }
     const { id, created_at, updated_at, ...rest } = src as any;
-    const { error } = await supabaseAdmin.from("plans").insert({
-      ...rest,
-      code: newCode,
-      name: `${src.name} (cópia)`,
-      active: false,
-      featured: false,
-    });
+    const { data: inserted, error } = await supabaseAdmin
+      .from("plans")
+      .insert({
+        ...rest,
+        code: newCode,
+        name: `${src.name} (cópia)`,
+        active: false,
+        featured: false,
+      })
+      .select("id")
+      .single();
     if (error) throw new Error(error.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "plan.duplicate",
+      "plan",
+      inserted.id,
+      { from_plan_id: data.id },
+      { code: newCode },
+    );
     return { ok: true };
   });
 
@@ -576,8 +604,14 @@ export const deletePlan = createServerFn({ method: "POST" })
       .limit(1);
     if ((cps ?? []).length > 0)
       throw new Error("Plano em uso por clínicas. Inative em vez de excluir.");
+    const { data: prev } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await supabaseAdmin.from("plans").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(supabaseAdmin, context.userId, "plan.delete", "plan", data.id, prev, null);
     return { ok: true };
   });
 
