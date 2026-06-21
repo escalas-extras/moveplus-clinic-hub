@@ -450,16 +450,18 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const groups: BlockGroup[] = blocks.map((b, i) => measureBlock(doc, b, i, contentW, isContract));
 
   // ----- Compose with possible compaction -----
-  const topY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 /*title*/ + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 /*title*/ + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYRest = S.M + 28; // páginas 2+: sem cabeçalho, breathing curto no topo
   const bottomY = H - S.FOOTER_H - 16;
   const sigH = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
-  const usableH = bottomY - topY;
+  const usableHRest = bottomY - topYRest;
 
-  let pages = compose(groups, topY, bottomY, sigH, S.BLOCK_GAP);
-  // Compaction: if last page would be <40% filled (sparse), retry with smaller gaps
-  if (lastPageFill(pages, usableH, sigH) < 0.4 && pages.length > 1) {
-    pages = compose(groups, topY, bottomY, sigH, S.BLOCK_GAP_COMPACT);
+  let pages = compose(groups, topYFirst, topYRest, bottomY, sigH, S.BLOCK_GAP);
+  // Compaction: se última página ficaria <50% ocupada, tenta com gap menor.
+  if (lastPageFill(pages, usableHRest, sigH) < 0.5 && pages.length > 1) {
+    pages = compose(groups, topYFirst, topYRest, bottomY, sigH, S.BLOCK_GAP_COMPACT);
   }
+
 
   // ----- Draw -----
   drawHeader(doc, c, ctx.logo, W);
