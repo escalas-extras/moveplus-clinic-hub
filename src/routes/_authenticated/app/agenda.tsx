@@ -172,10 +172,22 @@ function AgendaPage() {
   const update = useMutation({
     mutationFn: async (v: Form & { id: string; status: Status }) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      if (!v.patient_id || !v.professional_id || !v.data || !v.horario) {
+        throw new Error("Preencha paciente, profissional, data e horário.");
+      }
       const { id, status, tipo: _tipo, ...rest } = v;
+      const payload = {
+        ...rest,
+        data: rest.data || null,
+        horario: rest.horario,
+        observacao: rest.observacao?.trim() || null,
+        duracao_min: Number.isFinite(Number(rest.duracao_min)) ? Number(rest.duracao_min) : 60,
+        status: status as any,
+      };
       const { error } = await supabase
         .from("appointments")
-        .update({ ...rest, status: status as any })
+        .update(payload as any)
         .eq("id", id)
         .eq("clinic_id", clinicId);
       if (error) throw error;
@@ -694,8 +706,8 @@ function EditAppointmentDialog({ appt, onClose, update, patients, profs, disable
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} disabled={disabled} /></div>
-            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" {...register("horario")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("horario")} disabled={disabled} /></div>
             <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
           </div>
           <div>
