@@ -12,7 +12,7 @@ import { Star, StarOff, BookOpen, Dumbbell, ClipboardList, FileText, Megaphone, 
 import { toast } from "sonner";
 import { LibraryContentView } from "@/components/library/library-content-view";
 import { buildLibraryContentPdfOpts } from "@/lib/library-pdf";
-import { downloadPdf } from "@/lib/pdf";
+import { buildPdf } from "@/lib/pdf";
 
 export const Route = createFileRoute("/_authenticated/app/biblioteca")({
   component: BibliotecaPage,
