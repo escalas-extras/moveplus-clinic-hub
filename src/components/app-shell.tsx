@@ -233,7 +233,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" className="rounded-full glass">
               <Bell className="h-4 w-4" />
             </Button>
-            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
+            <button
+              type="button"
+              onClick={() => setAvatarOpen(true)}
+              className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40"
+              aria-label="Editar foto de perfil"
+              title="Editar foto de perfil"
+            >
+              <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
+            </button>
           </div>
         </header>
 
@@ -241,6 +249,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       </div>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      {user?.id && (
+        <Dialog open={avatarOpen} onOpenChange={setAvatarOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Foto de perfil</DialogTitle>
+            </DialogHeader>
+            <AvatarUploader userId={user.id} initial={avatarPath} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
