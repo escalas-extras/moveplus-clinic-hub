@@ -1000,13 +1000,34 @@ Revisão semestral ou após qualquer atualização normativa.
   },
 };
 
-console.log("BEGIN;");
-for (const [title, item] of Object.entries(items)) {
-  const summary = item.summary ?? null;
-  const body = item.body;
-  const tags = item.tags ?? [];
-  const setSummary = summary ? `summary = '${esc(summary)}',` : "";
-  const setTags = tags.length ? `tags = ${tagArr(tags)},` : "";
-  console.log(`UPDATE public.library_contents SET ${setSummary} ${setTags} body = '${esc(body)}', status = 'active', scope = 'global', clinic_id = NULL, updated_at = now() WHERE title = '${esc(title)}';`);
+import { createClient } from "@supabase/supabase-js";
+
+const url = process.env.SUPABASE_URL;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !key) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  process.exit(1);
 }
-console.log("COMMIT;");
+const sb = createClient(url, key, { auth: { persistSession: false } });
+
+let ok = 0, miss = 0;
+for (const [title, item] of Object.entries(items)) {
+  const { data, error, count } = await sb
+    .from("library_contents")
+    .update({
+      summary: item.summary ?? null,
+      tags: item.tags ?? [],
+      body: item.body,
+      status: "active",
+      scope: "global",
+      clinic_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("title", title)
+    .select("id");
+  if (error) { console.error(`ERR ${title}: ${error.message}`); continue; }
+  if (!data || data.length === 0) { miss++; console.warn(`MISS ${title}`); }
+  else ok++;
+}
+console.log(`Done. updated=${ok} missed=${miss} total=${Object.keys(items).length}`);
+
