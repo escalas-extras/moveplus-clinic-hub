@@ -268,25 +268,6 @@
 @utility shadow-soft { box-shadow: var(--shadow-soft); }
 @utility shadow-lift { box-shadow: var(--shadow-lift); }
 @utility shadow-glow { box-shadow: var(--shadow-glow); }
-@utility glass-sidebar {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(34px) saturate(180%);
-  border-right: 1px solid rgba(15, 76, 92, 0.08);
-}
-@utility glass-topbar {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(30px) saturate(180%);
-  border-bottom: 1px solid rgba(15, 76, 92, 0.08);
-}
-@utility lift {
-  transition: transform 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms ease, background-color 250ms ease;
-}
-@utility lift-hover {
-  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
-}
-@utility shadow-soft { box-shadow: var(--shadow-soft); }
-@utility shadow-lift { box-shadow: var(--shadow-lift); }
-@utility shadow-glow { box-shadow: var(--shadow-glow); }
 
 .dark .glass,
 .dark .glass-strong { background: rgba(20, 28, 40, 0.68); border-color: rgba(255,255,255,0.12); }
