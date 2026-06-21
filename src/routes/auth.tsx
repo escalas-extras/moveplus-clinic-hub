@@ -103,7 +103,7 @@ function AuthPage() {
                       onClick={() => setMode("forgot")}
                       className="text-xs underline text-muted-foreground hover:text-foreground"
                     >
-                      Esqueci minha senha
+                      Esqueceu sua senha?
                     </button>
                   </div>
                   <Input id="p" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -129,7 +129,7 @@ function AuthPage() {
                   {loading ? "Enviando…" : "Enviar link de redefinição"}
                 </Button>
                 <Button type="button" variant="ghost" className="w-full" onClick={() => setMode("signin")}>
-                  Voltar ao login
+                  Voltar para entrar
                 </Button>
               </form>
             </>

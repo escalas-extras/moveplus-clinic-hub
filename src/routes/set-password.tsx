@@ -128,7 +128,7 @@ function SetPasswordPage() {
                 : "Link inválido ou expirado. Solicite um novo em \"Esqueci minha senha\"."}
             </p>
             <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/auth" })}>
-              Ir para o login
+              Ir para a tela de acesso
             </Button>
           </div>
         ) : (
