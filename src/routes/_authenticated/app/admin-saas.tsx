@@ -205,24 +205,49 @@ function DashboardTab() {
           icon={<Building2 className="h-4 w-4" />}
           label="Clínicas ativas"
           value={String(data.clinics.active)}
-          hint={`${data.clinics.inactive} inativa(s)`}
+          hint={`${data.clinics.inactive} inativa(s) · ${data.clinics.suspended ?? 0} suspensa(s)`}
         />
         <Kpi
           icon={<DollarSign className="h-4 w-4" />}
-          label="MRR estimado"
+          label="Receita mensal (MRR)"
           value={BRL(data.mrr)}
-          hint="Receita recorrente mensal"
+          hint={`ARR estimado ${BRL(data.arr ?? data.mrr * 12)}`}
         />
         <Kpi
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Ticket médio"
+          value={BRL(data.avg_ticket ?? 0)}
+          hint={`${data.trial_count ?? 0} em teste`}
+        />
+        <Kpi
+          icon={<Activity className="h-4 w-4" />}
+          label="Novas clínicas (30 dias)"
+          value={String(data.clinics.new_30d ?? 0)}
+          hint={`${data.canceled_count ?? 0} contratos cancelados`}
+        />
+      </div>
+
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <Kpi
           icon={<Users className="h-4 w-4" />}
-          label="Usuários"
+          label="Usuários ativos"
           value={String(data.users.total)}
+        />
+        <Kpi
+          icon={<UserCheck className="h-4 w-4" />}
+          label="Pacientes"
+          value={String(data.patients.total)}
         />
         <Kpi
           icon={<FileText className="h-4 w-4" />}
           label="Documentos"
           value={String(data.documents.total)}
           hint={`${data.documents.this_month} este mês`}
+        />
+        <Kpi
+          icon={<Package className="h-4 w-4" />}
+          label="Planos no catálogo"
+          value={String(data.plans_catalog_count ?? 0)}
         />
       </div>
 
