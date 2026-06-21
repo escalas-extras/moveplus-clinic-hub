@@ -746,7 +746,7 @@ export const listSaasAudit = createServerFn({ method: "GET" })
         .from("profiles")
         .select("id, email")
         .in("id", userIds);
-      for (const p of profiles ?? []) emails[p.id] = p.email;
+      for (const p of profiles ?? []) emails[p.id] = p.email ?? "";
     }
     return (rows ?? []).map((r: any) => ({ ...r, user_email: emails[r.user_id] ?? null }));
   });
