@@ -185,14 +185,32 @@ function ConfigPage() {
               <Field label="Slogan"><Input {...register("slogan")} placeholder="Transformando atendimentos em resultados" /></Field>
               <Field label="Cor primária">
                 <div className="flex gap-2">
-                  <Input type="color" {...register("primary_color")} className="w-16 h-10 p-1" />
-                  <Input {...register("primary_color")} placeholder="#2f5d3a" />
+                  <Input
+                    type="color"
+                    value={primary}
+                    onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
+                    className="w-16 h-10 p-1"
+                  />
+                  <Input
+                    value={primary}
+                    onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
+                    placeholder="#2f5d3a"
+                  />
                 </div>
               </Field>
               <Field label="Cor secundária">
                 <div className="flex gap-2">
-                  <Input type="color" {...register("secondary_color")} className="w-16 h-10 p-1" />
-                  <Input {...register("secondary_color")} placeholder="#c75c3a" />
+                  <Input
+                    type="color"
+                    value={secondary}
+                    onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
+                    className="w-16 h-10 p-1"
+                  />
+                  <Input
+                    value={secondary}
+                    onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
+                    placeholder="#c75c3a"
+                  />
                 </div>
               </Field>
               <Field label="CREFITO padrão" className="sm:col-span-2">
