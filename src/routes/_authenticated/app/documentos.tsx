@@ -161,11 +161,10 @@ function DocumentosPage() {
   });
 
   const { data: clinic } = useQuery({
-    queryKey: ["clinic-settings"],
+    queryKey: ["clinic-settings", activeClinicId],
+    enabled: !!activeClinicId,
     queryFn: async () => {
-      const { data: cid } = await supabase.rpc("current_clinic_id");
-      if (!cid) return null;
-      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid as string).maybeSingle();
+      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", activeClinicId!).maybeSingle();
       return data;
     },
   });
@@ -174,37 +173,51 @@ function DocumentosPage() {
     queryKey: ["my-professional", user?.id, activeClinicId],
     enabled: !!user?.id && !!activeClinicId,
     queryFn: async () => {
+      const validateProfessional = (prof: any | null) => {
+        if (!prof) {
+          return {
+            professional: null,
+            status: "no-link" as const,
+            message: "Nenhum profissional responsável ativo foi localizado para esta clínica.",
+          };
+        }
+        if (prof.situacao !== "ativo") {
+          return { professional: prof, status: "inactive" as const, message: "O profissional responsável está inativo." };
+        }
+        if (!prof.conselho?.trim()) {
+          return {
+            professional: prof,
+            status: "missing-conselho" as const,
+            message: "Preencha o conselho profissional do responsável antes de emitir documentos.",
+          };
+        }
+        if (!prof.registro?.trim()) {
+          return {
+            professional: prof,
+            status: "missing-registro" as const,
+            message: "Preencha o número de registro profissional antes de emitir documentos.",
+          };
+        }
+        return { professional: prof, status: "ok" as const, message: "" };
+      };
+
       const { data: byProfile } = await supabase
         .from("professionals")
         .select("*")
         .eq("clinic_id", activeClinicId!)
         .eq("profile_id", user!.id)
         .maybeSingle();
-      if (!byProfile) {
-        return {
-          professional: null,
-          status: "no-link" as const,
-          message: "Seu usuário ainda não está vinculado a um profissional responsável.",
-        };
-      }
-      if (byProfile.situacao !== "ativo") {
-        return { professional: byProfile, status: "inactive" as const, message: "O profissional responsável está inativo." };
-      }
-      if (!byProfile.conselho?.trim()) {
-        return {
-          professional: byProfile,
-          status: "missing-conselho" as const,
-          message: "Preencha o conselho profissional do responsável antes de emitir documentos.",
-        };
-      }
-      if (!byProfile.registro?.trim()) {
-        return {
-          professional: byProfile,
-          status: "missing-registro" as const,
-          message: "Preencha o número de registro profissional antes de emitir documentos.",
-        };
-      }
-      return { professional: byProfile, status: "ok" as const, message: "" };
+      if (byProfile) return validateProfessional(byProfile);
+
+      const { data: clinicProfessionals } = await supabase
+        .from("professionals")
+        .select("*")
+        .eq("clinic_id", activeClinicId!)
+        .eq("situacao", "ativo")
+        .order("profile_id", { ascending: false, nullsFirst: false })
+        .order("nome");
+      const fallback = (clinicProfessionals ?? []).find((prof: any) => prof.profile_id) ?? clinicProfessionals?.[0] ?? null;
+      return validateProfessional(fallback);
     },
   });
   const professional = professionalInfo?.professional ?? null;
