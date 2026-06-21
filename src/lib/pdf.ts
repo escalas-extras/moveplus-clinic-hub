@@ -81,6 +81,13 @@ export async function printPdf(opts: BuildPdfOpts) {
 
 export const generatePdf = downloadPdf;
 
+// Alias semântico — todos os PDFs (clínicos, biblioteca, protocolos,
+// cartilhas, relatórios) passam pelo mesmo motor com branding da clínica
+// resolvida via current_clinic_id().
+export const buildBrandedPdf = buildPdf;
+export const downloadBrandedPdf = downloadPdf;
+export const previewBrandedPdf = previewPdf;
+
 // ---------- Upload + register ----------
 
 type DocFolder =
