@@ -28,7 +28,8 @@ export function usePlatformContext(): PlatformContext {
   const { data, isLoading } = useQuery({
     queryKey: ["platform-context", user?.id],
     enabled: !!user?.id,
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    gcTime: 60_000,
     queryFn: () => fetchContext(user!.id),
   });
   return {
