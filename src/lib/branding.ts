@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { usePlatformContext } from "@/lib/platform-context";
-import { useAuth } from "@/lib/auth";
+import { useActiveClinic } from "@/lib/active-clinic";
 import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
 import { pcGet, pcSet } from "@/lib/persistent-cache";
 
@@ -28,18 +27,7 @@ const DEFAULTS: Branding = {
 };
 
 const BRAND_TTL_MS = 24 * 60 * 60_000; // 24h — only as instant-render hint
-const CID_TTL_MS = 24 * 60 * 60_000;
-
-const cidKey = (uid: string) => `fos:clinic-id:${uid}`;
 const brandKey = (cid: string) => `fos:branding:${cid}`;
-
-async function resolveClinicId(isPlatformAdmin: boolean): Promise<string | null> {
-  const { data: supportCid } = await supabase.rpc("current_support_session_clinic");
-  if (isPlatformAdmin && !supportCid) return null;
-  if (supportCid) return supportCid as string;
-  const { data: ownCid } = await supabase.rpc("current_clinic_id");
-  return (ownCid as string | null) ?? null;
-}
 
 async function loadBranding(cid: string): Promise<Branding> {
   const { data } = await supabase
@@ -64,38 +52,22 @@ async function loadBranding(cid: string): Promise<Branding> {
 }
 
 export function useBranding(): Branding & { isLoading: boolean } {
-  const { isPlatformAdmin, loading: ctxLoading } = usePlatformContext();
-  const { user } = useAuth();
-
-  const initialCid = user?.id ? pcGet<string>(cidKey(user.id)) : null;
-
-  const { data: clinicId, isLoading: cidLoading } = useQuery({
-    queryKey: ["branding-clinic-id", user?.id ?? "anon"],
-    enabled: !ctxLoading && !!user?.id,
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
-    initialData: initialCid ?? undefined,
-    queryFn: async () => {
-      const cid = await resolveClinicId(isPlatformAdmin);
-      if (user?.id && cid) pcSet(cidKey(user.id), cid, CID_TTL_MS);
-      return cid;
-    },
-  });
+  const { clinicId, loading: clinicLoading } = useActiveClinic();
 
   const initialBrand = clinicId ? pcGet<Branding>(brandKey(clinicId)) : null;
 
   const { data, isLoading: brLoading } = useQuery({
     queryKey: ["branding", clinicId ?? "none"],
-    enabled: !ctxLoading && !!clinicId,
-    staleTime: 15 * 60_000,
+    enabled: !!clinicId,
+    staleTime: 0,
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: true,
     initialData: initialBrand ?? undefined,
     queryFn: () => loadBranding(clinicId!),
   });
 
-  const isLoading = ctxLoading || cidLoading || (!!clinicId && brLoading && !data);
+  const isLoading = clinicLoading || (!!clinicId && brLoading && !data);
   return { ...(data ?? DEFAULTS), isLoading };
 }
 
