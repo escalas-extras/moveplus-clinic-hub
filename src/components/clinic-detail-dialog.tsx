@@ -40,7 +40,19 @@ import {
   startSupportSession,
 } from "@/lib/api/clinic-ops.functions";
 import { toast } from "sonner";
-import { Trash2, RefreshCw, ShieldAlert, UserPlus } from "lucide-react";
+import { Trash2, RefreshCw, ShieldAlert, UserPlus, Upload, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useRef } from "react";
+
+const LOGO_MAX = 5 * 1024 * 1024;
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
+
+async function signedLogoUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  const { data } = await supabase.storage.from("clinic-logos").createSignedUrl(path, 60 * 60);
+  return data?.signedUrl ?? null;
+}
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "Proprietário",
