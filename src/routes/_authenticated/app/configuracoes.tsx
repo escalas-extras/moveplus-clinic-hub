@@ -41,13 +41,20 @@ function ConfigPage() {
   const [clinicId, setClinicId] = useState<string | null>(null);
   const [logoBroken, setLogoBroken] = useState(false);
 
+  async function resolveActiveClinicId(): Promise<string | null> {
+    const { data: support } = await supabase.rpc("current_support_session_clinic");
+    if (support) return support as string;
+    const { data: cid } = await supabase.rpc("current_clinic_id");
+    return (cid as string) ?? null;
+  }
+
   const settings = useQuery({
     queryKey: ["clinic-settings"],
     queryFn: async () => {
-      const { data: cid } = await supabase.rpc("current_clinic_id");
+      const cid = await resolveActiveClinicId();
       if (!cid) return null;
-      setClinicId(cid as string);
-      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid as string).maybeSingle();
+      setClinicId(cid);
+      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid).maybeSingle();
       return data;
     },
   });
@@ -102,9 +109,9 @@ function ConfigPage() {
         const { error } = await supabase.from("clinic_settings").update(payload).eq("id", settings.data.id);
         if (error) throw error;
       } else {
-        const { data: cid } = await supabase.rpc("current_clinic_id");
+        const cid = await resolveActiveClinicId();
         if (!cid) throw new Error("Nenhuma clínica ativa para o usuário atual.");
-        const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid as string });
+        const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid });
         if (error) throw error;
       }
     },
