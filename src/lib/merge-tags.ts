@@ -133,6 +133,28 @@ export function buildMergeData(ctx: MergeContext): Record<string, string> {
     clinica_email: Array.isArray(c.emails) ? c.emails.join(" · ") : (c.emails || "—"),
   };
 
+  // ---- Contratante (responsável financeiro ou próprio paciente) ----
+  // Quando nenhum contratante explícito é informado, faz fallback para o
+  // próprio paciente — assim contratos sem responsável continuam válidos.
+  const ct = ctx.contratante || {};
+  const ctNome = (ct.nome && ct.nome.trim()) || p.nome_completo || "—";
+  const ctCpf = (ct.cpf && ct.cpf.trim()) || p.cpf || "—";
+  const ctRg = (ct.rg && ct.rg.trim()) || p.rg || "—";
+  const ctEnd = (ct.endereco && ct.endereco.trim())
+    || [p.endereco, p.bairro, p.cidade, p.estado].filter(Boolean).join(", ") || "—";
+  const ctTel = (ct.telefone && ct.telefone.trim()) || p.telefone || p.whatsapp || "—";
+  const ctMail = (ct.email && ct.email.trim()) || p.email || "—";
+  const ctVin = (ct.vinculo && ct.vinculo.trim()) || "Próprio paciente";
+  Object.assign(data, {
+    contratante_nome: ctNome,
+    contratante_cpf: ctCpf,
+    contratante_rg: ctRg,
+    contratante_endereco: ctEnd,
+    contratante_telefone: ctTel,
+    contratante_email: ctMail,
+    contratante_vinculo: ctVin,
+  });
+
   if (ctx.extra) Object.assign(data, ctx.extra);
   return data;
 }
