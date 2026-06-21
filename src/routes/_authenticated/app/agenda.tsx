@@ -329,23 +329,36 @@ function AgendaPage() {
 
 /* ───────────────────────── DAY VIEW ───────────────────────── */
 
-function DayView({ items, day, onStatus, onEdit, disabled, onNew }: {
-  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void;
+function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }: {
+  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void; onSlotClick: (hour: number) => void;
 }) {
   const todays = items.filter((a) => a.data === day);
   if (!todays.length) {
+    // Mesmo sem agendamentos, mostrar grade clicável de horários
+    const hours = Array.from({ length: 14 }, (_, i) => i + 7);
     return (
-      <Card className="p-0">
-        <EmptyState
-          icon={CalendarDays}
-          title="Nenhum atendimento agendado"
-          description="Organize a rotina da clínica criando o primeiro atendimento."
-          action={disabled ? undefined : { label: "Novo agendamento", onClick: onNew }}
-        />
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b bg-muted/30 text-xs text-muted-foreground">
+          Clique em um horário vazio para criar um agendamento.
+        </div>
+        <ul className="divide-y divide-border/60">
+          {hours.map((h) => (
+            <li key={h} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 min-h-[56px]">
+              <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2,"0")}:00</div>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onSlotClick(h)}
+                className="rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {disabled ? "—" : "+ Novo agendamento"}
+              </button>
+            </li>
+          ))}
+        </ul>
       </Card>
     );
   }
-  // Hour slots 7..20
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
   return (
     <Card className="p-0 overflow-hidden">
@@ -357,7 +370,15 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew }: {
               <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2, "0")}:00</div>
               <div className="space-y-2">
                 {slot.length === 0 ? (
-                  <div className="h-full" />
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSlotClick(h)}
+                    className="w-full h-10 rounded-md border border-dashed border-transparent text-xs text-transparent hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition disabled:cursor-not-allowed"
+                    aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                  >
+                    + Novo agendamento
+                  </button>
                 ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
               </div>
             </li>
