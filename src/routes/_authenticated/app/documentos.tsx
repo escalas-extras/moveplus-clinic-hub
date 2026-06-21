@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, Eye, Download, Save, Lock, Search } from "lucide-react";
 import { toast } from "sonner";
 import { buildPdf, previewPdf } from "@/lib/pdf";
+import { resolveResponsibleProfessional, validateProfessionalForDoc } from "@/lib/professional-resolver";
 import { buildMergeData, renderTemplateSections, type ContratanteData } from "@/lib/merge-tags";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, fmtDateTime } from "@/lib/format";
