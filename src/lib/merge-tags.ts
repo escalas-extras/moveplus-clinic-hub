@@ -9,7 +9,18 @@ export type MergeContext = {
   clinic?: any;
   scales?: any[]; // assessment_scales rows
   discharge?: any;
+  contratante?: ContratanteData | null;
   extra?: Record<string, string>;
+};
+
+export type ContratanteData = {
+  nome?: string | null;
+  cpf?: string | null;
+  rg?: string | null;
+  vinculo?: string | null;
+  telefone?: string | null;
+  endereco?: string | null;
+  email?: string | null;
 };
 
 function fmtScale(scales: any[] | undefined, code: string): string {
