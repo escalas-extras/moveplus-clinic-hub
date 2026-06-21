@@ -3,14 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { fmtDate } from "@/lib/format";
 import { ArrowRight, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export function ReassessmentComparator({ patientId }: { patientId: string }) {
+  const { clinicId } = useActiveClinic();
   const q = useQuery({
-    queryKey: ["reaval-compare", patientId],
+    queryKey: ["reaval-compare", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
         .from("assessments")
         .select("id, data, tipo, eva, queixa_principal, objetivos, condutas")
+        .eq("clinic_id", clinicId!)
         .eq("patient_id", patientId)
         .order("data", { ascending: false })
         .limit(2);

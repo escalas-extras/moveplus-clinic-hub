@@ -12,6 +12,7 @@ import { LogOut, FileDown, Lock } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { downloadPdf } from "@/lib/pdf";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 const MOTIVOS = [
   "Objetivos terapêuticos alcançados",
@@ -26,6 +27,7 @@ const MOTIVOS = [
 export function DischargePanel({ patientId, patient }: { patientId: string; patient: any }) {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { clinicId } = useActiveClinic();
   const [form, setForm] = useState({
     data_alta: new Date().toISOString().slice(0, 10),
     motivo: MOTIVOS[0],
@@ -37,7 +39,8 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
   });
 
   const discharges = useQuery({
-    queryKey: ["discharges", patientId],
+    queryKey: ["discharges", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("patient_discharges")
@@ -50,9 +53,15 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
   });
 
   const myProf = useQuery({
-    queryKey: ["my-prof", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => (await supabase.from("professionals").select("id, nome, conselho, registro, profissao").eq("profile_id", user!.id).maybeSingle()).data,
+    queryKey: ["my-prof", clinicId, user?.id],
+    enabled: !!user?.id && !!clinicId,
+    queryFn: async () =>
+      (await supabase
+        .from("professionals")
+        .select("id, nome, conselho, registro, profissao")
+        .eq("clinic_id", clinicId!)
+        .eq("profile_id", user!.id)
+        .maybeSingle()).data,
   });
 
   const create = useMutation({
@@ -64,13 +73,13 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
         ...form,
       });
       if (error) throw error;
-      await supabase.from("patients").update({ data_alta: form.data_alta }).eq("id", patientId);
+      await supabase.from("patients").update({ data_alta: form.data_alta }).eq("clinic_id", clinicId!).eq("id", patientId);
     },
     onSuccess: () => {
       toast.success("Alta registrada");
-      qc.invalidateQueries({ queryKey: ["discharges", patientId] });
-      qc.invalidateQueries({ queryKey: ["patient", patientId] });
-      qc.invalidateQueries({ queryKey: ["timeline", patientId] });
+      qc.invalidateQueries({ queryKey: ["discharges", clinicId, patientId] });
+      qc.invalidateQueries({ queryKey: ["patient", clinicId, patientId] });
+      qc.invalidateQueries({ queryKey: ["timeline", clinicId, patientId] });
       setForm({ ...form, objetivos_alcancados: "", objetivos_pendentes: "", recomendacoes: "", plano_domiciliar: "", observacoes: "" });
     },
     onError: (e: any) => toast.error(e.message),
@@ -81,7 +90,7 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
       const { error } = await supabase.from("patient_discharges").update({ locked_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Alta assinada"); qc.invalidateQueries({ queryKey: ["discharges", patientId] }); },
+    onSuccess: () => { toast.success("Alta assinada"); qc.invalidateQueries({ queryKey: ["discharges", clinicId, patientId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
