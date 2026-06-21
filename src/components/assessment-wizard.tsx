@@ -22,6 +22,7 @@ import {
   detectDiagnoses, PROFILE_COLOR, PROFILE_LABEL,
   type ClinicalProfile, type DiagnosisCatalogItem,
 } from "@/lib/clinical-profiles";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 const STEPS = [
   { key: "identificacao", label: "Identificação", icon: User },
@@ -164,8 +165,9 @@ function fromAssessment(a: any): WizardPayload {
 }
 
 // Mapeia o payload para a row da tabela assessments
-function toRow(v: WizardPayload, patientId: string) {
+function toRow(v: WizardPayload, patientId: string, clinicId: string) {
   return {
+    clinic_id: clinicId,
     patient_id: patientId,
     professional_id: v.professional_id,
     tipo: v.tipo,
@@ -217,6 +219,7 @@ type Props = {
 
 export function AssessmentWizard({ patientId, patient, assessment, onDone }: Props) {
   const isEdit = !!assessment?.id;
+  const { clinicId } = useActiveClinic();
   const qc = useQueryClient();
   const [stepIdx, setStepIdx] = useState<number>(assessment?.wizard_step ?? 0);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -247,11 +250,13 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   });
 
   const profs = useQuery({
-    queryKey: ["professionals-active"],
+    queryKey: ["professionals-active", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("professionals")
         .select("id, nome, profissao, conselho, registro")
+        .eq("clinic_id", clinicId!)
         .eq("situacao", "ativo")
         .order("nome");
       return data ?? [];
@@ -384,11 +389,12 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const save = useMutation({
     mutationFn: async (finalize: boolean) => {
       const v = getValues();
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
       if (!v.professional_id) throw new Error("Selecione o profissional");
       if (finalize && !v.queixa_principal.trim()) throw new Error("Queixa principal obrigatória para finalizar");
 
       const { data: u } = await supabase.auth.getUser();
-      const row = toRow(v, patientId);
+      const row = toRow(v, patientId, clinicId);
       const extras: any = {
         wizard_step: stepIdx,
         wizard_completed: finalize,
@@ -401,7 +407,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           extras.status = "finalizada";
           extras.locked_at = new Date().toISOString();
         }
-        const { error } = await supabase.from("assessments").update({ ...row, ...extras } as any).eq("id", id!);
+        const { error } = await supabase.from("assessments").update({ ...row, ...extras } as any).eq("clinic_id", clinicId).eq("id", id!);
         if (error) throw error;
       } else {
         const insertRow: any = {
@@ -437,7 +443,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
     },
     onSuccess: (_d, finalize) => {
       toast.success(finalize ? "Avaliação finalizada" : "Avaliação salva");
-      qc.invalidateQueries({ queryKey: ["assessments", patientId] });
+      qc.invalidateQueries({ queryKey: ["assessments", clinicId, patientId] });
       onDone();
     },
     onError: (e: any) => toast.error(e.message),
