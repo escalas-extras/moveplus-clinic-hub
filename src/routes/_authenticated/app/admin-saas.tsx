@@ -54,6 +54,9 @@ import {
   togglePlanActive,
   reorderPlans,
   listSaasAudit,
+  resendOwnerInvite,
+  cancelOwnerInvite,
+  changeClinicOwner,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
 import { supabase } from "@/integrations/supabase/client";
