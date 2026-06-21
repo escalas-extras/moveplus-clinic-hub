@@ -44,20 +44,15 @@ export function PatientForm({
   const sexo = watch("sexo");
   const situacao = watch("situacao");
 
-  // Normaliza payload: converte strings vazias em null (evita erro em colunas date/uuid).
-  const DATE_FIELDS = new Set(["data_nascimento"]);
+  // Normaliza payload: converte strings vazias em null para evitar erro em colunas date/uuid.
   function normalize(v: PatientInput): PatientInput {
     const out: any = {};
     for (const [k, val] of Object.entries(v)) {
       if (typeof val === "string") {
         const trimmed = val.trim();
-        if (trimmed === "") {
-          out[k] = DATE_FIELDS.has(k) || k !== "nome_completo" ? null : "";
-        } else {
-          out[k] = trimmed;
-        }
+        out[k] = trimmed === "" && k !== "nome_completo" ? null : trimmed;
       } else {
-        out[k] = val;
+        out[k] = val ?? null;
       }
     }
     return out as PatientInput;
