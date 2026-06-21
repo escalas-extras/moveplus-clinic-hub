@@ -2670,6 +2670,7 @@ export type Database = {
         | "physical_educator"
         | "physician"
         | "other"
+        | "super_admin"
       appointment_status: "agendado" | "confirmado" | "realizado" | "cancelado"
       assessment_module_type:
         | "geral"
@@ -2861,6 +2862,7 @@ export const Constants = {
         "physical_educator",
         "physician",
         "other",
+        "super_admin",
       ],
       appointment_status: ["agendado", "confirmado", "realizado", "cancelado"],
       assessment_module_type: [
