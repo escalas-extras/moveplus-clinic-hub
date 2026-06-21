@@ -77,10 +77,11 @@ export function useActiveClinic(): ActiveClinicContext {
   const { user } = useAuth();
   const fetchSupport = useServerFn(getActiveSupportSession);
   const { data, isLoading } = useQuery({
-    queryKey: ["active-clinic", user?.id],
+    queryKey: ["active-clinic", "support-aware-v2", user?.id],
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 0,
     gcTime: 60_000,
+    refetchOnMount: "always",
     queryFn: async () => {
       const [active, support] = await Promise.all([
         fetchActiveClinic(user!.id),
