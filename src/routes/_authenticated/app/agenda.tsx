@@ -537,3 +537,101 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
     </Dialog>
   );
 }
+
+/* ───────────────────────── EDIT DIALOG ───────────────────────── */
+
+function EditAppointmentDialog({ appt, onClose, update, patients, profs, disabled }: {
+  appt: any | null;
+  onClose: () => void;
+  update: { mutate: (v: any) => void; isPending: boolean };
+  patients: any[];
+  profs: any[];
+  disabled: boolean;
+}) {
+  const open = !!appt;
+  const { register, handleSubmit, setValue, watch, reset } = useForm<Form & { status: Status }>({
+    defaultValues: {
+      patient_id: "", professional_id: "", data: "", horario: "08:00",
+      duracao_min: 60, observacao: "", status: "agendado",
+    },
+  });
+
+  // Reset form whenever a new appointment is opened
+  useMemo(() => {
+    if (appt) {
+      reset({
+        patient_id: appt.patient_id ?? "",
+        professional_id: appt.professional_id ?? "",
+        data: appt.data ?? "",
+        horario: String(appt.horario ?? "").slice(0, 5),
+        duracao_min: Number(appt.duracao_min ?? 60),
+        observacao: appt.observacao ?? "",
+        status: (appt.status ?? "agendado") as Status,
+      });
+    }
+  }, [appt, reset]);
+
+  const patient_id = watch("patient_id");
+  const professional_id = watch("professional_id");
+  const status = watch("status");
+
+  function onSubmit(v: Form & { status: Status }) {
+    if (!appt) return;
+    update.mutate({ ...v, id: appt.id });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !update.isPending) onClose(); }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar agendamento</DialogTitle></DialogHeader>
+        {disabled && (
+          <div className="rounded-md bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-xs px-3 py-2">
+            Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.
+          </div>
+        )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+          <div>
+            <Label className="text-xs uppercase">Paciente</Label>
+            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs uppercase">Profissional</Label>
+            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" {...register("horario")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
+          </div>
+          <div>
+            <Label className="text-xs uppercase">Status</Label>
+            <Select value={status} onValueChange={(v) => setValue("status", v as Status)} disabled={disabled}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["agendado", "confirmado", "realizado", "cancelado"] as Status[]).map((s) => (
+                  <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs uppercase">Observação</Label>
+            <Textarea rows={2} {...register("observacao")} disabled={disabled} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={update.isPending}>Cancelar</Button>
+            <Button type="submit" disabled={disabled || update.isPending || !patient_id || !professional_id}>
+              {update.isPending ? "Salvando…" : "Salvar alterações"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
