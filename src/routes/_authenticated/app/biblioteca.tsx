@@ -8,8 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Star, StarOff, BookOpen, Dumbbell, ClipboardList, FileText, Megaphone, GraduationCap, ShieldCheck, Search } from "lucide-react";
+import { Star, StarOff, BookOpen, Dumbbell, ClipboardList, FileText, Megaphone, GraduationCap, ShieldCheck, Search, FileDown } from "lucide-react";
 import { toast } from "sonner";
+import { LibraryContentView } from "@/components/library/library-content-view";
+import { buildLibraryContentPdfOpts } from "@/lib/library-pdf";
+import { downloadPdf } from "@/lib/pdf";
 
 export const Route = createFileRoute("/_authenticated/app/biblioteca")({
   component: BibliotecaPage,
@@ -156,17 +159,41 @@ function BibliotecaPage() {
       </div>
 
       <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{open?.title}</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-xl">{open?.title}</DialogTitle></DialogHeader>
           {open && (
-            <div className="space-y-3">
-              {open.summary && <p className="text-sm text-muted-foreground">{open.summary}</p>}
-              {open.body && <pre className="whitespace-pre-wrap text-sm font-sans">{open.body}</pre>}
-              <div className="flex flex-wrap gap-1 pt-2 border-t">
+            <div className="space-y-4">
+              {open.summary && (
+                <p className="text-sm text-muted-foreground italic border-l-2 border-primary/30 pl-3">{open.summary}</p>
+              )}
+              {open.body && <LibraryContentView body={open.body} />}
+              <div className="flex flex-wrap gap-1 pt-3 border-t">
                 {(open.tags ?? []).map((t) => <Badge key={t} variant="secondary">{t}</Badge>)}
               </div>
               {open.author && <p className="text-xs text-muted-foreground">Autor: {open.author}</p>}
-              <Button onClick={() => window.print()}>Imprimir / Salvar PDF</Button>
+              <div className="flex justify-end pt-2 border-t">
+                <Button
+                  onClick={async () => {
+                    if (!open) return;
+                    try {
+                      await downloadPdf(
+                        buildLibraryContentPdfOpts({
+                          title: open.title,
+                          type: open.type,
+                          summary: open.summary,
+                          body: open.body || "",
+                          author: open.author,
+                          tags: open.tags,
+                        }),
+                      );
+                    } catch (e) {
+                      toast.error("Falha ao gerar PDF: " + (e as Error).message);
+                    }
+                  }}
+                >
+                  <FileDown className="h-4 w-4 mr-2" /> Gerar PDF
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
