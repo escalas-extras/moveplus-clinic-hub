@@ -34,13 +34,14 @@ async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | n
 }
 
 export async function buildPdf(opts: BuildPdfOpts) {
-  const { data: clinic } = await supabase
+  const { data: cid } = await supabase.rpc("current_clinic_id");
+  let q = supabase
     .from("clinic_settings")
     .select(
       "nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url",
-    )
-    .limit(1)
-    .maybeSingle();
+    );
+  q = cid ? q.eq("clinic_id", cid as string) : q.limit(1);
+  const { data: clinic } = await q.maybeSingle();
 
   const c = (clinic ?? {}) as ClinicData & { logo_url?: string | null };
   const logo = await loadClinicLogo(c.logo_url);

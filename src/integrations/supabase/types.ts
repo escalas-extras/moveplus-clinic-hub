@@ -1080,12 +1080,54 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_members: {
+        Row: {
+          active: boolean
+          clinic_id: string
+          created_at: string
+          id: string
+          is_default: boolean
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          clinic_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_members_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_settings: {
         Row: {
           app_name: string | null
           assinatura_padrao_url: string | null
           cep: string | null
           cidade: string | null
+          clinic_id: string | null
           cnpj: string | null
           created_at: string
           crefito_default: string | null
@@ -1108,6 +1150,7 @@ export type Database = {
           assinatura_padrao_url?: string | null
           cep?: string | null
           cidade?: string | null
+          clinic_id?: string | null
           cnpj?: string | null
           created_at?: string
           crefito_default?: string | null
@@ -1130,6 +1173,7 @@ export type Database = {
           assinatura_padrao_url?: string | null
           cep?: string | null
           cidade?: string | null
+          clinic_id?: string | null
           cnpj?: string | null
           created_at?: string
           crefito_default?: string | null
@@ -1147,7 +1191,15 @@ export type Database = {
           telefones?: string[] | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clinic_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clinical_documents: {
         Row: {
@@ -2634,6 +2686,7 @@ export type Database = {
     }
     Functions: {
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
+      current_clinic_id: { Args: never; Returns: string }
       current_professional_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -2642,6 +2695,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_in: {
+        Args: { _clinic_id: string; _role: string }
+        Returns: boolean
+      }
+      is_member_of: { Args: { _clinic_id: string }; Returns: boolean }
       validate_document_by_hash: {
         Args: { _hash: string }
         Returns: {
@@ -2670,6 +2728,7 @@ export type Database = {
         | "physical_educator"
         | "physician"
         | "other"
+        | "super_admin"
       appointment_status: "agendado" | "confirmado" | "realizado" | "cancelado"
       assessment_module_type:
         | "geral"
@@ -2861,6 +2920,7 @@ export const Constants = {
         "physical_educator",
         "physician",
         "other",
+        "super_admin",
       ],
       appointment_status: ["agendado", "confirmado", "realizado", "cancelado"],
       assessment_module_type: [

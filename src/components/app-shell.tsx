@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X,
   ShieldCheck, Activity, FileText, RefreshCw, BarChart3, BookOpen, Home as HomeIcon,
-  Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search,
+  Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
 
-type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean };
+type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean };
 type NavGroup = { title: string; items: NavItemDef[] };
 
 const groups: NavGroup[] = [
@@ -50,6 +50,7 @@ const groups: NavGroup[] = [
     title: "Sistema",
     items: [
       { to: "/app/usuarios", label: "Usuários", icon: ShieldCheck, adminOnly: true },
+      { to: "/app/admin-saas", label: "Admin SaaS", icon: Building2, superAdminOnly: true },
       { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
     ],
   },
@@ -57,7 +58,8 @@ const groups: NavGroup[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isAdmin } = useRoles(user?.id);
+  const { isAdmin, roles } = useRoles(user?.id);
+  const isSuperAdmin = (roles as any[]).includes("super_admin");
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const brand = useBranding();
@@ -68,7 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const visibleGroups = groups
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.adminOnly || isAdmin) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.superAdminOnly || isSuperAdmin)) }))
     .filter((g) => g.items.length > 0);
 
   const userName = (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
