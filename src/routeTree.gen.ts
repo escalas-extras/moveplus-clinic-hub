@@ -28,6 +28,7 @@ import { Route as AuthenticatedAppDiferenciaisRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_authenticated/app/dashboard-clinico'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app/configuracoes'
 import { Route as AuthenticatedAppBibliotecaRouteImport } from './routes/_authenticated/app/biblioteca'
+import { Route as AuthenticatedAppAvaliacoesRouteImport } from './routes/_authenticated/app/avaliacoes'
 import { Route as AuthenticatedAppAgendaRouteImport } from './routes/_authenticated/app/agenda'
 import { Route as AuthenticatedAppAdminSaasRouteImport } from './routes/_authenticated/app/admin-saas'
 import { Route as AuthenticatedAppPacientesIndexRouteImport } from './routes/_authenticated/app/pacientes/index'
@@ -140,6 +141,12 @@ const AuthenticatedAppBibliotecaRoute =
     path: '/app/biblioteca',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppAvaliacoesRoute =
+  AuthenticatedAppAvaliacoesRouteImport.update({
+    id: '/app/avaliacoes',
+    path: '/app/avaliacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppAgendaRoute = AuthenticatedAppAgendaRouteImport.update({
   id: '/app/agenda',
   path: '/app/agenda',
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/validar/$hash': typeof ValidarHashRoute
   '/app/admin-saas': typeof AuthenticatedAppAdminSaasRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
+  '/app/avaliacoes': typeof AuthenticatedAppAvaliacoesRoute
   '/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
@@ -195,6 +203,7 @@ export interface FileRoutesByTo {
   '/validar/$hash': typeof ValidarHashRoute
   '/app/admin-saas': typeof AuthenticatedAppAdminSaasRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
+  '/app/avaliacoes': typeof AuthenticatedAppAvaliacoesRoute
   '/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
@@ -221,6 +230,7 @@ export interface FileRoutesById {
   '/validar/$hash': typeof ValidarHashRoute
   '/_authenticated/app/admin-saas': typeof AuthenticatedAppAdminSaasRoute
   '/_authenticated/app/agenda': typeof AuthenticatedAppAgendaRoute
+  '/_authenticated/app/avaliacoes': typeof AuthenticatedAppAvaliacoesRoute
   '/_authenticated/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/app/dashboard-clinico': typeof AuthenticatedAppDashboardClinicoRoute
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/validar/$hash'
     | '/app/admin-saas'
     | '/app/agenda'
+    | '/app/avaliacoes'
     | '/app/biblioteca'
     | '/app/configuracoes'
     | '/app/dashboard-clinico'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/validar/$hash'
     | '/app/admin-saas'
     | '/app/agenda'
+    | '/app/avaliacoes'
     | '/app/biblioteca'
     | '/app/configuracoes'
     | '/app/dashboard-clinico'
@@ -296,6 +308,7 @@ export interface FileRouteTypes {
     | '/validar/$hash'
     | '/_authenticated/app/admin-saas'
     | '/_authenticated/app/agenda'
+    | '/_authenticated/app/avaliacoes'
     | '/_authenticated/app/biblioteca'
     | '/_authenticated/app/configuracoes'
     | '/_authenticated/app/dashboard-clinico'
@@ -457,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppBibliotecaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/avaliacoes': {
+      id: '/_authenticated/app/avaliacoes'
+      path: '/app/avaliacoes'
+      fullPath: '/app/avaliacoes'
+      preLoaderRoute: typeof AuthenticatedAppAvaliacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/agenda': {
       id: '/_authenticated/app/agenda'
       path: '/app/agenda'
@@ -491,6 +511,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAdminSaasRoute: typeof AuthenticatedAppAdminSaasRoute
   AuthenticatedAppAgendaRoute: typeof AuthenticatedAppAgendaRoute
+  AuthenticatedAppAvaliacoesRoute: typeof AuthenticatedAppAvaliacoesRoute
   AuthenticatedAppBibliotecaRoute: typeof AuthenticatedAppBibliotecaRoute
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppDashboardClinicoRoute: typeof AuthenticatedAppDashboardClinicoRoute
@@ -512,6 +533,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAdminSaasRoute: AuthenticatedAppAdminSaasRoute,
   AuthenticatedAppAgendaRoute: AuthenticatedAppAgendaRoute,
+  AuthenticatedAppAvaliacoesRoute: AuthenticatedAppAvaliacoesRoute,
   AuthenticatedAppBibliotecaRoute: AuthenticatedAppBibliotecaRoute,
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppDashboardClinicoRoute: AuthenticatedAppDashboardClinicoRoute,
