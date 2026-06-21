@@ -51,7 +51,7 @@ function AgendaPage() {
   const create = useMutation({
     mutationFn: async (v: Form) => {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id });
+      const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id } as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Agendado"); setOpen(false); qc.invalidateQueries({ queryKey: ["appts"] }); },

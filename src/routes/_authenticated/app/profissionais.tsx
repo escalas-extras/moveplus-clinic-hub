@@ -29,7 +29,7 @@ function ProfPage() {
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
-      const { error } = await supabase.from("professionals").insert(v);
+      const { error } = await supabase.from("professionals").insert(v as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Profissional cadastrado"); setOpen(false); qc.invalidateQueries({ queryKey: ["professionals"] }); },

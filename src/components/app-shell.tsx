@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
+import { SupportBanner } from "@/components/support-banner";
 
 type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean; feature?: string };
 type NavGroup = { title: string; items: NavItemDef[]; platform?: boolean };
@@ -101,7 +102,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const todayLabel = today.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col">
+      <SupportBanner />
+      <div className="flex flex-1 min-h-0">
+
       {/* Mobile top bar */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-16 glass-topbar flex items-center justify-between px-4">
         <div className="flex min-w-0 items-center gap-2">
@@ -198,9 +202,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="px-6 py-8 sm:px-10 lg:px-12 lg:py-12 max-w-[1400px] mx-auto">{children}</div>
       </main>
+      </div>
     </div>
   );
 }
+
 
 function NavItem({ to, exact, icon: Icon, label, onClick }: { to: string; exact?: boolean; icon: typeof LayoutDashboard; label: string; onClick: () => void }) {
   const loc = useLocation();

@@ -727,18 +727,41 @@ export const listPlanChangeAudit = createServerFn({ method: "GET" })
 // ------------------------------------------------------------
 export const listSaasAudit = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        clinic_id: z.string().uuid().optional(),
+        user_id: z.string().uuid().optional(),
+        action: z.string().optional(),
+        from: z.string().optional(),
+        to: z.string().optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
+    let q = supabaseAdmin
       .from("saas_audit_log")
-      .select("id, created_at, user_id, action, entity_type, entity_id, old_data, new_data")
+      .select(
+        "id, created_at, user_id, action, entity_type, entity_id, clinic_id, old_data, new_data, details, ip_address",
+      )
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(data.limit ?? 200);
+    if (data.clinic_id) q = q.eq("clinic_id", data.clinic_id);
+    if (data.user_id) q = q.eq("user_id", data.user_id);
+    if (data.action) q = q.ilike("action", `%${data.action}%`);
+    if (data.from) q = q.gte("created_at", data.from);
+    if (data.to) q = q.lte("created_at", data.to);
+    const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
     const userIds = Array.from(
       new Set((rows ?? []).map((r: any) => r.user_id).filter(Boolean)),
+    );
+    const clinicIds = Array.from(
+      new Set((rows ?? []).map((r: any) => r.clinic_id).filter(Boolean)),
     );
     const emails: Record<string, string> = {};
     if (userIds.length) {
@@ -748,5 +771,18 @@ export const listSaasAudit = createServerFn({ method: "GET" })
         .in("id", userIds);
       for (const p of profiles ?? []) emails[p.id] = p.email ?? "";
     }
-    return (rows ?? []).map((r: any) => ({ ...r, user_email: emails[r.user_id] ?? null }));
+    const clinicNames: Record<string, string> = {};
+    if (clinicIds.length) {
+      const { data: cs } = await supabaseAdmin
+        .from("clinics")
+        .select("id, nome")
+        .in("id", clinicIds);
+      for (const c of cs ?? []) clinicNames[c.id] = c.nome;
+    }
+    return (rows ?? []).map((r: any) => ({
+      ...r,
+      user_email: emails[r.user_id] ?? null,
+      clinic_name: r.clinic_id ? clinicNames[r.clinic_id] ?? null : null,
+    }));
   });
+
