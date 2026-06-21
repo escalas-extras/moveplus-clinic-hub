@@ -60,7 +60,7 @@ export type SupportGuardClickableProps = {
   supportMode: boolean;
   tooltip?: string;
   toastMessage?: string;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
   onClick?: () => void;
 };
 
@@ -75,7 +75,7 @@ export function SupportGuardClickable({
   const tip = tooltip || DEFAULT_TOOLTIP;
 
   if (!supportMode) {
-    return React.cloneElement(children, { onClick });
+    return React.cloneElement(children, { onClick } as any);
   }
 
   return (
@@ -96,7 +96,7 @@ export function SupportGuardClickable({
             disabled: true,
             "aria-disabled": "true",
             tabIndex: -1,
-          })}
+          } as any)}
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs text-center">
