@@ -1032,10 +1032,10 @@ async function drawQR(
     const url = `${origin}/validar/${hash}`;
     const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 180 });
     const size = 42;
-    // Contratos: bloco de testemunhas ocupa o canto inferior direito, então o
-    // QR vai centralizado entre as colunas de assinatura para não sobrepor.
+    // Contratos: bloco de testemunhas ocupa toda a largura inferior, então o
+    // QR vai à ESQUERDA (acima do rodapé) para não colidir com a Testemunha 2.
     // Demais documentos: canto inferior direito (padrão institucional).
-    const x = isContract ? (W / 2) - (size / 2) : W - M - size;
+    const x = isContract ? M : W - M - size;
     const y = H - S.FOOTER_H - size - 6;
     doc.addImage(dataUrl, "PNG", x, y, size, size);
     doc.setFont("helvetica", "normal");
