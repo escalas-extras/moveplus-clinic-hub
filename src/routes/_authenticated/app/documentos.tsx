@@ -352,7 +352,7 @@ function DocumentosPage() {
       a.download = `${(template?.name || "documento").replace(/\s+/g, "_")}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      qc.invalidateQueries({ queryKey: ["clinical-documents", patientId] });
+      qc.invalidateQueries({ queryKey: ["clinical-documents", activeClinicId, patientId] });
       refetchEmitted();
     },
     onError: (e: any) => toast.error(e.message || "Erro ao emitir"),
