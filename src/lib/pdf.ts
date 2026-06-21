@@ -608,7 +608,7 @@ export async function buildPdf(opts: {
     const council = (prof.conselho || "CREFITO").trim();
     // Se o conselho já contém um número (ex.: "CREFITO-8 12345"), usa direto.
     if (/\d/.test(council) && !prof.registro) return council;
-    return `${council} ${num}`;
+    return `${council}   ${num}`;
   }
 
   function buildRoleLine(prof?: Professional | null): string {
