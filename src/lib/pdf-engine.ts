@@ -817,11 +817,10 @@ function drawSignatureArea(
   sigH: number,
   isContract: boolean,
 ) {
-  // Anchor: 24pt below content (breathing room), but not past the footer reservation
-  // Reserva extra abaixo da assinatura para QR (somente contratos).
-  const qrReserve = isContract ? 56 : 0;
-  // Sig ancorada sempre na base útil — compose reserva exatamente esse espaço,
-  // então não há sobreposição com o conteúdo nem com o QR/rodapé.
+  // Anchor: assinatura ancorada na base útil, com reserva extra abaixo para
+  // o QR (somente contratos). compose reserva exatamente esse espaço,
+  // evitando colisão com conteúdo, QR ou rodapé.
+  const qrReserve = isContract ? 64 : 0;
   const top = H - S.FOOTER_H - 16 - sigH - qrReserve;
 
   // Local + data discreet, right aligned
@@ -839,7 +838,7 @@ function drawSignatureArea(
   const profRegistry = buildRegistry(prof);
 
   if (isContract) {
-    drawContractSignatures(doc, opts, c, W, M, top + 16, profNome, profRole, profRegistry);
+    drawContractSignatures(doc, opts, c, W, M, top + 18, profNome, profRole, profRegistry);
   } else {
     drawProfessionalSignature(doc, c, W, M, top + 16, profNome, profRole, profRegistry);
   }
@@ -851,7 +850,7 @@ function buildRegistry(prof?: Professional | null): string | null {
   const council = cleanText(prof.conselho ?? "") || "CREFITO";
   if (!num) return null;
   if (/\d/.test(council) && !prof.registro) return council;
-  return `${council} ${num}`;
+  return `${council} nº ${num}`;
 }
 
 function drawContractSignatures(
@@ -866,37 +865,34 @@ function drawContractSignatures(
   profRegistry: string | null,
 ) {
   const colW = (W - 2 * M) / 2;
-  const sigW = 230;
-  const row1Y = startY + 28;
-  const row2Y = row1Y + 70;
+  const sigW = 210;
+  const row1Y = startY + 30;
+  const row2Y = row1Y + 88;
 
   const ct = opts.contratante ?? null;
   const ctNome = cleanText(ct?.nome ?? "") || null;
   const ctCpf = cleanText(ct?.cpf ?? "");
   const ctVinculo = cleanText(ct?.vinculo ?? "");
-  const isResponsavel = ctVinculo && !/próprio paciente/i.test(ctVinculo);
+  const isResponsavel = !!ctVinculo && !/próprio paciente/i.test(ctVinculo);
   const ps = opts.patientSnapshot ?? null;
+  const psNome = cleanText(ps?.nome ?? "");
 
-  // CONTRATANTE
-  drawSigCol(doc, M + colW / 2, row1Y, sigW, {
-    label: "CONTRATANTE",
-    lines: [
-      ctNome ? { text: ctNome, bold: true, size: T.sigName } : { text: "Nome: ____________________", muted: true, size: T.sigRole },
-      ctCpf ? { text: `CPF ${ctCpf}`, size: T.sigMeta, muted: true } : { text: "CPF: ____________________", muted: true, size: T.sigMeta },
-      ...(isResponsavel ? [{ text: `(${ctVinculo})`, size: T.sigMeta, muted: true } as const] : []),
-    ],
-  });
-  if (isResponsavel && cleanText(ps?.nome ?? "")) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...C.meta);
-    doc.text(
-      `Paciente beneficiário: ${ps!.nome}${cleanText(ps?.cpf ?? "") ? ` · CPF ${ps!.cpf}` : ""}`,
-      M + colW / 2,
-      row1Y + 56,
-      { align: "center" },
-    );
+  // CONTRATANTE — inclui paciente beneficiário subordinado
+  const contratanteLines: SigLine[] = [
+    ctNome
+      ? { text: ctNome, bold: true, size: T.sigName }
+      : { text: "Nome: ____________________", muted: true, size: T.sigRole },
+    ctCpf
+      ? { text: `CPF ${ctCpf}`, size: T.sigMeta, muted: true }
+      : { text: "CPF: ____________________", muted: true, size: T.sigMeta },
+    ...(isResponsavel ? [{ text: ctVinculo, size: T.sigMeta, muted: true } as SigLine] : []),
+  ];
+  if (isResponsavel && psNome) {
+    contratanteLines.push({ text: " ", size: 4 });
+    contratanteLines.push({ text: "Paciente beneficiário", size: 7, muted: true });
+    contratanteLines.push({ text: psNome, size: T.sigMeta, italic: true });
   }
+  drawSigCol(doc, M + colW / 2, row1Y, sigW, { label: "CONTRATANTE", lines: contratanteLines });
 
   // CONTRATADA
   const cnpj = cleanText(c.cnpj ?? "");
@@ -906,13 +902,15 @@ function drawContractSignatures(
     lines: [
       profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
       { text: profRole, size: T.sigRole },
-      ...(profRegistry ? [{ text: profRegistry, bold: true, size: T.sigMeta } as const] : []),
-      ...(razao ? [{ text: razao, size: T.sigMeta, muted: true } as const] : []),
-      ...(cnpj ? [{ text: `CNPJ ${cnpj}`, size: T.sigMeta, muted: true } as const] : []),
+      profRegistry
+        ? { text: profRegistry, bold: true, size: T.sigMeta }
+        : { text: "CREFITO: ____________________", muted: true, size: T.sigMeta },
+      ...(razao ? [{ text: razao, size: T.sigMeta, muted: true } as SigLine] : []),
+      ...(cnpj ? [{ text: `CNPJ ${cnpj}`, size: T.sigMeta, muted: true } as SigLine] : []),
     ],
   });
 
-  // Testemunhas
+  // Testemunhas — mesma largura das colunas superiores
   drawSigCol(doc, M + colW / 2, row2Y, sigW, {
     label: "TESTEMUNHA 1",
     lines: [
