@@ -520,6 +520,21 @@ function DocumentosPage() {
           )}
 
 
+          {activeClinicId && !professional && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm space-y-2">
+              <div className="font-medium text-amber-900 dark:text-amber-200">
+                Profissional responsável não cadastrado
+              </div>
+              <p className="text-amber-800 dark:text-amber-300/90 text-xs">
+                Cadastre um profissional responsável em <strong>Profissionais</strong> antes de emitir documentos clínicos.
+                O CREFITO padrão em Configurações é apenas administrativo e não substitui o cadastro do profissional.
+              </p>
+              <Link to="/app/profissionais">
+                <Button size="sm" variant="outline">Cadastrar profissional</Button>
+              </Link>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2 pt-2">
             <Button
               variant="outline"
@@ -530,13 +545,13 @@ function DocumentosPage() {
             </Button>
             <Button
               variant="outline"
-              disabled={!template || !patient}
+              disabled={!template || !patient || !professional}
               onClick={() => previewPdf(buildPdfOpts())}
             >
               <FileText className="h-4 w-4 mr-2" /> Abrir PDF
             </Button>
             <Button
-              disabled={!template || !patient || emit.isPending}
+              disabled={!template || !patient || !professional || emit.isPending}
               onClick={() => emit.mutate()}
             >
               <Save className="h-4 w-4 mr-2" />
