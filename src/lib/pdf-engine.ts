@@ -853,8 +853,8 @@ function drawContractSignatures(
 ) {
   const colW = (W - 2 * M) / 2;
   const sigW = 230;
-  const row1Y = startY + 38;
-  const row2Y = row1Y + 86;
+  const row1Y = startY + 28;
+  const row2Y = row1Y + 70;
 
   const ct = opts.contratante ?? null;
   const ctNome = cleanText(ct?.nome ?? "") || null;
