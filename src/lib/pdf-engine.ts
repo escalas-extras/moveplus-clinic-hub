@@ -565,7 +565,9 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
 
 
   doc.setPage(lastPageIdx);
-  drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigDraw, isContract);
+  if (!opts.hideSignature) {
+    drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigDraw, isContract);
+  }
 
   // Footers + QR
   const pageCount = doc.getNumberOfPages();
