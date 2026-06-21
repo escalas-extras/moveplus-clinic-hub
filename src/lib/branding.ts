@@ -47,7 +47,7 @@ async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
   const { data } = await supabase
     .from("clinic_settings")
     .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default")
-    .eq("clinic_id", cid as string)
+    .eq("clinic_id", cid)
     .maybeSingle();
   if (!data) return DEFAULTS;
   const resolvedLogo = await resolveLogo(data.logo_url);
