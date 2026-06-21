@@ -949,6 +949,39 @@ export type Database = {
         }
         Relationships: []
       }
+      canonical_document_templates: {
+        Row: {
+          created_at: string
+          doc_type: string
+          id: string
+          is_default: boolean
+          layout_config: Json
+          name: string
+          sections: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doc_type: string
+          id?: string
+          is_default?: boolean
+          layout_config?: Json
+          name: string
+          sections: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doc_type?: string
+          id?: string
+          is_default?: boolean
+          layout_config?: Json
+          name?: string
+          sections?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       catalog_diagnoses: {
         Row: {
           active: boolean
@@ -3206,6 +3239,10 @@ export type Database = {
       }
     }
     Functions: {
+      apply_canonical_templates: {
+        Args: { _clinic_id: string }
+        Returns: undefined
+      }
       can_access_clinic: { Args: { _clinic_id: string }; Returns: boolean }
       can_access_patient: { Args: { _patient_id: string }; Returns: boolean }
       can_manage_clinic: { Args: { _clinic_id: string }; Returns: boolean }
