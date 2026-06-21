@@ -535,7 +535,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
     doc.setPage(i);
     drawFooter(doc, c, W, H, M, i, pageCount);
     if (i === pageCount && opts.validationHash) {
-      await drawQR(doc, opts.validationHash, opts.validationUrlBase, W, H, M);
+      await drawQR(doc, opts.validationHash, opts.validationUrlBase, W, H, M, isContract);
     }
   }
 
