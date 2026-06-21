@@ -117,6 +117,12 @@ export async function buildPdf(opts: {
   professional?: Professional | null;
   validationHash?: string | null;
   validationUrlBase?: string;
+  contratante?: {
+    nome?: string | null;
+    cpf?: string | null;
+    vinculo?: string | null;
+  } | null;
+  patientSnapshot?: { nome?: string | null; cpf?: string | null } | null;
 }) {
 
   const { data: clinic } = await supabase
