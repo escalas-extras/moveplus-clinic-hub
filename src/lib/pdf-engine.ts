@@ -450,18 +450,31 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // ----- Measure groups -----
   const groups: BlockGroup[] = blocks.map((b, i) => measureBlock(doc, b, i, contentW, isContract));
 
-  // ----- Compose with possible compaction -----
-  const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 /*title*/ + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
-  const topYRest = S.M + 28; // páginas 2+: sem cabeçalho, breathing curto no topo
+  // ----- Compose with progressive compaction -----
+  const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYRest = S.M + 28;
   const bottomY = H - S.FOOTER_H - 16;
-  const sigH = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
+  const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
   const usableHRest = bottomY - topYRest;
 
-  let pages = compose(groups, topYFirst, topYRest, bottomY, sigH, S.BLOCK_GAP);
-  // Compaction: se última página ficaria <50% ocupada, tenta com gap menor.
-  if (lastPageFill(pages, usableHRest, sigH) < 0.5 && pages.length > 1) {
-    pages = compose(groups, topYFirst, topYRest, bottomY, sigH, S.BLOCK_GAP_COMPACT);
+  // 3 tiers: relaxed → compact → tight. Tier escolhido = primeiro que produz
+  // última página com ocupação ≥ 50% (ou fewer pages).
+  const tiers: Array<{ gap: number; reserve: number }> = [
+    { gap: S.BLOCK_GAP, reserve: sigDraw },
+    { gap: S.BLOCK_GAP_COMPACT, reserve: Math.round(sigDraw * 0.85) },
+    { gap: S.BLOCK_GAP_TIGHT, reserve: Math.round(sigDraw * 0.7) },
+  ];
+  let pages = compose(groups, topYFirst, topYRest, bottomY, tiers[0].reserve, tiers[0].gap);
+  for (let t = 1; t < tiers.length; t++) {
+    const fill = lastPageFill(pages, usableHRest, sigDraw);
+    if (fill >= 0.5 || pages.length === 1) break;
+    const next = compose(groups, topYFirst, topYRest, bottomY, tiers[t].reserve, tiers[t].gap);
+    // Aceita apenas se reduzir páginas OU aumentar ocupação da última.
+    if (next.length < pages.length || lastPageFill(next, usableHRest, sigDraw) > fill) {
+      pages = next;
+    }
   }
+
 
 
   // ----- Draw -----
