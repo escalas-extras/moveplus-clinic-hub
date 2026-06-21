@@ -374,7 +374,7 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }:
                     type="button"
                     disabled={disabled}
                     onClick={() => onSlotClick(h)}
-                    className="w-full h-10 rounded-md border border-dashed border-transparent text-xs text-transparent hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition disabled:cursor-not-allowed"
+                    className="w-full h-10 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
                   >
                     + Novo agendamento

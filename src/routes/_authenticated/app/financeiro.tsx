@@ -143,6 +143,9 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
   return (
     <>
       <div className="flex justify-end">
+        <Button disabled={supportMode} onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />Novo lançamento
+        </Button>
         <NewEntryDialog open={open} setOpen={setOpen} create={create} patients={patients.data ?? []} profs={profs.data ?? []} disabled={supportMode} />
       </div>
 
@@ -198,7 +201,6 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild><Button disabled={disabled}><Plus className="h-4 w-4 mr-2" />Novo lançamento</Button></DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo lançamento</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
@@ -354,6 +356,9 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   return (
     <>
       <div className="flex justify-end">
+        <Button disabled={supportMode} onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />Novo recibo
+        </Button>
         <NewReceiptDialog
           open={open}
           setOpen={setOpen}
@@ -444,9 +449,6 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button disabled={disabled}><Plus className="h-4 w-4 mr-2" />Novo recibo</Button>
-      </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Emitir recibo</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
