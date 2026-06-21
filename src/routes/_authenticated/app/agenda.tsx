@@ -300,6 +300,15 @@ function AgendaPage() {
           </Card>
         </aside>
       </div>
+
+      <EditAppointmentDialog
+        appt={editing}
+        onClose={() => setEditing(null)}
+        update={update}
+        patients={patients.data ?? []}
+        profs={profs.data ?? []}
+        disabled={supportMode}
+      />
     </div>
   );
 }
