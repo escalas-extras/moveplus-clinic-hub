@@ -24,13 +24,19 @@ function isLikelyImageUrl(url: string): boolean {
 
 async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | null> {
   if (!clinicLogoUrl) return null;
-  let finalUrl = clinicLogoUrl;
+  // Caminho relativo: resolve no bucket de logos (privado, via signed URL).
   if (!/^https?:\/\//.test(clinicLogoUrl)) {
+    // novo bucket padrão
+    const { data: signed } = await supabase.storage
+      .from("clinic-logos")
+      .createSignedUrl(clinicLogoUrl, 60 * 60);
+    if (signed?.signedUrl) return await urlToDataUrl(signed.signedUrl);
+    // fallback legado: bucket `documents`
     const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
-    finalUrl = data.publicUrl;
+    return await urlToDataUrl(data.publicUrl);
   }
-  if (!isLikelyImageUrl(finalUrl)) return null;
-  return await urlToDataUrl(finalUrl);
+  if (!isLikelyImageUrl(clinicLogoUrl)) return null;
+  return await urlToDataUrl(clinicLogoUrl);
 }
 
 export async function buildPdf(opts: BuildPdfOpts) {
