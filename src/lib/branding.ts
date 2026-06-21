@@ -25,6 +25,14 @@ const DEFAULTS: Branding = {
   hasOwnLogo: false,
 };
 
+async function resolveLogo(raw: string | null | undefined): Promise<string | null> {
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  // Caminho relativo: bucket clinic-logos (privado). Gera URL assinada de 1h.
+  const { data } = await supabase.storage.from("clinic-logos").createSignedUrl(raw, 60 * 60);
+  return data?.signedUrl ?? null;
+}
+
 async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
   // Platform context (super_admin sem clínica) sempre usa branding FisioOS.
   if (isPlatformAdmin) return DEFAULTS;
@@ -37,15 +45,16 @@ async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
     .eq("clinic_id", cid as string)
     .maybeSingle();
   if (!data) return DEFAULTS;
+  const resolvedLogo = await resolveLogo(data.logo_url);
   return {
     appName: data.app_name || DEFAULTS.appName,
     clinicName: data.nome_fantasia || DEFAULTS.appName,
     slogan: data.slogan || DEFAULTS.slogan,
-    logoUrl: data.logo_url || null,
+    logoUrl: resolvedLogo,
     primaryColor: data.primary_color || DEFAULTS.primaryColor,
     secondaryColor: data.secondary_color || DEFAULTS.secondaryColor,
     crefitoDefault: data.crefito_default || null,
-    hasOwnLogo: !!data.logo_url,
+    hasOwnLogo: !!resolvedLogo,
   } satisfies Branding;
 }
 
