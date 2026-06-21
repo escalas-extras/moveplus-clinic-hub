@@ -58,7 +58,7 @@ export function LogoUploader({
     setBusy(true);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const path = `${clinicId}/logo.${ext}`;
+      const path = `${clinicId}/logo-${Date.now()}.${ext}`;
       invalidateSignedClinicLogoUrl(path);
       const objectUrl = URL.createObjectURL(file);
       setLocalPreviewUrl(objectUrl);
