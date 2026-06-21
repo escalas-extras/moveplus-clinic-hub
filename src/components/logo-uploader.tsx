@@ -4,7 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import { invalidateSignedClinicLogoUrl, resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import {
+  invalidateSignedClinicLogoUrl,
+  resolveClinicLogoUrl,
+} from "@/lib/clinic-logo";
 
 export const LOGO_MAX = 5 * 1024 * 1024;
 export const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
@@ -65,8 +68,8 @@ export function LogoUploader({
       if (error) throw error;
       onChange(path);
       toast.success("Logo enviada. Clique em Salvar para aplicar.");
-    } catch (e: any) {
-      toast.error("Falha no upload: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Falha no upload: " + errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -91,7 +94,12 @@ export function LogoUploader({
     >
       <div className="w-24 h-24 rounded border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
         {visiblePreviewUrl && !previewBroken ? (
-          <img src={visiblePreviewUrl} alt="Logo" className="max-w-full max-h-full object-contain" onError={() => setPreviewBroken(true)} />
+          <img
+            src={visiblePreviewUrl}
+            alt="Logo"
+            className="max-w-full max-h-full object-contain"
+            onError={() => setPreviewBroken(true)}
+          />
         ) : (
           <span className="text-xs text-muted-foreground">Sem logo</span>
         )}
@@ -136,4 +144,8 @@ export function LogoUploader({
       </div>
     </div>
   );
+}
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : "Erro inesperado.";
 }
