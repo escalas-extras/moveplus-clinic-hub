@@ -241,9 +241,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setAvatarOpen(true)}
-              className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40"
-              aria-label="Editar foto de perfil"
-              title="Editar foto de perfil"
+              className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer hover:opacity-90 transition-opacity"
+              aria-label="Alterar foto de perfil"
+              title="Alterar foto de perfil"
             >
               <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={40} gradient={avatarGradient} className="shadow-soft" />
             </button>
