@@ -131,7 +131,7 @@ export async function buildPdf(opts: {
   const H = doc.internal.pageSize.getHeight();
   const M = 40;
   const contentW = W - 2 * M;
-  const logo = await loadClinicOrDefaultLogo(c.logo_url);
+  const logo = await loadClinicLogo(c.logo_url);
 
   // Header (once, page 1)
   const HEADER_H = 165;
