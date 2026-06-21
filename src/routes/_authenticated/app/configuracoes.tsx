@@ -57,7 +57,11 @@ function ConfigPage() {
       const cid = await resolveActiveClinicId();
       if (!cid) return null;
       setClinicId(cid);
-      const { data } = await supabase.from("clinic_settings").select("*").eq("clinic_id", cid).maybeSingle();
+      const { data } = await supabase
+        .from("clinic_settings")
+        .select("*")
+        .eq("clinic_id", cid)
+        .maybeSingle();
       return data;
     },
   });
@@ -86,18 +90,28 @@ function ConfigPage() {
         ...settings.data,
         telefones: (settings.data.telefones ?? []).join(", "),
         emails: (settings.data.emails ?? []).join(", "),
-      } as any);
+      } as Form);
     }
   }, [settings.data, reset]);
 
   const save = useMutation({
     mutationFn: async (v: Form) => {
-      const payload: any = {
+      const payload = {
         nome_fantasia: v.nome_fantasia,
         razao_social: v.razao_social || null,
         cnpj: v.cnpj || null,
-        telefones: v.telefones ? v.telefones.split(",").map((s) => s.trim()).filter(Boolean) : null,
-        emails: v.emails ? v.emails.split(",").map((s) => s.trim()).filter(Boolean) : null,
+        telefones: v.telefones
+          ? v.telefones
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : null,
+        emails: v.emails
+          ? v.emails
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : null,
         endereco: v.endereco || null,
         cidade: v.cidade || null,
         estado: v.estado || null,
@@ -111,12 +125,17 @@ function ConfigPage() {
         crefito_default: v.crefito_default || null,
       };
       if (settings.data?.id) {
-        const { error } = await supabase.from("clinic_settings").update(payload).eq("id", settings.data.id);
+        const { error } = await supabase
+          .from("clinic_settings")
+          .update(payload)
+          .eq("id", settings.data.id);
         if (error) throw error;
       } else {
         const cid = await resolveActiveClinicId();
         if (!cid) throw new Error("Nenhuma clínica ativa para o usuário atual.");
-        const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid });
+        const { error } = await supabase
+          .from("clinic_settings")
+          .insert({ ...payload, clinic_id: cid });
         if (error) throw error;
       }
       return { resolvedLogo: await signedLogoUrl(payload.logo_url) };
