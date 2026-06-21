@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const PLAN_CODES = ["starter", "professional", "clinic", "enterprise"] as const;
 const STATUS_VALUES = ["active", "inactive", "suspended"] as const;
 
 async function assertSuperAdmin(supabase: any, userId: string) {
@@ -23,21 +22,28 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [clinics, members, patients, docs, recentClinics, planAgg] = await Promise.all([
-      supabaseAdmin.from("clinics").select("id,status,created_at"),
-      supabaseAdmin.from("clinic_members").select("user_id", { count: "exact", head: false }).eq("active", true),
-      supabaseAdmin.from("patients").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("clinical_documents").select("id, created_at"),
-      supabaseAdmin
-        .from("clinics")
-        .select("id, nome, slug, status, plan, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5),
-      supabaseAdmin
-        .from("clinic_plans")
-        .select("plan_id, plans(code,name)")
-        .in("status", ["active", "trial"]),
-    ]);
+    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog] =
+      await Promise.all([
+        supabaseAdmin.from("clinics").select("id,status,created_at"),
+        supabaseAdmin
+          .from("clinic_members")
+          .select("user_id", { count: "exact", head: false })
+          .eq("active", true),
+        supabaseAdmin.from("patients").select("id", { count: "exact", head: true }),
+        supabaseAdmin.from("clinical_documents").select("id, created_at"),
+        supabaseAdmin
+          .from("clinics")
+          .select("id, nome, slug, status, plan, created_at")
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabaseAdmin
+          .from("clinic_plans")
+          .select("plan_id, plans(id,code,name,monthly_price,price_cents)")
+          .in("status", ["active", "trial"]),
+        supabaseAdmin
+          .from("plans")
+          .select("id,code,name,monthly_price,price_cents"),
+      ]);
 
     const clinicsRows = clinics.data ?? [];
     const active = clinicsRows.filter((c: any) => c.status === "active").length;
@@ -49,15 +55,42 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     const thisMonth = new Date();
     thisMonth.setDate(1);
     thisMonth.setHours(0, 0, 0, 0);
-    const docsMonth = docsRows.filter((d: any) => new Date(d.created_at) >= thisMonth).length;
+    const docsMonth = docsRows.filter((d: any) => new Date(d.created_at) >= thisMonth)
+      .length;
 
-    const planCounts: Record<string, { code: string; name: string; count: number }> = {};
+    const planCounts: Record<
+      string,
+      { code: string; name: string; count: number; mrr: number }
+    > = {};
+    let mrr = 0;
     for (const row of (planAgg.data ?? []) as any[]) {
       const p = row.plans;
       if (!p) continue;
+      const price = Number(p.monthly_price ?? (p.price_cents ?? 0) / 100) || 0;
       const key = p.code;
-      planCounts[key] = planCounts[key] || { code: p.code, name: p.name, count: 0 };
+      planCounts[key] = planCounts[key] || {
+        code: p.code,
+        name: p.name,
+        count: 0,
+        mrr: 0,
+      };
       planCounts[key].count += 1;
+      planCounts[key].mrr += price;
+      mrr += price;
+    }
+
+    // Monthly growth — clinics created in last 6 months
+    const growth: { month: string; count: number }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+      const count = clinicsRows.filter((c: any) => {
+        const dt = new Date(c.created_at);
+        return dt >= d && dt < next;
+      }).length;
+      growth.push({ month: label, count });
     }
 
     return {
@@ -67,6 +100,9 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
       documents: { total: docsRows.length, this_month: docsMonth },
       recent_clinics: recentClinics.data ?? [],
       plans: Object.values(planCounts),
+      mrr,
+      growth,
+      plans_catalog_count: (plansCatalog.data ?? []).length,
     };
   });
 
@@ -99,7 +135,6 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
       }
     }
 
-    // Active plan by clinic
     const planByClinic: Record<string, { code: string; name: string }> = {};
     if (ids.length) {
       const { data: cps } = await supabaseAdmin
@@ -108,12 +143,11 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
         .in("clinic_id", ids)
         .in("status", ["active", "trial"]);
       for (const row of (cps ?? []) as any[]) {
-        if (row.plans) planByClinic[row.clinic_id] = { code: row.plans.code, name: row.plans.name };
+        if (row.plans)
+          planByClinic[row.clinic_id] = { code: row.plans.code, name: row.plans.name };
       }
     }
 
-    // Patient counts via created_by → clinic_members mapping (patients has no clinic_id yet).
-    // For dashboard purposes only: counts patients created by users that belong to the clinic.
     let patientsByClinic: Record<string, number> = {};
     if (ids.length) {
       const { data: mems } = await supabaseAdmin
@@ -177,7 +211,7 @@ export const setClinicStatus = createServerFn({ method: "POST" })
 // ------------------------------------------------------------
 const provisionInput = z.object({
   nome: z.string().min(2, "Nome obrigatório"),
-  plan_code: z.enum(PLAN_CODES),
+  plan_code: z.string().min(1),
   owner_email: z.string().email().optional().or(z.literal("")),
   nome_fantasia: z.string().optional(),
   cidade: z.string().optional(),
@@ -201,14 +235,12 @@ export const provisionClinic = createServerFn({ method: "POST" })
       const found = usersList?.users?.find((u: any) => u.email?.toLowerCase() === email);
       if (!found) {
         throw new Error(
-          `Usuário com email ${email} não encontrado. Convide o owner antes de provisionar a clínica.`
+          `Usuário com email ${email} não encontrado. Convide o owner antes de provisionar a clínica.`,
         );
       }
       ownerUserId = found.id;
     }
 
-    // Admin client bypasses auth.uid → the SECURITY DEFINER fn's role check would fail.
-    // We already validated super_admin above; use the direct insert path.
     return await provisionClinicFallback({
       nome: data.nome,
       plan_code: data.plan_code,
@@ -239,9 +271,10 @@ async function provisionClinicFallback(args: {
     .single();
   if (pErr || !plan) throw new Error("Plano inexistente: " + args.plan_code);
 
-  const { data: slugData, error: slugErr } = await supabaseAdmin.rpc("generate_clinic_slug", {
-    _name: args.nome,
-  });
+  const { data: slugData, error: slugErr } = await supabaseAdmin.rpc(
+    "generate_clinic_slug",
+    { _name: args.nome },
+  );
   if (slugErr) throw new Error("Falha ao gerar slug: " + slugErr.message);
   const slug = slugData as string;
 
@@ -270,7 +303,10 @@ async function provisionClinicFallback(args: {
     .single();
   if (cErr) throw new Error("Falha em clinics: " + cErr.message);
 
-  await supabaseAdmin.from("clinic_settings").update({ clinic_id: clinic.id }).eq("id", settings.id);
+  await supabaseAdmin
+    .from("clinic_settings")
+    .update({ clinic_id: clinic.id })
+    .eq("id", settings.id);
 
   await supabaseAdmin.from("clinic_plans").insert({
     clinic_id: clinic.id,
@@ -291,23 +327,199 @@ async function provisionClinicFallback(args: {
   return { clinic_id: clinic.id, slug };
 }
 
-// ------------------------------------------------------------
-// Plans
-// ------------------------------------------------------------
+// ============================================================
+// PLANS — Catálogo comercial CRUD
+// ============================================================
+
+const planPayload = z.object({
+  code: z.string().min(2).max(40).regex(/^[a-z0-9_-]+$/, "use letras minúsculas, números, _ ou -"),
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  monthly_price: z.number().min(0).nullable().optional(),
+  annual_price: z.number().min(0).nullable().optional(),
+  max_users: z.number().int().min(0).nullable().optional(),
+  max_patients: z.number().int().min(0).nullable().optional(),
+  max_documents_month: z.number().int().min(0).nullable().optional(),
+  max_storage_mb: z.number().int().min(0).nullable().optional(),
+  modules: z.array(z.string()).default([]),
+  active: z.boolean().default(true),
+  featured: z.boolean().default(false),
+  sort_order: z.number().int().default(0),
+});
+
+function toRow(p: z.infer<typeof planPayload>) {
+  const monthly = p.monthly_price ?? 0;
+  return {
+    code: p.code,
+    name: p.name,
+    description: p.description ?? null,
+    monthly_price: p.monthly_price ?? null,
+    annual_price: p.annual_price ?? null,
+    price_cents: Math.round(Number(monthly) * 100),
+    max_users: p.max_users ?? null,
+    max_patients: p.max_patients ?? null,
+    max_documents_month: p.max_documents_month ?? null,
+    max_storage_mb: p.max_storage_mb ?? null,
+    modules: p.modules ?? [],
+    active: p.active,
+    featured: p.featured,
+    sort_order: p.sort_order ?? 0,
+  };
+}
+
 export const listPlans = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("plans")
-      .select("id, code, name, description, price_cents, max_users, max_patients, max_documents_month, max_storage_mb, modules, active, sort_order")
-      .order("sort_order");
+      .select(
+        "id, code, name, description, monthly_price, annual_price, price_cents, max_users, max_patients, max_documents_month, max_storage_mb, modules, active, featured, sort_order",
+      )
+      .order("sort_order")
+      .order("name");
     if (error) throw new Error(error.message);
-    return data ?? [];
+
+    // attach in_use counts (clinics linked)
+    const ids = (data ?? []).map((p: any) => p.id);
+    const usage: Record<string, number> = {};
+    if (ids.length) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: cps } = await supabaseAdmin
+        .from("clinic_plans")
+        .select("plan_id")
+        .in("plan_id", ids)
+        .in("status", ["active", "trial"]);
+      for (const r of cps ?? []) usage[r.plan_id] = (usage[r.plan_id] || 0) + 1;
+    }
+    return (data ?? []).map((p: any) => ({ ...p, in_use: usage[p.id] ?? 0 }));
   });
 
+export const createPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => planPayload.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
+      .from("plans")
+      .insert(toRow(data))
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: row.id };
+  });
+
+export const updatePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), patch: planPayload }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("plans")
+      .update(toRow(data.patch))
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const togglePlanActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), active: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("plans")
+      .update({ active: data.active })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const duplicatePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: src, error: sErr } = await supabaseAdmin
+      .from("plans")
+      .select("*")
+      .eq("id", data.id)
+      .single();
+    if (sErr || !src) throw new Error("Plano não encontrado");
+    let newCode = `${src.code}-copy`;
+    let n = 1;
+    while (true) {
+      const { data: exists } = await supabaseAdmin
+        .from("plans")
+        .select("id")
+        .eq("code", newCode)
+        .maybeSingle();
+      if (!exists) break;
+      n += 1;
+      newCode = `${src.code}-copy-${n}`;
+    }
+    const { id, created_at, updated_at, ...rest } = src as any;
+    const { error } = await supabaseAdmin.from("plans").insert({
+      ...rest,
+      code: newCode,
+      name: `${src.name} (cópia)`,
+      active: false,
+      featured: false,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deletePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: cps } = await supabaseAdmin
+      .from("clinic_plans")
+      .select("id")
+      .eq("plan_id", data.id)
+      .limit(1);
+    if ((cps ?? []).length > 0)
+      throw new Error("Plano em uso por clínicas. Inative em vez de excluir.");
+    const { error } = await supabaseAdmin.from("plans").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const reorderPlans = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ order: z.array(z.string().uuid()).min(1) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    for (let i = 0; i < data.order.length; i++) {
+      const { error } = await supabaseAdmin
+        .from("plans")
+        .update({ sort_order: i + 1 })
+        .eq("id", data.order[i]);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true };
+  });
+
+// ------------------------------------------------------------
+// Assign plan (with audit)
+// ------------------------------------------------------------
 const assignPlanInput = z.object({
   clinic_id: z.string().uuid(),
-  plan_code: z.enum(PLAN_CODES),
+  plan_code: z.string().min(1),
+  notes: z.string().optional(),
 });
 export const assignPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -318,19 +530,24 @@ export const assignPlan = createServerFn({ method: "POST" })
 
     const { data: plan, error: pErr } = await supabaseAdmin
       .from("plans")
-      .select("id")
+      .select("id, code")
       .eq("code", data.plan_code)
       .single();
     if (pErr || !plan) throw new Error("Plano inexistente");
 
-    // Cancel existing active plan
+    const { data: current } = await supabaseAdmin
+      .from("clinic_plans")
+      .select("id, plan_id, plans(code)")
+      .eq("clinic_id", data.clinic_id)
+      .in("status", ["active", "trial"])
+      .maybeSingle();
+
     await supabaseAdmin
       .from("clinic_plans")
       .update({ status: "canceled", canceled_at: new Date().toISOString() })
       .eq("clinic_id", data.clinic_id)
       .in("status", ["active", "trial"]);
 
-    // Insert new
     const { error: iErr } = await supabaseAdmin.from("clinic_plans").insert({
       clinic_id: data.clinic_id,
       plan_id: plan.id,
@@ -338,8 +555,39 @@ export const assignPlan = createServerFn({ method: "POST" })
     });
     if (iErr) throw new Error(iErr.message);
 
-    // Mirror on clinics.plan
-    await supabaseAdmin.from("clinics").update({ plan: data.plan_code }).eq("id", data.clinic_id);
+    await supabaseAdmin
+      .from("clinics")
+      .update({ plan: data.plan_code })
+      .eq("id", data.clinic_id);
+
+    await supabaseAdmin.from("plan_change_audit").insert({
+      clinic_id: data.clinic_id,
+      from_plan_id: current?.plan_id ?? null,
+      to_plan_id: plan.id,
+      from_plan_code: (current as any)?.plans?.code ?? null,
+      to_plan_code: plan.code,
+      changed_by: context.userId,
+      notes: data.notes ?? null,
+    });
 
     return { ok: true };
+  });
+
+export const listPlanChangeAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ clinic_id: z.string().uuid().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("plan_change_audit")
+      .select("id, clinic_id, from_plan_code, to_plan_code, changed_by, notes, created_at, clinics(nome)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (data.clinic_id) q = q.eq("clinic_id", data.clinic_id);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
   });
