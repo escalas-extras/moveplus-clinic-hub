@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AppShell } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,7 +42,7 @@ function MarketingPage() {
   }
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -89,6 +88,6 @@ function MarketingPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </AppShell>
+    </>
   );
 }

@@ -2,7 +2,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AppShell } from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,8 +123,7 @@ function AdminSaasPage() {
   const [openNew, setOpenNew] = useState(false);
 
   return (
-    <AppShell>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -174,8 +172,7 @@ function AdminSaasPage() {
             <AuditTab />
           </TabsContent>
         </Tabs>
-      </div>
-    </AppShell>
+    </div>
   );
 }
 

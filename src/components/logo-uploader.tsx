@@ -1,18 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
 
 export const LOGO_MAX = 5 * 1024 * 1024;
 export const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
 
 export async function signedLogoUrl(path: string | null | undefined): Promise<string | null> {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  const { data } = await supabase.storage.from("clinic-logos").createSignedUrl(path, 60 * 60);
-  return data?.signedUrl ?? null;
+  return resolveClinicLogoUrl(path);
 }
 
 /**
@@ -32,11 +30,13 @@ export function LogoUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [previewBroken, setPreviewBroken] = useState(false);
   const { data: previewUrl } = useQuery({
     queryKey: ["logo-preview", value],
     queryFn: () => signedLogoUrl(value),
     enabled: !!value,
   });
+  useEffect(() => setPreviewBroken(false), [value]);
 
   const handleFile = async (file: File) => {
     if (!LOGO_TYPES.includes(file.type)) {
@@ -82,8 +82,8 @@ export function LogoUploader({
       }`}
     >
       <div className="w-24 h-24 rounded border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-        {previewUrl ? (
-          <img src={previewUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+        {previewUrl && !previewBroken ? (
+          <img src={previewUrl} alt="Logo" className="max-w-full max-h-full object-contain" onError={() => setPreviewBroken(true)} />
         ) : (
           <span className="text-xs text-muted-foreground">Sem logo</span>
         )}

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AppShell } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, ClipboardCheck, Clock, FileText, RefreshCw, Activity } from "lucide-react";
@@ -39,8 +38,7 @@ function DiferenciaisPage() {
   }, []);
 
   return (
-    <AppShell>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-primary" /> Por que usar a FisioOS</h1>
           <p className="text-muted-foreground text-sm">Indicadores reais gerados pelo uso da plataforma na sua clínica.</p>
@@ -80,7 +78,6 @@ function DiferenciaisPage() {
             <div>✅ Multiempresa e white-label ready</div>
           </CardContent>
         </Card>
-      </div>
-    </AppShell>
+    </div>
   );
 }

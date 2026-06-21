@@ -39,6 +39,7 @@ type Form = {
 function ConfigPage() {
   const qc = useQueryClient();
   const [clinicId, setClinicId] = useState<string | null>(null);
+  const [logoBroken, setLogoBroken] = useState(false);
 
   const settings = useQuery({
     queryKey: ["clinic-settings"],
@@ -64,6 +65,8 @@ function ConfigPage() {
     queryFn: () => signedLogoUrl(logoPath ?? null),
     enabled: !!logoPath,
   });
+
+  useEffect(() => setLogoBroken(false), [logoPath]);
 
   useEffect(() => {
     if (settings.data) {
@@ -126,8 +129,8 @@ function ConfigPage() {
       <Card className="p-6 border-2" style={{ borderColor: primary }}>
         <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Pré-visualização da identidade</div>
         <div className="flex items-center gap-4">
-          {logoPreview ? (
-            <img src={logoPreview} alt="Logo" className="h-16 w-auto object-contain" />
+          {logoPreview && !logoBroken ? (
+            <img src={logoPreview} alt="Logo" className="h-16 w-auto object-contain" onError={() => setLogoBroken(true)} />
           ) : (
             <div className="h-16 w-16 rounded-2xl flex items-center justify-center shadow" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
               <Stethoscope className="h-8 w-8 text-white" />

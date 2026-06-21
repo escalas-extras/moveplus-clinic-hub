@@ -2,6 +2,7 @@
 // Engine puro: src/lib/pdf-engine.ts (sem supabase, usado por fixtures).
 
 import { supabase } from "@/integrations/supabase/client";
+import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
 import {
   renderPdf,
   urlToDataUrl,
@@ -23,31 +24,24 @@ function isLikelyImageUrl(url: string): boolean {
 }
 
 async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | null> {
-  if (!clinicLogoUrl) return null;
-  // Caminho relativo: resolve no bucket de logos (privado, via signed URL).
-  if (!/^https?:\/\//.test(clinicLogoUrl)) {
-    // novo bucket padrão
-    const { data: signed } = await supabase.storage
-      .from("clinic-logos")
-      .createSignedUrl(clinicLogoUrl, 60 * 60);
-    if (signed?.signedUrl) return await urlToDataUrl(signed.signedUrl);
-    // fallback legado: bucket `documents`
-    const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
-    return await urlToDataUrl(data.publicUrl);
-  }
-  if (!isLikelyImageUrl(clinicLogoUrl)) return null;
-  return await urlToDataUrl(clinicLogoUrl);
+  const resolved = await resolveClinicLogoUrl(clinicLogoUrl);
+  if (!resolved || !isLikelyImageUrl(resolved)) return null;
+  return await urlToDataUrl(resolved);
 }
 
 export async function buildPdf(opts: BuildPdfOpts) {
-  const { data: cid } = await supabase.rpc("current_clinic_id");
+  const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
+    supabase.rpc("current_support_session_clinic"),
+    supabase.rpc("current_clinic_id"),
+  ]);
+  const cid = (supportCid as string | null) ?? (ownCid as string | null);
   // Sem clínica ativa, não puxar nenhum clinic_settings (evita vazamento entre clínicas).
   let clinic: any = null;
   if (cid) {
     const { data } = await supabase
       .from("clinic_settings")
       .select(
-        "nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url",
+        "nome_fantasia, razao_social, cnpj, telefones, emails, endereco, cidade, estado, rodape_institucional, logo_url, primary_color, secondary_color",
       )
       .eq("clinic_id", cid as string)
       .maybeSingle();

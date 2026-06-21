@@ -17,6 +17,8 @@ export type ClinicData = {
   cidade: string | null;
   estado: string | null;
   rodape_institucional: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
 };
 
 export type Professional = {
@@ -83,6 +85,36 @@ const C = {
   evaYellow: [240, 200, 80] as [number, number, number],
   evaRed: [210, 80, 70] as [number, number, number],
 } as const;
+
+function hexToRgb(hex?: string | null): [number, number, number] | null {
+  const raw = (hex ?? "").trim().replace(/^#/, "");
+  if (!/^[0-9a-f]{6}$/i.test(raw)) return null;
+  return [parseInt(raw.slice(0, 2), 16), parseInt(raw.slice(2, 4), 16), parseInt(raw.slice(4, 6), 16)];
+}
+
+function mixRgb(a: [number, number, number], b: [number, number, number], weight: number): [number, number, number] {
+  return a.map((v, i) => Math.round(v * weight + b[i] * (1 - weight))) as [number, number, number];
+}
+
+function applyClinicPalette(c: ClinicData) {
+  const primary = hexToRgb(c.primary_color) ?? [60, 80, 60] as [number, number, number];
+  const secondary = hexToRgb(c.secondary_color) ?? primary;
+  const soft = mixRgb(primary, [255, 255, 255], 0.08);
+  const highlight = mixRgb(secondary, [255, 255, 255], 0.10);
+  const line = mixRgb(primary, [255, 255, 255], 0.28);
+  (C as any).brand = primary;
+  (C as any).brandSoft = soft;
+  (C as any).highlightBg = highlight;
+  (C as any).hairline = line;
+  (C as any).hairlineSoft = mixRgb(primary, [255, 255, 255], 0.16);
+}
+
+function dataUrlImageFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" | undefined {
+  if (/^data:image\/jpe?g/i.test(dataUrl)) return "JPEG";
+  if (/^data:image\/webp/i.test(dataUrl)) return "WEBP";
+  if (/^data:image\/png/i.test(dataUrl)) return "PNG";
+  return undefined;
+}
 
 const S = {
   M: 40,
@@ -437,6 +469,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const M = S.M;
   const contentW = W - 2 * M;
   const c = ctx.clinic;
+  applyClinicPalette(c);
   const isContract = /contrato/i.test(opts.title || "");
 
   // ----- Normalize blocks -----
@@ -481,8 +514,8 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // Document title strip
   let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
   doc.setTextColor(...C.ink);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(T.docTitle);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.docTitle + 1);
   doc.text(opts.title, M, titleY);
   if (opts.subtitle) {
     titleY += 12;
@@ -552,7 +585,11 @@ function drawHeader(doc: jsPDF, c: ClinicData, logo: string | null, W: number) {
   const logoY = (S.HEADER_H - logoSize) / 2;
 
   if (logo) {
-    try { doc.addImage(logo, "PNG", M, logoY, logoSize, logoSize); } catch { drawMonogram(doc, c, M, logoY, logoSize); }
+    try {
+      doc.addImage(logo, dataUrlImageFormat(logo) ?? "PNG", M, logoY, logoSize, logoSize);
+    } catch {
+      drawMonogram(doc, c, M, logoY, logoSize);
+    }
   } else {
     drawMonogram(doc, c, M, logoY, logoSize);
   }

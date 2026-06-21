@@ -141,8 +141,9 @@ function AuthPage() {
 }
 
 function LogoMark({ brand }: { brand: ReturnType<typeof useBranding> }) {
-  if (brand.hasOwnLogo && brand.logoUrl) {
-    return <img src={brand.logoUrl} alt={brand.clinicName} className="h-[72px] w-auto object-contain" />;
+  const [broken, setBroken] = useState(false);
+  if (brand.hasOwnLogo && brand.logoUrl && !broken) {
+    return <img src={brand.logoUrl} alt={brand.clinicName} className="h-[72px] w-auto object-contain" onError={() => setBroken(true)} />;
   }
   return (
     <div className="h-[72px] w-[72px] rounded-2xl flex items-center justify-center shadow-md" style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}>
