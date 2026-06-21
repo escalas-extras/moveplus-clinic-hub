@@ -730,7 +730,12 @@ export async function buildPdf(opts: {
     doc.setFontSize(8);
     doc.setTextColor(...C.muted);
     doc.text(`Emitido em ${fmtDateTime(new Date())}`, M, fy + 14);
-    doc.text(c.rodape_institucional || `${c.nome_fantasia ?? "FisioOS"} · ${[c.cidade, c.estado].filter(Boolean).join("/") || "Transformando atendimentos em resultados"}`, M, fy + 26);
+    {
+      const cityState = [c.cidade, c.estado].filter(Boolean).join("/");
+      const footerName = c.nome_fantasia ?? "FisioOS";
+      const footerText = c.rodape_institucional || [footerName, cityState].filter(Boolean).join(" · ");
+      doc.text(footerText, M, fy + 26);
+    }
     doc.text(`Página ${i} de ${pageCount}`, W - M - 4, fy + 14, { align: "right" });
 
     // QR + hash de validação (somente última página)
