@@ -29,6 +29,7 @@ import { Route as AuthenticatedAppDashboardClinicoRouteImport } from './routes/_
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app/configuracoes'
 import { Route as AuthenticatedAppBibliotecaRouteImport } from './routes/_authenticated/app/biblioteca'
 import { Route as AuthenticatedAppAgendaRouteImport } from './routes/_authenticated/app/agenda'
+import { Route as AuthenticatedAppAdminSaasRouteImport } from './routes/_authenticated/app/admin-saas'
 import { Route as AuthenticatedAppPacientesIndexRouteImport } from './routes/_authenticated/app/pacientes/index'
 import { Route as AuthenticatedAppPacientesIdRouteImport } from './routes/_authenticated/app/pacientes/$id'
 
@@ -144,6 +145,12 @@ const AuthenticatedAppAgendaRoute = AuthenticatedAppAgendaRouteImport.update({
   path: '/app/agenda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppAdminSaasRoute =
+  AuthenticatedAppAdminSaasRouteImport.update({
+    id: '/app/admin-saas',
+    path: '/app/admin-saas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppPacientesIndexRoute =
   AuthenticatedAppPacientesIndexRouteImport.update({
     id: '/app/pacientes/',
@@ -162,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/set-password': typeof SetPasswordRoute
   '/validar/$hash': typeof ValidarHashRoute
+  '/app/admin-saas': typeof AuthenticatedAppAdminSaasRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
   '/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -185,6 +193,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/set-password': typeof SetPasswordRoute
   '/validar/$hash': typeof ValidarHashRoute
+  '/app/admin-saas': typeof AuthenticatedAppAdminSaasRoute
   '/app/agenda': typeof AuthenticatedAppAgendaRoute
   '/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -210,6 +219,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/set-password': typeof SetPasswordRoute
   '/validar/$hash': typeof ValidarHashRoute
+  '/_authenticated/app/admin-saas': typeof AuthenticatedAppAdminSaasRoute
   '/_authenticated/app/agenda': typeof AuthenticatedAppAgendaRoute
   '/_authenticated/app/biblioteca': typeof AuthenticatedAppBibliotecaRoute
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/set-password'
     | '/validar/$hash'
+    | '/app/admin-saas'
     | '/app/agenda'
     | '/app/biblioteca'
     | '/app/configuracoes'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/set-password'
     | '/validar/$hash'
+    | '/app/admin-saas'
     | '/app/agenda'
     | '/app/biblioteca'
     | '/app/configuracoes'
@@ -282,6 +294,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/set-password'
     | '/validar/$hash'
+    | '/_authenticated/app/admin-saas'
     | '/_authenticated/app/agenda'
     | '/_authenticated/app/biblioteca'
     | '/_authenticated/app/configuracoes'
@@ -451,6 +464,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/admin-saas': {
+      id: '/_authenticated/app/admin-saas'
+      path: '/app/admin-saas'
+      fullPath: '/app/admin-saas'
+      preLoaderRoute: typeof AuthenticatedAppAdminSaasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/pacientes/': {
       id: '/_authenticated/app/pacientes/'
       path: '/app/pacientes'
@@ -469,6 +489,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAppAdminSaasRoute: typeof AuthenticatedAppAdminSaasRoute
   AuthenticatedAppAgendaRoute: typeof AuthenticatedAppAgendaRoute
   AuthenticatedAppBibliotecaRoute: typeof AuthenticatedAppBibliotecaRoute
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
@@ -489,6 +510,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAppAdminSaasRoute: AuthenticatedAppAdminSaasRoute,
   AuthenticatedAppAgendaRoute: AuthenticatedAppAgendaRoute,
   AuthenticatedAppBibliotecaRoute: AuthenticatedAppBibliotecaRoute,
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
