@@ -50,6 +50,7 @@ const groups: NavGroup[] = [
     title: "Sistema",
     items: [
       { to: "/app/usuarios", label: "Usuários", icon: ShieldCheck, adminOnly: true },
+      { to: "/app/admin-saas", label: "Admin SaaS", icon: Building2, superAdminOnly: true },
       { to: "/app/configuracoes", label: "Configurações", icon: Settings, adminOnly: true },
     ],
   },
