@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
 });
 
-type Form = { patient_id: string; professional_id: string; data: string; horario: string; duracao_min: number; observacao?: string };
+type Form = { patient_id: string; professional_id: string; data: string; horario: string; duracao_min: number; status: Status; tipo?: string; observacao?: string };
 type ViewMode = "dia" | "semana" | "mes";
 type Status = "agendado" | "confirmado" | "realizado" | "cancelado";
 
@@ -118,16 +118,37 @@ function AgendaPage() {
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      if (!v.patient_id || !v.professional_id || !v.data || !v.horario) {
+        throw new Error("Preencha paciente, profissional, data e horário.");
+      }
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id } as any);
+      const tipo = (v.tipo ?? "Atendimento").trim();
+      const observacao = [tipo && `Tipo: ${tipo}`, v.observacao?.trim()].filter(Boolean).join("\n") || null;
+      const payload = {
+        clinic_id: clinicId,
+        patient_id: v.patient_id,
+        professional_id: v.professional_id,
+        data: v.data || null,
+        horario: v.horario,
+        duracao_min: Number.isFinite(Number(v.duracao_min)) ? Number(v.duracao_min) : 60,
+        status: v.status ?? "agendado",
+        observacao,
+        created_by: u.user?.id ?? null,
+      };
+      const { error } = await supabase.from("appointments").insert(payload as any).select("id").single();
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); setSlotPrefill(null); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(translateError(e?.message)),
   });
 
   function openNewSlot(dateStr: string, hour?: number) {
-    if (supportMode) return;
+    if (supportMode) {
+      toast.error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      return;
+    }
     const horario = hour != null ? `${String(hour).padStart(2, "0")}:00` : "08:00";
     setSlotPrefill({ data: dateStr, horario });
     setOpen(true);
@@ -223,6 +244,7 @@ function AgendaPage() {
             profs={profs.data ?? []}
             initialDate={slotPrefill?.data ?? ymd(anchor)}
             initialHora={slotPrefill?.horario ?? "08:00"}
+            disabled={supportMode}
           />
         </div>
       </header>
