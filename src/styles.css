@@ -89,6 +89,8 @@
   --fos-bg-deep: oklch(0.96 0.008 250);
   --fos-ink: oklch(0.28 0.025 255);
   --fos-ink-soft: oklch(0.50 0.02 255);
+  --fos-sidebar-bg: #082436;              /* sidebar escuro premium */
+  --fos-active-indicator: #00a6a6;        /* barra lateral ativa */
 
   --background: var(--fos-bg);
   --foreground: var(--fos-ink);
@@ -127,14 +129,14 @@
   --chart-4: oklch(0.70 0.14 60);
   --chart-5: oklch(0.62 0.15 320);
 
-  --sidebar: oklch(1 0 0 / 70%);
-  --sidebar-foreground: var(--fos-ink);
-  --sidebar-primary: var(--fos-primary);
-  --sidebar-primary-foreground: oklch(0.99 0.005 250);
-  --sidebar-accent: oklch(0.96 0.012 220);
-  --sidebar-accent-foreground: var(--fos-primary);
-  --sidebar-border: oklch(0.92 0.008 250);
-  --sidebar-ring: var(--fos-accent);
+  --sidebar: #082436;
+  --sidebar-foreground: rgba(255, 255, 255, 0.78);
+  --sidebar-primary: #00a6a6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.10);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #00a6a6;
 
   /* Gradientes ambiente (aurora) — mais perceptível, sem poluir */
   --fos-aurora:
@@ -177,14 +179,14 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.70 0.15 250);
-  --sidebar: oklch(0.22 0.02 250 / 75%);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: oklch(0.78 0.06 200);
-  --sidebar-primary-foreground: oklch(0.18 0.02 250);
-  --sidebar-accent: oklch(0.30 0.02 250);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.70 0.15 250);
+  --sidebar: #082436;
+  --sidebar-foreground: rgba(255, 255, 255, 0.78);
+  --sidebar-primary: #00a6a6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.10);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #00a6a6;
 }
 
 @layer base {
@@ -250,9 +252,10 @@
   }
 }
 @utility glass-sidebar {
-  background: rgba(255, 255, 255, 0.72);
+  background: #082436;
   backdrop-filter: blur(34px) saturate(180%);
-  border-right: 1px solid rgba(15, 76, 92, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.78);
 }
 @utility glass-topbar {
   background: rgba(255, 255, 255, 0.72);
@@ -279,7 +282,7 @@
     border-color: rgba(255,255,255,0.24);
   }
 }
-.dark .glass-sidebar { background: rgba(20, 28, 40, 0.72); border-color: rgba(255,255,255,0.08); }
+.dark .glass-sidebar { background: #082436; border-color: rgba(255,255,255,0.12); }
 .dark .glass-topbar { background: rgba(20, 28, 40, 0.70); border-color: rgba(255,255,255,0.07); }
 
 /* ===========================================================
@@ -320,17 +323,31 @@
   border-left-color: var(--primary);
 }
 
-/* Botões — hover mais perceptível */
+/* Botões — hover real e perceptível */
 @layer base {
-  button, [role="button"] {
+  button:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+  .btn:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+  button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
     transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease, filter 160ms ease;
   }
-  button:hover, [role="button"]:hover {
-    filter: brightness(0.88);
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+  button:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
+  .btn:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
+  [role="button"]:not([aria-disabled="true"]):hover,
+  .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-sidebar="nav-item"]):hover,
+  button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover {
+    transform: translateY(-1px) !important;
+    filter: brightness(0.88) !important;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.20) !important;
+    border-color: rgba(15, 23, 42, 0.22) !important;
   }
-  .dark button:hover, .dark [role="button"]:hover {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  .dark button:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
+  .dark .btn:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
+  .dark [role="button"]:not([aria-disabled="true"]):hover,
+  .dark .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-sidebar="nav-item"]):hover,
+  .dark button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
   }
 }
 
@@ -357,5 +374,65 @@
     color: rgba(255, 255, 255, 0.98);
   }
 }
+/* ===========================================================
+ * Sidebar escuro premium — modelo aprovado
+ * =========================================================== */
 
+/* Fundo escuro do sidebar */
+.glass-sidebar {
+  background: #082436;
+  border-right-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Bordas internas */
+.glass-sidebar .border-white\/40 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Seções / labels */
+.glass-sidebar .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Itens de navegação customizados */
+[data-sidebar="nav-item"] {
+  color: rgba(255, 255, 255, 0.78);
+}
+[data-sidebar="nav-item"]:hover {
+  background-color: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+}
+[data-sidebar="nav-item"]:hover svg {
+  color: #ffffff;
+}
+[data-sidebar="nav-item"][data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: none;
+}
+[data-sidebar="nav-item"][data-active="true"] svg {
+  color: #ffffff;
+}
+
+/* Barra lateral ativa (span interno) */
+[data-sidebar="nav-item"][data-active="true"] > span.absolute {
+  width: 5px;
+  border-radius: 999px;
+  background-color: var(--sidebar-primary);
+}
+
+/* Footer do sidebar */
+.glass-sidebar button:not([data-sidebar="nav-item"]):hover,
+.glass-sidebar [role="button"]:not([data-sidebar="nav-item"]):hover {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Botões glass dentro do sidebar */
+.glass-sidebar .glass {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.90);
+}
 
