@@ -1294,7 +1294,11 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
         data: { ...data, plan_code: data.plan_code || planOptions[0]?.code || "starter" },
       }),
     onSuccess: (res: any) => {
-      toast.success(`Clínica criada (/${res.slug ?? "—"})`);
+      toast.success(
+        res?.owner_invited
+          ? "Clínica criada com sucesso. O proprietário receberá um convite por e-mail para concluir o acesso."
+          : `Clínica criada (/${res.slug ?? "—"})`,
+      );
       qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
       qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
       onDone();
