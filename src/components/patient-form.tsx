@@ -44,8 +44,27 @@ export function PatientForm({
   const sexo = watch("sexo");
   const situacao = watch("situacao");
 
+  // Normaliza payload: converte strings vazias em null (evita erro em colunas date/uuid).
+  const DATE_FIELDS = new Set(["data_nascimento"]);
+  function normalize(v: PatientInput): PatientInput {
+    const out: any = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        if (trimmed === "") {
+          out[k] = DATE_FIELDS.has(k) || k !== "nome_completo" ? null : "";
+        } else {
+          out[k] = trimmed;
+        }
+      } else {
+        out[k] = val;
+      }
+    }
+    return out as PatientInput;
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit((v) => onSubmit(normalize(v)))} className="space-y-5">
       <section className="grid sm:grid-cols-2 gap-4">
         <Field label="Nome completo *" className="sm:col-span-2">
           <Input required {...register("nome_completo")} />
