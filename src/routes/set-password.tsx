@@ -16,22 +16,85 @@ function SetPasswordPage() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Supabase client auto-parses access_token from URL hash and creates a session.
-    // Wait briefly, then check.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setHasSession(!!session);
-      setReady(true);
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-      setReady(true);
-    });
-    return () => sub.subscription.unsubscribe();
+    let cancelled = false;
+
+    async function bootstrap() {
+      try {
+        const url = new URL(window.location.href);
+        const search = url.searchParams;
+        const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+        // 1) Provider error in URL
+        const urlError =
+          search.get("error_description") ||
+          search.get("error") ||
+          hash.get("error_description") ||
+          hash.get("error");
+        if (urlError) {
+          if (!cancelled) {
+            setErrorMsg(decodeURIComponent(urlError));
+            setReady(true);
+          }
+          return;
+        }
+
+        // 2) PKCE recovery: ?code=...
+        const code = search.get("code");
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            if (!cancelled) {
+              setErrorMsg(error.message);
+              setReady(true);
+            }
+            return;
+          }
+          // Clean URL
+          window.history.replaceState({}, "", url.pathname);
+        }
+
+        // 3) Implicit recovery: #access_token=...&type=recovery
+        const accessToken = hash.get("access_token");
+        const refreshToken = hash.get("refresh_token");
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
+            if (!cancelled) {
+              setErrorMsg(error.message);
+              setReady(true);
+            }
+            return;
+          }
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+
+        // 4) Final check
+        const { data } = await supabase.auth.getSession();
+        if (!cancelled) {
+          setHasSession(!!data.session);
+          setReady(true);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setErrorMsg(e?.message ?? "Falha ao validar o link.");
+          setReady(true);
+        }
+      }
+    }
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
