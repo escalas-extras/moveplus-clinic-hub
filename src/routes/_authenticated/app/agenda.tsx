@@ -118,11 +118,36 @@ function AgendaPage() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Status }) => {
-      const { error } = await supabase.from("appointments").update({ status: status as any }).eq("id", id);
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status: status as any })
+        .eq("id", id)
+        .eq("clinic_id", clinicId);
       if (error) throw error;
     },
     onSuccess: (_d, v) => { toast.success(`Marcado como ${STATUS_LABEL[v.status]}`); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(translateError(e?.message)),
+  });
+
+  const [editing, setEditing] = useState<any | null>(null);
+  const update = useMutation({
+    mutationFn: async (v: Form & { id: string; status: Status }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      const { id, status, ...rest } = v;
+      const { error } = await supabase
+        .from("appointments")
+        .update({ ...rest, status: status as any })
+        .eq("id", id)
+        .eq("clinic_id", clinicId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agendamento atualizado");
+      setEditing(null);
+      qc.invalidateQueries({ queryKey: ["appts", clinicId] });
+    },
+    onError: (e: any) => toast.error(translateError(e?.message)),
   });
 
   // Filtering (applied to list)
