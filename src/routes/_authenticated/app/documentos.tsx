@@ -50,6 +50,14 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   recibo: "Recibo",
 };
 
+const normalizeTemplateName = (name?: string | null) =>
+  (name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
 const STEPS = [
   { id: 1, label: "Modelo", icon: ClipboardList },
   { id: 2, label: "Paciente", icon: User2 },
@@ -178,17 +186,33 @@ function DocumentosPage() {
   });
 
   // ----- DERIVED -----
-  const template = templates.find((t: any) => t.id === templateId);
+  const visibleTemplates = useMemo(() => {
+    const byName = new Map<string, any>();
+    for (const t of templates as any[]) {
+      if (activeClinicId && t.clinic_id && t.clinic_id !== activeClinicId) continue;
+      const key = normalizeTemplateName(t.name) || t.id;
+      const current = byName.get(key);
+      if (!current || (t.is_default && !current.is_default) || (t.updated_at && current.updated_at && t.updated_at > current.updated_at)) {
+        byName.set(key, t);
+      }
+    }
+    return Array.from(byName.values()).sort((a: any, b: any) =>
+      String(a.doc_type || "").localeCompare(String(b.doc_type || ""), "pt-BR") ||
+      String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"),
+    );
+  }, [templates, activeClinicId]);
+
+  const template = visibleTemplates.find((t: any) => t.id === templateId);
   const isContractTemplate = !!template && /contrato/i.test(template.name || "");
 
   const filteredTemplates = useMemo(() => {
     const q = templateSearch.trim().toLowerCase();
-    if (!q) return templates;
-    return templates.filter((t: any) =>
+    if (!q) return visibleTemplates;
+    return visibleTemplates.filter((t: any) =>
       t.name?.toLowerCase().includes(q) ||
       (DOC_TYPE_LABEL[t.doc_type] || "").toLowerCase().includes(q),
     );
-  }, [templates, templateSearch]);
+  }, [visibleTemplates, templateSearch]);
 
   const filteredPatients = useMemo(() => {
     if (!patientSearch.trim()) return patients;
