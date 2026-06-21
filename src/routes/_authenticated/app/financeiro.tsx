@@ -144,6 +144,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
 
   async function emitReceipt(entry: any) {
     if (!clinicId) return toast.error("Clínica ativa não identificada.");
+    if (supportMode) return toast.error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
     const { data: u } = await supabase.auth.getUser();
     const payload: any = {
       financial_entry_id: entry.id,
@@ -323,17 +324,19 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   const create = useMutation({
     mutationFn: async (v: ReceiptForm) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       const { data: u } = await supabase.auth.getUser();
       const payload: any = {
         clinic_id: clinicId,
-        patient_id: v.patient_id,
+        patient_id: requiredText(v.patient_id, "Paciente"),
         financial_entry_id: v.financial_entry_id || null,
-        description: v.description,
-        valor: v.amount,
-        data: v.payment_date,
+        description: requiredText(v.description, "Descrição"),
+        valor: requiredAmount(v.amount),
+        data: requiredDate(v.payment_date),
         forma_pagamento: v.payment_method,
-        created_by: u.user?.id,
+        created_by: u.user?.id ?? null,
       };
+      if (!payload.data) throw new Error("Data de pagamento é obrigatória.");
       const { data, error } = await supabase.from("receipts").insert(payload).select("numero").single();
       if (error) throw error;
       return data!.numero as number;
@@ -351,7 +354,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
         payment_method: v.payment_method,
         payment_date: v.payment_date,
         issued_at: new Date().toISOString(),
-      });
+      }, "download");
       qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -359,18 +362,22 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
 
   const cancel = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase
         .from("receipts")
         .update({ status: "cancelado", cancelled_at: new Date().toISOString(), cancelled_by: u.user?.id, cancellation_reason: reason } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("clinic_id", clinicId)
+        .neq("status", "cancelado");
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Recibo cancelado"); setCancelOf(null); qc.invalidateQueries({ queryKey: ["receipts", clinicId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
-  async function reprint(r: any) {
+  async function reprint(r: any, mode: "preview" | "download" | "print") {
     await renderReceiptPdf({
       numero: r.numero,
       patientName: r.patients?.nome_completo,
@@ -382,7 +389,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
       issued_at: r.created_at,
       cancelled: r.status === "cancelado",
       cancellation_reason: r.cancellation_reason,
-    });
+    }, mode);
   }
 
   return (
@@ -429,7 +436,9 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
                 </td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex gap-1">
-                    <Button size="sm" variant="outline" onClick={() => reprint(r)}><Printer className="h-3 w-3 mr-1" />PDF</Button>
+                    <Button size="sm" variant="outline" onClick={() => reprint(r, "preview")}><Eye className="h-3 w-3 mr-1" />Ver</Button>
+                    <Button size="sm" variant="outline" onClick={() => reprint(r, "download")}><FileDown className="h-3 w-3 mr-1" />Baixar</Button>
+                    <Button size="sm" variant="outline" onClick={() => reprint(r, "print")}><Printer className="h-3 w-3 mr-1" />Imprimir</Button>
                     {r.status !== "cancelado" && (
                       <Button size="sm" variant="outline" disabled={supportMode} onClick={() => setCancelOf(r)} className="text-rose-600 hover:text-rose-700">
                         <XCircle className="h-3 w-3 mr-1" />Cancelar
