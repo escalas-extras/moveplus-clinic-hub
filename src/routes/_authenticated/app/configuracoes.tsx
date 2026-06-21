@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
-import { Stethoscope, Palette } from "lucide-react";
+import { Stethoscope, Palette, UserCircle2 } from "lucide-react";
 import { LogoUploader, signedLogoUrl } from "@/components/logo-uploader";
+import { AvatarUploader } from "@/components/avatar-uploader";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfigPage,
