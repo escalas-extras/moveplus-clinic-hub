@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Download, Users, Activity, Wallet, ClipboardCheck } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/relatorios")({
   component: ReportsPage,
@@ -43,14 +44,15 @@ function downloadCSV(filename: string, csv: string) {
 }
 
 function ReportsPage() {
+  const { clinicId } = useActiveClinic();
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   const [from, setFrom] = useState(firstDay.toISOString().slice(0, 10));
   const [to, setTo] = useState(today.toISOString().slice(0, 10));
 
   const { data: clinical } = useQuery({
-    queryKey: ["report-clinical", from, to],
-    queryFn: async () => {
+    queryKey: ["report-clinical", clinicId, from, to],
+    enabled: !!clinicId,
       const [pat, assess, evo, scales, reaval] = await Promise.all([
         supabase.from("patients").select("id, situacao", { count: "exact" }),
         supabase.from("assessments").select("id, status, clinical_profiles, data").gte("data", from).lte("data", to),

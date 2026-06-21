@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
 import { generatePdf } from "@/lib/pdf";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
   component: FinanceiroPage,
@@ -23,16 +24,19 @@ type Form = { patient_id: string; professional_id: string; data: string; valor: 
 
 function FinanceiroPage() {
   const qc = useQueryClient();
+  const { clinicId } = useActiveClinic();
   const [open, setOpen] = useState(false);
   const monthStart = new Date(); monthStart.setDate(1);
   const monthIso = monthStart.toISOString().slice(0, 10);
 
   const list = useQuery({
-    queryKey: ["fin"],
+    queryKey: ["fin", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("financial_entries")
         .select("*, patients(nome_completo), professionals(nome, conselho, registro, profissao)")
+        .eq("clinic_id", clinicId!)
         .order("data", { ascending: false })
         .limit(200);
       return data ?? [];
@@ -40,26 +44,29 @@ function FinanceiroPage() {
   });
 
   const totals = useQuery({
-    queryKey: ["fin-totals", monthIso],
+    queryKey: ["fin-totals", clinicId, monthIso],
+    enabled: !!clinicId,
     queryFn: async () => {
-      const { data: pagos } = await supabase.from("financial_entries").select("valor").eq("status", "pago").gte("data", monthIso);
-      const { data: pend } = await supabase.from("financial_entries").select("valor").eq("status", "pendente");
+      const { data: pagos } = await supabase.from("financial_entries").select("valor").eq("clinic_id", clinicId!).eq("status", "pago").gte("data", monthIso);
+      const { data: pend } = await supabase.from("financial_entries").select("valor").eq("clinic_id", clinicId!).eq("status", "pendente");
       const totalMes = (pagos ?? []).reduce((s, r) => s + Number(r.valor), 0);
       const totalPend = (pend ?? []).reduce((s, r) => s + Number(r.valor), 0);
       return { totalMes, totalPend };
     },
   });
 
-  const patients = useQuery({ queryKey: ["patients-all"], queryFn: async () => (await supabase.from("patients").select("id, nome_completo").order("nome_completo")).data ?? [] });
-  const profs = useQuery({ queryKey: ["professionals-active"], queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("situacao","ativo").order("nome")).data ?? [] });
+  const patients = useQuery({ queryKey: ["patients-all", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("patients").select("id, nome_completo").order("nome_completo")).data ?? [] });
+  const profs = useQuery({ queryKey: ["professionals-active", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("situacao","ativo").order("nome")).data ?? [] });
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("financial_entries").insert({ ...v, created_by: u.user?.id });
+      const payload: any = { ...v, created_by: u.user?.id };
+      if (clinicId) payload.clinic_id = clinicId;
+      const { error } = await supabase.from("financial_entries").insert(payload);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Lançamento criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["fin"] }); qc.invalidateQueries({ queryKey: ["fin-totals"] }); },
+    onSuccess: () => { toast.success("Lançamento criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -68,7 +75,7 @@ function FinanceiroPage() {
       const { error } = await supabase.from("financial_entries").update({ status: "pago" }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fin"] }); qc.invalidateQueries({ queryKey: ["fin-totals"] }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },
   });
 
   async function emitReceipt(entry: any) {

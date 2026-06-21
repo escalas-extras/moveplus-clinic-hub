@@ -13,6 +13,7 @@ import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { fmtDate } from "@/lib/format";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
@@ -24,11 +25,13 @@ const STATUS = ["agendado", "confirmado", "realizado", "cancelado"] as const;
 
 function AgendaPage() {
   const qc = useQueryClient();
+  const { clinicId } = useActiveClinic();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [open, setOpen] = useState(false);
 
   const list = useQuery({
-    queryKey: ["appts", date],
+    queryKey: ["appts", clinicId, date],
+    enabled: !!clinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("appointments")
@@ -40,11 +43,13 @@ function AgendaPage() {
   });
 
   const patients = useQuery({
-    queryKey: ["patients-all"],
+    queryKey: ["patients-all", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => (await supabase.from("patients").select("id, nome_completo").order("nome_completo")).data ?? [],
   });
   const profs = useQuery({
-    queryKey: ["professionals-active"],
+    queryKey: ["professionals-active", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("situacao", "ativo").order("nome")).data ?? [],
   });
 
@@ -54,7 +59,7 @@ function AgendaPage() {
       const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id } as any);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Agendado"); setOpen(false); qc.invalidateQueries({ queryKey: ["appts"] }); },
+    onSuccess: () => { toast.success("Agendado"); setOpen(false); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -63,7 +68,7 @@ function AgendaPage() {
       const { error } = await supabase.from("appointments").update({ status: status as any }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["appts"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["appts", clinicId] }),
   });
 
   function shiftDay(delta: number) {
