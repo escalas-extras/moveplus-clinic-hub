@@ -81,9 +81,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth" });
   }
 
+  const { has: hasFeature } = usePlanFeatures();
   const activeGroups = isPlatformAdmin ? platformGroups : groups;
   const visibleGroups = activeGroups
-    .map((g) => ({ ...g, items: g.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.superAdminOnly || isSuperAdmin)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) =>
+          (!i.adminOnly || isAdmin) &&
+          (!i.superAdminOnly || isSuperAdmin) &&
+          (!i.feature || hasFeature(i.feature)),
+      ),
+    }))
     .filter((g) => g.items.length > 0);
 
   const userName = (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
