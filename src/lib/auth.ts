@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -9,17 +9,27 @@ export type ClinicRole = "owner" | "admin" | "profissional" | "recepcao" | "fina
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUser = session?.user ?? null;
+      setUser((prev) => {
+        // Invalida caches de permissões quando o usuário muda ou ao login/logout
+        if (prev?.id !== nextUser?.id || event === "SIGNED_IN" || event === "SIGNED_OUT") {
+          qc.invalidateQueries({ queryKey: ["user-roles-combined"] });
+          qc.invalidateQueries({ queryKey: ["platform-context"] });
+          qc.invalidateQueries({ queryKey: ["plan-features"] });
+        }
+        return nextUser;
+      });
     });
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [qc]);
 
   return { user, loading };
 }
