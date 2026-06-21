@@ -341,7 +341,7 @@ function DashboardTab() {
                     <Badge
                       variant={c.status === "active" ? "default" : "secondary"}
                     >
-                      {c.status}
+                      {STATUS_LABEL[c.status] ?? c.status}
                     </Badge>
                   </div>
                 </li>
