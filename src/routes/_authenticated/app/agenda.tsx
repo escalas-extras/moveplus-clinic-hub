@@ -212,10 +212,17 @@ function AgendaPage() {
           <p className="mt-1.5 text-[15px] text-muted-foreground capitalize">{headerLabel}</p>
         </div>
         <div className="shrink-0">
+          <Button disabled={supportMode} onClick={() => openNewSlot(ymd(anchor))}>
+            <Plus className="h-4 w-4 mr-2" />Novo agendamento
+          </Button>
           <NewAppointmentDialog
-            open={open} setOpen={setOpen} create={create}
-            patients={patients.data ?? []} profs={profs.data ?? []}
-            initialDate={ymd(anchor)} disabled={supportMode}
+            open={open}
+            setOpen={(o: boolean) => { setOpen(o); if (!o) setSlotPrefill(null); }}
+            create={create}
+            patients={patients.data ?? []}
+            profs={profs.data ?? []}
+            initialDate={slotPrefill?.data ?? ymd(anchor)}
+            initialHora={slotPrefill?.horario ?? "08:00"}
           />
         </div>
       </header>
