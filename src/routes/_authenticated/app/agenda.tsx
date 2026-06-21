@@ -409,15 +409,19 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }:
               <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2, "0")}:00</div>
               <div className="space-y-2">
                 {slot.length === 0 ? (
-                  <button
-                    type="button"
-                    disabled={disabled}
+                  <SupportGuardClickable
+                    supportMode={disabled}
                     onClick={() => onSlotClick(h)}
-                    className="w-full h-10 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                    tooltip="Horário vazio bloqueado no Modo Suporte"
                   >
-                    + Novo agendamento
-                  </button>
+                    <button
+                      type="button"
+                      className="w-full h-10 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                    >
+                      + Novo agendamento
+                    </button>
+                  </SupportGuardClickable>
                 ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
               </div>
             </li>
