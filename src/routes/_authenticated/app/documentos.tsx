@@ -83,6 +83,7 @@ function DocumentosPage() {
       const { data } = await supabase
         .from("document_templates")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("is_active", true)
         .order("doc_type")
         .order("name");
