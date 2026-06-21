@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { usePlatformContext } from "@/lib/platform-context";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Search,
@@ -220,6 +220,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Busca global</DialogTitle>
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
