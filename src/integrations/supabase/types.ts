@@ -3224,6 +3224,7 @@ export type Database = {
         }
         Returns: string
       }
+      shares_clinic_with: { Args: { _other_user_id: string }; Returns: boolean }
       start_support_session: {
         Args: { _clinic_id: string; _reason?: string }
         Returns: string
