@@ -8,13 +8,14 @@ import {
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
+import { usePlatformContext } from "@/lib/platform-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
 
 type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean };
-type NavGroup = { title: string; items: NavItemDef[] };
+type NavGroup = { title: string; items: NavItemDef[]; platform?: boolean };
 
 const groups: NavGroup[] = [
   {
@@ -56,10 +57,20 @@ const groups: NavGroup[] = [
   },
 ];
 
+const platformGroups: NavGroup[] = [
+  {
+    title: "Plataforma",
+    platform: true,
+    items: [
+      { to: "/app/admin-saas", label: "Admin SaaS", icon: Building2, superAdminOnly: true },
+    ],
+  },
+];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isAdmin, roles } = useRoles(user?.id);
-  const isSuperAdmin = (roles as any[]).includes("super_admin");
+  const { isAdmin } = useRoles(user?.id);
+  const { isPlatformAdmin, isSuperAdmin } = usePlatformContext();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const brand = useBranding();
@@ -69,7 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth" });
   }
 
-  const visibleGroups = groups
+  const activeGroups = isPlatformAdmin ? platformGroups : groups;
+  const visibleGroups = activeGroups
     .map((g) => ({ ...g, items: g.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.superAdminOnly || isSuperAdmin)) }))
     .filter((g) => g.items.length > 0);
 

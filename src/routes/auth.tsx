@@ -25,11 +25,17 @@ function AuthPage() {
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Bem-vindo(a)!");
-    navigate({ to: "/app" });
+    const userId = data.user?.id;
+    let target: "/app" | "/app/admin-saas" = "/app";
+    if (userId) {
+      const { resolvePostLoginRedirect } = await import("@/lib/platform-context");
+      target = (await resolvePostLoginRedirect(userId)) as any;
+    }
+    navigate({ to: target });
   }
 
   async function sendReset(e: React.FormEvent) {
