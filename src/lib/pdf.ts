@@ -559,7 +559,7 @@ export async function buildPdf(opts: {
     const sigX = cx - sigW / 2;
     doc.line(sigX, sigY, sigX + sigW, sigY);
 
-    let ly = sigY + 14;
+    let ly = sigY + 13;
     const hasName = !!(opts.name && opts.name.trim());
 
     if (hasName) {
@@ -578,16 +578,16 @@ export async function buildPdf(opts: {
 
     if (opts.role && opts.role.trim()) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(...C.label);
+      doc.setFontSize(9.5);
+      doc.setTextColor(...C.text);
       doc.text(opts.role.trim(), cx, ly, { align: "center" });
-      ly += 11;
+      ly += 12;
     }
 
     if (opts.registry && opts.registry.trim()) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(...C.label);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...C.text);
       doc.text(opts.registry.trim(), cx, ly, { align: "center" });
       ly += 11;
     }
