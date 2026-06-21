@@ -186,13 +186,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* User chip */}
         <div className="border-t border-white/40 p-4">
-          <div className="flex items-center gap-3 px-1 mb-3">
+          <button
+            type="button"
+            onClick={() => setAvatarOpen(true)}
+            className="w-full flex items-center gap-3 px-1 mb-3 rounded-lg hover:bg-white/60 py-1 transition-colors text-left"
+            aria-label="Editar foto de perfil"
+          >
             <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={36} gradient={avatarGradient} />
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{userName}</div>
               <div className="text-[11px] text-muted-foreground truncate">{user?.email}</div>
             </div>
-          </div>
+          </button>
           <Button variant="outline" size="sm" className="w-full justify-start glass" onClick={logout}>
             <LogOut className="h-4 w-4 mr-2" /> Sair
           </Button>
