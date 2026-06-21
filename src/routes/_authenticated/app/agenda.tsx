@@ -557,7 +557,7 @@ function EditAppointmentDialog({ appt, onClose, update, patients, profs, disable
   });
 
   // Reset form whenever a new appointment is opened
-  useMemo(() => {
+  useEffect(() => {
     if (appt) {
       reset({
         patient_id: appt.patient_id ?? "",
