@@ -233,7 +233,12 @@ export async function buildPdf(opts: {
     doc.text(label.toUpperCase(), M + 10, y + 13);
     y += titleH;
     y += 10;
+    // Restore default body text state so continuation after page break is visible
+    doc.setTextColor(...C.text);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
   }
+
 
   function renderBlock(block: PdfBlock) {
     // Ensure title bar + at least one content line fits together (no orphan titles)
