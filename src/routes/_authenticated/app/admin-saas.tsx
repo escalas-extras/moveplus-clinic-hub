@@ -700,9 +700,155 @@ function ClinicsTab() {
           </form>
         </DialogContent>
       </Dialog>
+      <DeleteClinicDialog
+        clinic={deleteFor}
+        open={!!deleteFor}
+        onOpenChange={(b) => !b && setDeleteFor(null)}
+        onDeleted={() => {
+          setDeleteFor(null);
+          qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+          qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
+        }}
+      />
     </Card>
   );
 }
+
+function DeleteClinicDialog({
+  clinic,
+  open,
+  onOpenChange,
+  onDeleted,
+}: {
+  clinic: any | null;
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  onDeleted: () => void;
+}) {
+  const fetchCounts = useServerFn(getClinicCounts);
+  const doDelete = useServerFn(softDeleteClinic);
+  const [confirmName, setConfirmName] = useState("");
+  const [ackDocs, setAckDocs] = useState(false);
+
+  const { data: info, isLoading } = useQuery({
+    queryKey: ["clinic-counts", clinic?.id],
+    enabled: !!clinic?.id && open,
+    queryFn: () => fetchCounts({ data: { id: clinic.id } }),
+  });
+
+  const mut = useMutation({
+    mutationFn: () =>
+      doDelete({
+        data: {
+          id: clinic.id,
+          confirm_name: confirmName,
+          acknowledge_documents: ackDocs,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Clínica excluída (soft delete). Dados preservados para recuperação.");
+      setConfirmName("");
+      setAckDocs(false);
+      onDeleted();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  useEffect(() => {
+    if (!open) {
+      setConfirmName("");
+      setAckDocs(false);
+    }
+  }, [open]);
+
+  if (!clinic) return null;
+  const expected = clinic.slug || clinic.nome;
+  const isMovePlus =
+    /move\s*\+?\s*60?\s*\+?/i.test(clinic.nome || "") || clinic.slug === "move-plus";
+  const requiredText = isMovePlus ? "EXCLUIR MOVE 60+" : expected;
+  const counts = info?.counts;
+  const hasDocs = (counts?.documents ?? 0) > 0;
+  const canDelete =
+    confirmName.trim() === requiredText && (!hasDocs || ackDocs) && !mut.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-destructive flex items-center gap-2">
+            <Trash2 className="h-4 w-4" /> Excluir clínica · {clinic.nome}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive">
+            Ação sensível. Será aplicada exclusão lógica (soft delete): a clínica deixa de
+            aparecer no Painel e seus membros perdem acesso, mas dados ficam recuperáveis.
+          </div>
+
+          {isLoading ? (
+            <p className="text-muted-foreground">Carregando contadores…</p>
+          ) : counts ? (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <Counter label="Pacientes" value={counts.patients} />
+              <Counter label="Documentos clínicos" value={counts.documents} />
+              <Counter label="Profissionais" value={counts.professionals} />
+              <Counter label="Membros" value={counts.members} />
+            </div>
+          ) : null}
+
+          {hasDocs && (
+            <label className="flex items-start gap-2 text-xs">
+              <Checkbox
+                checked={ackDocs}
+                onCheckedChange={(v) => setAckDocs(!!v)}
+              />
+              <span>
+                Confirmo que esta clínica possui <strong>{counts?.documents}</strong> documentos
+                clínicos emitidos e mesmo assim desejo excluí-la.
+              </span>
+            </label>
+          )}
+
+          <div>
+            <Label className="text-xs">
+              Digite <code className="font-mono">{requiredText}</code> para confirmar:
+            </Label>
+            <Input
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              placeholder={requiredText}
+              className="mt-1"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!canDelete}
+              onClick={() => mut.mutate()}
+            >
+              {mut.isPending ? "Excluindo…" : "Excluir clínica"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Counter({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border bg-muted/40 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-base font-semibold">{value}</div>
+    </div>
+  );
+}
+
+
 
 
 // ============================================================
