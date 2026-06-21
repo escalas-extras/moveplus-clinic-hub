@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { pcGet, pcSet } from "@/lib/persistent-cache";
+import { pcDelete, pcGet, pcSet } from "@/lib/persistent-cache";
 
 type StorageObjectRef = { bucket: string; path: string };
 
@@ -7,6 +7,12 @@ const SIGNED_LOGO_TTL_MS = 50 * 60_000;
 
 function persistKey(raw: string) {
   return `fos:signed-logo:${raw}`;
+}
+
+export function invalidateSignedClinicLogoUrl(raw: string | null | undefined) {
+  const value = raw?.trim();
+  if (!value || /^https?:\/\//i.test(value)) return;
+  pcDelete(persistKey(value));
 }
 
 function storageObjectFromUrl(raw: string): StorageObjectRef | null {
