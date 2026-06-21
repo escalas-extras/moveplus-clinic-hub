@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,16 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
 
+function translateError(msg?: string): string {
+  if (!msg) return "Não foi possível salvar. Tente novamente.";
+  const m = msg.toLowerCase();
+  if (m.includes("modo suporte")) return "Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.";
+  if (m.includes("row-level security") || m.includes("permission")) return "Você não tem permissão para alterar este agendamento.";
+  if (m.includes("locked") || m.includes("bloqueado")) return "Registro bloqueado: não pode ser alterado.";
+  if (m.includes("limite contratado")) return msg;
+  return msg;
+}
+
 function AgendaPage() {
   const qc = useQueryClient();
   const { clinicId, supportMode } = useActiveClinic();
@@ -118,11 +128,36 @@ function AgendaPage() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Status }) => {
-      const { error } = await supabase.from("appointments").update({ status: status as any }).eq("id", id);
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status: status as any })
+        .eq("id", id)
+        .eq("clinic_id", clinicId);
       if (error) throw error;
     },
     onSuccess: (_d, v) => { toast.success(`Marcado como ${STATUS_LABEL[v.status]}`); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(translateError(e?.message)),
+  });
+
+  const [editing, setEditing] = useState<any | null>(null);
+  const update = useMutation({
+    mutationFn: async (v: Form & { id: string; status: Status }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      const { id, status, ...rest } = v;
+      const { error } = await supabase
+        .from("appointments")
+        .update({ ...rest, status: status as any })
+        .eq("id", id)
+        .eq("clinic_id", clinicId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Agendamento atualizado");
+      setEditing(null);
+      qc.invalidateQueries({ queryKey: ["appts", clinicId] });
+    },
+    onError: (e: any) => toast.error(translateError(e?.message)),
   });
 
   // Filtering (applied to list)
@@ -202,7 +237,7 @@ function AgendaPage() {
           {list.isLoading ? (
             <Card className="p-8 text-center text-sm text-muted-foreground">Carregando…</Card>
           ) : view === "dia" ? (
-            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} disabled={supportMode} onNew={() => setOpen(true)} />
+            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} onEdit={(a) => setEditing(a)} disabled={supportMode} onNew={() => setOpen(true)} />
           ) : view === "semana" ? (
             <WeekView items={filtered} weekStart={startOfWeek(anchor)} onPick={(d) => { setAnchor(d); setView("dia"); }} />
           ) : (
@@ -265,14 +300,23 @@ function AgendaPage() {
           </Card>
         </aside>
       </div>
+
+      <EditAppointmentDialog
+        appt={editing}
+        onClose={() => setEditing(null)}
+        update={update}
+        patients={patients.data ?? []}
+        profs={profs.data ?? []}
+        disabled={supportMode}
+      />
     </div>
   );
 }
 
 /* ───────────────────────── DAY VIEW ───────────────────────── */
 
-function DayView({ items, day, onStatus, disabled, onNew }: {
-  items: any[]; day: string; onStatus: (id: string, s: Status) => void; disabled: boolean; onNew: () => void;
+function DayView({ items, day, onStatus, onEdit, disabled, onNew }: {
+  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void;
 }) {
   const todays = items.filter((a) => a.data === day);
   if (!todays.length) {
@@ -300,7 +344,7 @@ function DayView({ items, day, onStatus, disabled, onNew }: {
               <div className="space-y-2">
                 {slot.length === 0 ? (
                   <div className="h-full" />
-                ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} disabled={disabled} />)}
+                ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
               </div>
             </li>
           );
@@ -310,7 +354,7 @@ function DayView({ items, day, onStatus, disabled, onNew }: {
   );
 }
 
-function AppointmentBlock({ a, onStatus, disabled }: { a: any; onStatus: (id: string, s: Status) => void; disabled: boolean }) {
+function AppointmentBlock({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean }) {
   const s = (a.status ?? "agendado") as Status;
   return (
     <div className={cn("rounded-xl border-l-4 ring-1 px-3 py-2 flex items-start gap-3", STATUS_CLASS[s])}>
@@ -322,12 +366,12 @@ function AppointmentBlock({ a, onStatus, disabled }: { a: any; onStatus: (id: st
         </div>
       </div>
       <Badge variant="outline" className="bg-white/60 border-transparent text-[10px] uppercase tracking-wide shrink-0">{STATUS_LABEL[s]}</Badge>
-      <RowActions a={a} onStatus={onStatus} disabled={disabled} />
+      <RowActions a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />
     </div>
   );
 }
 
-function RowActions({ a, onStatus, disabled }: { a: any; onStatus: (id: string, s: Status) => void; disabled: boolean }) {
+function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -339,7 +383,7 @@ function RowActions({ a, onStatus, disabled }: { a: any; onStatus: (id: string, 
             <Link to="/app/pacientes/$id" params={{ id: a.patient_id }}><UserCircle2 className="h-4 w-4 mr-2" /> Ver paciente</Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem disabled={disabled} onClick={() => toast.info("Edição em breve")}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+        <DropdownMenuItem disabled={disabled} onClick={() => onEdit(a)}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "confirmado")}>Marcar como Confirmado</DropdownMenuItem>
         <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "realizado")}><CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado</DropdownMenuItem>
@@ -488,6 +532,104 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
           </div>
           <div><Label className="text-xs uppercase">Observação</Label><Textarea rows={2} {...register("observacao")} /></div>
           <div className="flex justify-end"><Button type="submit" disabled={create.isPending || !patient_id || !professional_id}>Agendar</Button></div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ───────────────────────── EDIT DIALOG ───────────────────────── */
+
+function EditAppointmentDialog({ appt, onClose, update, patients, profs, disabled }: {
+  appt: any | null;
+  onClose: () => void;
+  update: { mutate: (v: any) => void; isPending: boolean };
+  patients: any[];
+  profs: any[];
+  disabled: boolean;
+}) {
+  const open = !!appt;
+  const { register, handleSubmit, setValue, watch, reset } = useForm<Form & { status: Status }>({
+    defaultValues: {
+      patient_id: "", professional_id: "", data: "", horario: "08:00",
+      duracao_min: 60, observacao: "", status: "agendado",
+    },
+  });
+
+  // Reset form whenever a new appointment is opened
+  useEffect(() => {
+    if (appt) {
+      reset({
+        patient_id: appt.patient_id ?? "",
+        professional_id: appt.professional_id ?? "",
+        data: appt.data ?? "",
+        horario: String(appt.horario ?? "").slice(0, 5),
+        duracao_min: Number(appt.duracao_min ?? 60),
+        observacao: appt.observacao ?? "",
+        status: (appt.status ?? "agendado") as Status,
+      });
+    }
+  }, [appt, reset]);
+
+  const patient_id = watch("patient_id");
+  const professional_id = watch("professional_id");
+  const status = watch("status");
+
+  function onSubmit(v: Form & { status: Status }) {
+    if (!appt) return;
+    update.mutate({ ...v, id: appt.id });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !update.isPending) onClose(); }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar agendamento</DialogTitle></DialogHeader>
+        {disabled && (
+          <div className="rounded-md bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-xs px-3 py-2">
+            Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.
+          </div>
+        )}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+          <div>
+            <Label className="text-xs uppercase">Paciente</Label>
+            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs uppercase">Profissional</Label>
+            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" {...register("horario")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
+          </div>
+          <div>
+            <Label className="text-xs uppercase">Status</Label>
+            <Select value={status} onValueChange={(v) => setValue("status", v as Status)} disabled={disabled}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["agendado", "confirmado", "realizado", "cancelado"] as Status[]).map((s) => (
+                  <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs uppercase">Observação</Label>
+            <Textarea rows={2} {...register("observacao")} disabled={disabled} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={update.isPending}>Cancelar</Button>
+            <Button type="submit" disabled={disabled || update.isPending || !patient_id || !professional_id}>
+              {update.isPending ? "Salvando…" : "Salvar alterações"}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
