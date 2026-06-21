@@ -317,7 +317,7 @@ export const provisionClinic = createServerFn({ method: "POST" })
       ownerUserId = found.id;
     }
 
-    return await provisionClinicFallback({
+    const result = await provisionClinicFallback({
       nome: data.nome,
       plan_code: data.plan_code,
       owner_user_id: ownerUserId,
@@ -326,6 +326,16 @@ export const provisionClinic = createServerFn({ method: "POST" })
       estado: data.estado,
       supabaseAdmin,
     });
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.create",
+      "clinic",
+      result.clinic_id,
+      null,
+      { nome: data.nome, slug: result.slug, plan_code: data.plan_code },
+    );
+    return result;
   });
 
 async function provisionClinicFallback(args: {
