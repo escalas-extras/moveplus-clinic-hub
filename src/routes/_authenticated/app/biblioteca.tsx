@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AppShell } from "@/components/app-shell";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -95,7 +94,7 @@ function BibliotecaPage() {
   }
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Biblioteca clínica</h1>
@@ -214,6 +213,6 @@ function BibliotecaPage() {
           )}
         </DialogContent>
       </Dialog>
-    </AppShell>
+    </>
   );
 }
