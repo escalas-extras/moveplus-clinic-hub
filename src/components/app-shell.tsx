@@ -239,26 +239,34 @@ function Logo({ brand, compact = false }: { brand: ReturnType<typeof useBranding
   const size = compact ? "h-9 w-9" : "h-11 w-11";
   const [broken, setBroken] = useState(false);
   const initial = (brand.clinicName || "C").trim().charAt(0).toUpperCase();
-  const showImage = brand.hasOwnLogo && brand.logoUrl && !broken;
+  const rawLogo = brand.logoUrl?.trim();
+  const showImage = brand.hasOwnLogo && !!rawLogo && !broken;
   if (showImage) {
     return (
       <div
         className={cn(size, "rounded-xl flex items-center justify-center overflow-hidden bg-white/80 shadow-soft p-1")}
       >
         <img
-          src={brand.logoUrl!}
+          src={rawLogo!}
           alt={brand.clinicName}
           className="max-h-full max-w-full object-contain"
+          referrerPolicy="no-referrer"
           onError={() => setBroken(true)}
+          onLoad={(e) => {
+            // Imagem com 0x0 (resposta inválida) também conta como quebrada.
+            const img = e.currentTarget;
+            if (!img.naturalWidth || !img.naturalHeight) setBroken(true);
+          }}
         />
       </div>
     );
   }
-  // Monograma elegante com inicial da clínica (fallback institucional)
+  // Monograma elegante com inicial da clínica (fallback institucional).
   return (
     <div
       className={cn(size, "rounded-2xl flex items-center justify-center shadow-soft text-white font-semibold")}
       style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
+      aria-label={brand.clinicName}
     >
       {brand.clinicName && brand.clinicName !== brand.appName ? (
         <span className={cn(compact ? "text-sm" : "text-base")}>{initial}</span>
