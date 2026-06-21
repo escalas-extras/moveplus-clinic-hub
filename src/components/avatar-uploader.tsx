@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, invalidateSignedAvatarUrl, signedAvatarUrl } from "@/lib/user-avatar";
+import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, getCachedAvatarUrl, invalidateSignedAvatarUrl, signedAvatarUrl } from "@/lib/user-avatar";
 
 /**
  * Upload de avatar do usuário no bucket `user-avatars`.
@@ -171,6 +171,7 @@ export function UserAvatar({
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    initialData: getCachedAvatarUrl(avatarPath) ?? undefined,
   });
   useEffect(() => setBroken(false), [avatarPath]);
   useEffect(() => {
