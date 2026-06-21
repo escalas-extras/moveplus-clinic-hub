@@ -268,6 +268,8 @@ export async function buildPdf(opts: {
     // Block-scoped ensure: closes the current segment border AND repeats the title
     // on the new page so continuation content stays inside a visible card.
     const prevEnsure = ensure;
+    const prevGetBottom = getBottom;
+    getBottom = () => bottomLimit;
     ensure = (need: number) => {
       if (y + need > bottomLimit) {
         // close current segment border
@@ -297,6 +299,7 @@ export async function buildPdf(opts: {
     doc.rect(M, segStartY, contentW, y - segStartY, "S");
 
     ensure = prevEnsure;
+    getBottom = prevGetBottom;
     y += 10;
   }
 
