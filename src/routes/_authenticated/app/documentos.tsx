@@ -62,6 +62,18 @@ function DocumentosPage() {
   });
 
   // ----- DATA -----
+  const { data: activeClinicId } = useQuery({
+    queryKey: ["active-clinic-id", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
+        supabase.rpc("current_support_session_clinic"),
+        supabase.rpc("current_clinic_id"),
+      ]);
+      return ((supportCid as string | null) ?? (ownCid as string | null) ?? null);
+    },
+  });
+
   const { data: templates = [] } = useQuery({
     queryKey: ["doc-templates-active"],
     queryFn: async () => {
@@ -76,11 +88,13 @@ function DocumentosPage() {
   });
 
   const { data: patients = [] } = useQuery({
-    queryKey: ["patients-min"],
+    queryKey: ["patients-min", activeClinicId],
+    enabled: !!activeClinicId,
     queryFn: async () => {
       const { data } = await supabase
         .from("patients")
         .select("id, nome_completo, cpf, data_nascimento, cid_principal")
+        .eq("clinic_id", activeClinicId!)
         .order("nome_completo");
       return data || [];
     },
@@ -95,21 +109,22 @@ function DocumentosPage() {
   }, [patients, patientSearch]);
 
   const { data: patient } = useQuery({
-    queryKey: ["patient-full", patientId],
-    enabled: !!patientId,
+    queryKey: ["patient-full", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
-      const { data } = await supabase.from("patients").select("*").eq("id", patientId).single();
+      const { data } = await supabase.from("patients").select("*").eq("id", patientId).eq("clinic_id", activeClinicId!).single();
       return data;
     },
   });
 
   const { data: lastAssessment } = useQuery({
-    queryKey: ["patient-last-assessment", patientId],
-    enabled: !!patientId,
+    queryKey: ["patient-last-assessment", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
         .from("assessments")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("patient_id", patientId)
         .order("data", { ascending: false })
         .limit(1)
@@ -178,12 +193,13 @@ function DocumentosPage() {
   });
 
   const { data: emitted = [], refetch: refetchEmitted } = useQuery({
-    queryKey: ["clinical-documents", patientId],
-    enabled: !!patientId,
+    queryKey: ["clinical-documents", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
         .from("clinical_documents")
         .select("*")
+        .eq("clinic_id", activeClinicId!)
         .eq("patient_id", patientId)
         .order("issued_at", { ascending: false });
       return data || [];
