@@ -690,6 +690,16 @@ export const assignPlan = createServerFn({ method: "POST" })
       notes: data.notes ?? null,
     });
 
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.plan_change",
+      "clinic",
+      data.clinic_id,
+      { plan_code: (current as any)?.plans?.code ?? null },
+      { plan_code: plan.code, notes: data.notes ?? null },
+    );
+
     return { ok: true };
   });
 
@@ -710,4 +720,33 @@ export const listPlanChangeAudit = createServerFn({ method: "GET" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     return rows ?? [];
+  });
+
+// ------------------------------------------------------------
+// Auditoria administrativa (todos os eventos)
+// ------------------------------------------------------------
+export const listSaasAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("saas_audit_log")
+      .select("id, created_at, user_id, action, entity_type, entity_id, old_data, new_data")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+
+    const userIds = Array.from(
+      new Set((rows ?? []).map((r: any) => r.user_id).filter(Boolean)),
+    );
+    const emails: Record<string, string> = {};
+    if (userIds.length) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
+      for (const p of profiles ?? []) emails[p.id] = p.email;
+    }
+    return (rows ?? []).map((r: any) => ({ ...r, user_email: emails[r.user_id] ?? null }));
   });
