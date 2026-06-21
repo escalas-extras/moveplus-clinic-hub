@@ -4,15 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
 
 export const LOGO_MAX = 5 * 1024 * 1024;
 export const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
 
 export async function signedLogoUrl(path: string | null | undefined): Promise<string | null> {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  const { data } = await supabase.storage.from("clinic-logos").createSignedUrl(path, 60 * 60);
-  return data?.signedUrl ?? null;
+  return resolveClinicLogoUrl(path);
 }
 
 /**
