@@ -13,6 +13,30 @@ async function assertSuperAdmin(supabase: any, userId: string) {
   if (!data) throw new Error("Acesso restrito a super administradores.");
 }
 
+async function logAudit(
+  supabaseAdmin: any,
+  userId: string,
+  action: string,
+  entityType: string,
+  entityId: string | null,
+  oldData: any = null,
+  newData: any = null,
+) {
+  try {
+    await supabaseAdmin.from("saas_audit_log").insert({
+      user_id: userId,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      old_data: oldData,
+      new_data: newData,
+    });
+  } catch (e) {
+    // best-effort
+    console.error("[saas_audit_log]", e);
+  }
+}
+
 // ------------------------------------------------------------
 // Dashboard
 // ------------------------------------------------------------
