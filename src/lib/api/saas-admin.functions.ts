@@ -256,11 +256,29 @@ export const setClinicStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: prev } = await supabaseAdmin
+      .from("clinics")
+      .select("status")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await supabaseAdmin
       .from("clinics")
       .update({ status: data.status })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      data.status === "active"
+        ? "clinic.activate"
+        : data.status === "suspended"
+          ? "clinic.suspend"
+          : "clinic.deactivate",
+      "clinic",
+      data.id,
+      prev,
+      { status: data.status },
+    );
     return { ok: true };
   });
 
