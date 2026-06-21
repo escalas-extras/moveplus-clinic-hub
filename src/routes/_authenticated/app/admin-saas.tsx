@@ -1250,62 +1250,80 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
 
 function AuditTab() {
   const fetchAudit = useServerFn(listSaasAudit);
+  const fetchClinics = useServerFn(listClinicsAdmin);
+  const [clinicId, setClinicId] = useState<string>("");
+  const [action, setAction] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const filters = {
+    clinic_id: clinicId || undefined,
+    action: action || undefined,
+    from: from ? new Date(from).toISOString() : undefined,
+    to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
+  };
+
+  const { data: clinics } = useQuery({
+    queryKey: ["admin-saas-clinics-mini"],
+    queryFn: () => fetchClinics(),
+  });
   const { data, isLoading } = useQuery({
-    queryKey: ["saas-audit"],
-    queryFn: () => fetchAudit(),
+    queryKey: ["saas-audit", filters],
+    queryFn: () => fetchAudit({ data: filters as any }),
   });
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
   const rows = data ?? [];
 
   return (
     <Card>
-      <CardContent className="p-0">
+      <CardHeader>
+        <CardTitle className="text-base">Auditoria</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-4">
+          <Select value={clinicId || "__all"} onValueChange={(v) => setClinicId(v === "__all" ? "" : v)}>
+            <SelectTrigger><SelectValue placeholder="Clínica" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all">Todas as clínicas</SelectItem>
+              {(clinics ?? []).map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input placeholder="Ação (ex: clinic., user., support.)" value={action} onChange={(e) => setAction(e.target.value)} />
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Data/hora</TableHead>
               <TableHead>Ação</TableHead>
+              <TableHead>Clínica</TableHead>
               <TableHead>Entidade</TableHead>
               <TableHead>Usuário</TableHead>
               <TableHead>Detalhes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r: any) => (
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-sm">Carregando...</TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground text-sm py-6">Nenhum evento registrado.</TableCell></TableRow>
+            ) : rows.map((r: any) => (
               <TableRow key={r.id}>
-                <TableCell className="text-xs whitespace-nowrap">
-                  {new Date(r.created_at).toLocaleString("pt-BR")}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">
-                    {AUDIT_ACTION_LABEL[r.action] ?? r.action}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs">
-                  {r.entity_type}
-                  {r.entity_id && (
-                    <div className="text-muted-foreground font-mono">
-                      {String(r.entity_id).slice(0, 8)}…
-                    </div>
-                  )}
-                </TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{new Date(r.created_at).toLocaleString("pt-BR")}</TableCell>
+                <TableCell><Badge variant="outline">{AUDIT_ACTION_LABEL[r.action] ?? r.action}</Badge></TableCell>
+                <TableCell className="text-xs">{r.clinic_name ?? "—"}</TableCell>
+                <TableCell className="text-xs">{r.entity_type}{r.entity_id && (<div className="text-muted-foreground font-mono">{String(r.entity_id).slice(0, 8)}…</div>)}</TableCell>
                 <TableCell className="text-xs">{r.user_email ?? "—"}</TableCell>
-                <TableCell className="text-[11px] text-muted-foreground max-w-md truncate">
-                  {r.new_data ? JSON.stringify(r.new_data) : "—"}
-                </TableCell>
+                <TableCell className="text-[11px] text-muted-foreground max-w-md truncate">{r.details ? JSON.stringify(r.details) : r.new_data ? JSON.stringify(r.new_data) : "—"}</TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6">
-                  Nenhum evento registrado.
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </CardContent>
     </Card>
   );
 }
+
