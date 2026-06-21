@@ -53,6 +53,7 @@ function ReportsPage() {
   const { data: clinical } = useQuery({
     queryKey: ["report-clinical", clinicId, from, to],
     enabled: !!clinicId,
+    queryFn: async () => {
       const [pat, assess, evo, scales, reaval] = await Promise.all([
         supabase.from("patients").select("id, situacao", { count: "exact" }),
         supabase.from("assessments").select("id, status, clinical_profiles, data").gte("data", from).lte("data", to),
