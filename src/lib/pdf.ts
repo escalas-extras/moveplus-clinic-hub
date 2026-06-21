@@ -246,7 +246,13 @@ export async function buildPdf(opts: {
   }
 
 
-  function renderBlock(block: PdfBlock) {
+  function renderBlock(block: PdfBlock, isLastBlock: boolean = false) {
+    // Reserva extra de espaço no fim da página para o bloco de assinatura,
+    // SOMENTE no último bloco de contrato — evita a página de "(continuação)"
+    // com 1 linha órfã seguida de grande área vazia antes da assinatura.
+    const reserveSig = isContract && isLastBlock;
+    const bottomLimit = reserveSig ? H - 80 - SIG_BLOCK_H - 24 : H - 80;
+
     // Ensure title bar + at least one content line fits together (no orphan titles)
     const MIN_TITLE_WITH_CONTENT = 56; // 20 title + 10 gap + ~26 first line + breathing
     ensure(MIN_TITLE_WITH_CONTENT);
@@ -260,7 +266,7 @@ export async function buildPdf(opts: {
     // on the new page so continuation content stays inside a visible card.
     const prevEnsure = ensure;
     ensure = (need: number) => {
-      if (y + need > H - 80) {
+      if (y + need > bottomLimit) {
         // close current segment border
         doc.setDrawColor(...C.border);
         doc.setLineWidth(0.5);
