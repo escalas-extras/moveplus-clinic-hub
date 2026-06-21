@@ -139,7 +139,7 @@ export function buildLibraryContentPdfOpts(args: {
   };
   return {
     title: args.title,
-    subtitle: `${typeLabel[args.type] || "Material da Biblioteca"} · Biblioteca FisioOS`,
+    subtitle: `${typeLabel[args.type] || "Material da Biblioteca"} · Biblioteca clínica`,
     blocks,
     // No validation hash — library content is informational, not a clinical/legal document.
   };
