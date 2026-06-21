@@ -97,7 +97,7 @@ const S = {
   PAD_Y: 9,
   LINE_H: 13,
   LABEL_H: 11,
-  SIG_CONTRACT_H: 145,
+  SIG_CONTRACT_H: 168,
   SIG_DEFAULT_H: 90,
   TOP_AFTER_HEADER: 22,
   TITLE_TO_DIVIDER: 8,
@@ -112,8 +112,8 @@ const T = {
   body: 10,
   meta: 7.5,
   label: 7,
-  sigName: 9.5,
-  sigRole: 8.5,
+  sigName: 10,
+  sigRole: 9,
   sigMeta: 8,
   headerName: 16,
   headerMeta: 8.5,
@@ -460,7 +460,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   // Reserva igual ao tamanho real do bloco de assinatura + folga p/ QR.
   // Compaction varia APENAS o gap entre blocos — assim a reserva nunca é
   // inferior ao espaço efetivamente desenhado (sem sobreposição com QR/rodapé).
-  const qrReserve = isContract ? 56 : 0;
+  const qrReserve = isContract ? 64 : 0;
   const sigReserve = sigDraw + qrReserve;
   const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
   let pages = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[0]);
@@ -817,11 +817,10 @@ function drawSignatureArea(
   sigH: number,
   isContract: boolean,
 ) {
-  // Anchor: 24pt below content (breathing room), but not past the footer reservation
-  // Reserva extra abaixo da assinatura para QR (somente contratos).
-  const qrReserve = isContract ? 56 : 0;
-  // Sig ancorada sempre na base útil — compose reserva exatamente esse espaço,
-  // então não há sobreposição com o conteúdo nem com o QR/rodapé.
+  // Anchor: assinatura ancorada na base útil, com reserva extra abaixo para
+  // o QR (somente contratos). compose reserva exatamente esse espaço,
+  // evitando colisão com conteúdo, QR ou rodapé.
+  const qrReserve = isContract ? 64 : 0;
   const top = H - S.FOOTER_H - 16 - sigH - qrReserve;
 
   // Local + data discreet, right aligned
@@ -839,7 +838,7 @@ function drawSignatureArea(
   const profRegistry = buildRegistry(prof);
 
   if (isContract) {
-    drawContractSignatures(doc, opts, c, W, M, top + 16, profNome, profRole, profRegistry);
+    drawContractSignatures(doc, opts, c, W, M, top + 18, profNome, profRole, profRegistry);
   } else {
     drawProfessionalSignature(doc, c, W, M, top + 16, profNome, profRole, profRegistry);
   }
@@ -851,7 +850,7 @@ function buildRegistry(prof?: Professional | null): string | null {
   const council = cleanText(prof.conselho ?? "") || "CREFITO";
   if (!num) return null;
   if (/\d/.test(council) && !prof.registro) return council;
-  return `${council} ${num}`;
+  return `${council} nº ${num}`;
 }
 
 function drawContractSignatures(
@@ -866,37 +865,34 @@ function drawContractSignatures(
   profRegistry: string | null,
 ) {
   const colW = (W - 2 * M) / 2;
-  const sigW = 230;
-  const row1Y = startY + 28;
-  const row2Y = row1Y + 70;
+  const sigW = 210;
+  const row1Y = startY + 30;
+  const row2Y = row1Y + 88;
 
   const ct = opts.contratante ?? null;
   const ctNome = cleanText(ct?.nome ?? "") || null;
   const ctCpf = cleanText(ct?.cpf ?? "");
   const ctVinculo = cleanText(ct?.vinculo ?? "");
-  const isResponsavel = ctVinculo && !/próprio paciente/i.test(ctVinculo);
+  const isResponsavel = !!ctVinculo && !/próprio paciente/i.test(ctVinculo);
   const ps = opts.patientSnapshot ?? null;
+  const psNome = cleanText(ps?.nome ?? "");
 
-  // CONTRATANTE
-  drawSigCol(doc, M + colW / 2, row1Y, sigW, {
-    label: "CONTRATANTE",
-    lines: [
-      ctNome ? { text: ctNome, bold: true, size: T.sigName } : { text: "Nome: ____________________", muted: true, size: T.sigRole },
-      ctCpf ? { text: `CPF ${ctCpf}`, size: T.sigMeta, muted: true } : { text: "CPF: ____________________", muted: true, size: T.sigMeta },
-      ...(isResponsavel ? [{ text: `(${ctVinculo})`, size: T.sigMeta, muted: true } as const] : []),
-    ],
-  });
-  if (isResponsavel && cleanText(ps?.nome ?? "")) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...C.meta);
-    doc.text(
-      `Paciente beneficiário: ${ps!.nome}${cleanText(ps?.cpf ?? "") ? ` · CPF ${ps!.cpf}` : ""}`,
-      M + colW / 2,
-      row1Y + 56,
-      { align: "center" },
-    );
+  // CONTRATANTE — inclui paciente beneficiário subordinado
+  const contratanteLines: SigLine[] = [
+    ctNome
+      ? { text: ctNome, bold: true, size: T.sigName }
+      : { text: "Nome: ____________________", muted: true, size: T.sigRole },
+    ctCpf
+      ? { text: `CPF ${ctCpf}`, size: T.sigMeta, muted: true }
+      : { text: "CPF: ____________________", muted: true, size: T.sigMeta },
+    ...(isResponsavel ? [{ text: ctVinculo, size: T.sigMeta, muted: true } as SigLine] : []),
+  ];
+  if (isResponsavel && psNome) {
+    contratanteLines.push({ text: " ", size: 4 });
+    contratanteLines.push({ text: "Paciente beneficiário", size: 7, muted: true });
+    contratanteLines.push({ text: psNome, size: T.sigMeta, italic: true });
   }
+  drawSigCol(doc, M + colW / 2, row1Y, sigW, { label: "CONTRATANTE", lines: contratanteLines });
 
   // CONTRATADA
   const cnpj = cleanText(c.cnpj ?? "");
@@ -906,13 +902,15 @@ function drawContractSignatures(
     lines: [
       profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
       { text: profRole, size: T.sigRole },
-      ...(profRegistry ? [{ text: profRegistry, bold: true, size: T.sigMeta } as const] : []),
-      ...(razao ? [{ text: razao, size: T.sigMeta, muted: true } as const] : []),
-      ...(cnpj ? [{ text: `CNPJ ${cnpj}`, size: T.sigMeta, muted: true } as const] : []),
+      profRegistry
+        ? { text: profRegistry, bold: true, size: T.sigMeta }
+        : { text: "CREFITO: ____________________", muted: true, size: T.sigMeta },
+      ...(razao ? [{ text: razao, size: T.sigMeta, muted: true } as SigLine] : []),
+      ...(cnpj ? [{ text: `CNPJ ${cnpj}`, size: T.sigMeta, muted: true } as SigLine] : []),
     ],
   });
 
-  // Testemunhas
+  // Testemunhas — mesma largura das colunas superiores
   drawSigCol(doc, M + colW / 2, row2Y, sigW, {
     label: "TESTEMUNHA 1",
     lines: [
@@ -980,19 +978,21 @@ function drawSigCol(
   doc.setDrawColor(...C.ink);
   doc.setLineWidth(0.6);
   doc.line(cx - sigW / 2, sigY, cx + sigW / 2, sigY);
-  // Role label above
+  // Role label above — tracking ampliado (letras espaçadas)
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  doc.setTextColor(...C.meta);
-  doc.text(opts.label, cx, sigY - 4, { align: "center" });
+  doc.setFontSize(7.5);
+  doc.setTextColor(107, 107, 107);
+  const tracked = opts.label.toUpperCase().split("").join("\u2009");
+  doc.text(tracked, cx, sigY - 5, { align: "center" });
 
-  let ly = sigY + 11;
+  let ly = sigY + 12;
   for (const ln of opts.lines) {
-    doc.setFont("helvetica", ln.bold ? "bold" : "normal");
+    const style = ln.italic ? "italic" : ln.bold ? "bold" : "normal";
+    doc.setFont("helvetica", style);
     doc.setFontSize(ln.size);
     doc.setTextColor(...(ln.muted ? C.meta : C.ink));
     doc.text(ln.text, cx, ly, { align: "center" });
-    ly += ln.size + 1.8;
+    ly += ln.size + 2;
   }
 }
 
@@ -1031,18 +1031,18 @@ async function drawQR(
   try {
     const origin = base || (typeof window !== "undefined" ? window.location.origin : "https://fisioos.app");
     const url = `${origin}/validar/${hash}`;
-    const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 180 });
-    const size = 42;
-    // QR sempre no canto inferior direito; a assinatura reserva espaço
-    // suficiente abaixo dela para o QR (vide drawSignatureArea).
+    const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 200 });
+    const size = 44;
+    // QR no canto inferior direito; assinatura reserva 64pt abaixo, garantindo
+    // afastamento mínimo de ~20pt da área das testemunhas.
     const x = W - M - size;
-    const y = H - S.FOOTER_H - size - 6;
+    const y = H - S.FOOTER_H - size - 8;
     doc.addImage(dataUrl, "PNG", x, y, size, size);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
     doc.setTextColor(...C.meta);
-    doc.text("Valide em:", x, y - 3);
-    doc.text(`${hash.slice(0, 12)}…`, x, y + size + 7);
+    doc.text("Validação digital", x + size / 2, y - 4, { align: "center" });
+    doc.text(`${hash.slice(0, 12)}…`, x + size / 2, y + size + 7, { align: "center" });
   } catch { /* ignore */ }
 }
 
