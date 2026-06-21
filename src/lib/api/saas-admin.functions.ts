@@ -207,29 +207,17 @@ export const provisionClinic = createServerFn({ method: "POST" })
       ownerUserId = found.id;
     }
 
-    // Call the SQL function (it self-checks super_admin via auth.uid; admin client bypasses, so check already done above)
-    const { data: clinicId, error } = await supabaseAdmin.rpc("provision_clinic", {
-      _nome: data.nome,
-      _plan_code: data.plan_code,
-      _owner_user_id: ownerUserId,
-      _nome_fantasia: data.nome_fantasia ?? null,
-      _cidade: data.cidade ?? null,
-      _estado: data.estado ?? null,
+    // Admin client bypasses auth.uid → the SECURITY DEFINER fn's role check would fail.
+    // We already validated super_admin above; use the direct insert path.
+    return await provisionClinicFallback({
+      nome: data.nome,
+      plan_code: data.plan_code,
+      owner_user_id: ownerUserId,
+      nome_fantasia: data.nome_fantasia,
+      cidade: data.cidade,
+      estado: data.estado,
+      supabaseAdmin,
     });
-
-    if (error) {
-      // Admin client has no auth.uid → role check inside fn will fail. Fall back to direct insert path.
-      if (String(error.message).includes("super_admin")) {
-        return await provisionClinicFallback({
-          ...data,
-          owner_user_id: ownerUserId,
-          supabaseAdmin,
-        });
-      }
-      throw new Error(error.message);
-    }
-
-    return { clinic_id: clinicId };
   });
 
 async function provisionClinicFallback(args: {
