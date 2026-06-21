@@ -1,4 +1,4 @@
-import logoAsset from "@/assets/logo.jpg.asset.json";
+
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, CalendarDays, Wallet, UserCog, Settings, LogOut, Menu, X,
@@ -206,15 +206,13 @@ function Logo({ brand, compact = false }: { brand: ReturnType<typeof useBranding
   if (brand.hasOwnLogo && brand.logoUrl) {
     return <img src={brand.logoUrl} alt={brand.clinicName} className={cn(size, "rounded-xl object-contain")} />;
   }
-  if (brand.clinicName === "FisioOS") {
-    return (
-      <div
-        className={cn(size, "rounded-2xl flex items-center justify-center shadow-soft")}
-        style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
-      >
-        <Stethoscope className={cn(compact ? "h-5 w-5" : "h-6 w-6", "text-white")} />
-      </div>
-    );
-  }
-  return <img src={logoAsset.url} alt={brand.clinicName} className={cn(size, "rounded-xl")} />;
+  // Neutral institutional fallback (FisioOS / white-label) — never references legacy brand
+  return (
+    <div
+      className={cn(size, "rounded-2xl flex items-center justify-center shadow-soft")}
+      style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
+    >
+      <Stethoscope className={cn(compact ? "h-5 w-5" : "h-6 w-6", "text-white")} />
+    </div>
+  );
 }

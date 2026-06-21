@@ -9,13 +9,20 @@ import { Button } from "@/components/ui/button";
 
 type Step = { key: string; label: string; description: string; to: string; done: boolean };
 
-const DISMISS_KEY = "moveplus.onboarding.dismissed";
+const DISMISS_KEY = "fisioos.onboarding.dismissed";
+const LEGACY_DISMISS_KEY = "moveplus.onboarding.dismissed";
 
 export function OnboardingChecklist() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Migra chave antiga preservando o estado de dispensa
+      const legacy = localStorage.getItem(LEGACY_DISMISS_KEY);
+      if (legacy === "1" && !localStorage.getItem(DISMISS_KEY)) {
+        localStorage.setItem(DISMISS_KEY, "1");
+        localStorage.removeItem(LEGACY_DISMISS_KEY);
+      }
       setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
     }
   }, []);

@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime } from "./format";
-import logoAsset from "@/assets/logo.jpg.asset.json";
+
 
 
 type ClinicSettings = {
@@ -50,31 +50,15 @@ export type PdfBlock = { title: string; children: PdfContent[] };
 export type PdfSection = { title: string; body: string };
 
 // ---------- Logo loader ----------
-
-let cachedLogo: string | null | undefined;
-async function loadLogoDataUrl(): Promise<string | null> {
-  if (cachedLogo !== undefined) return cachedLogo;
-  try {
-    const res = await fetch(logoAsset.url);
-    const blob = await res.blob();
-    cachedLogo = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onloadend = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  } catch {
-    cachedLogo = null;
-  }
-  return cachedLogo;
-}
+// White-label: only the clinic's own logo is ever rendered as an image.
+// When none exists we return null and the header draws a neutral institutional
+// monogram (no legacy brand fallback).
 
 async function urlToDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const ct = res.headers.get("content-type") || "";
-    // Only accept real images; reject HTML, JSON, redirect pages, git repos, etc.
     if (!ct.startsWith("image/")) return null;
     const blob = await res.blob();
     if (blob.size === 0) return null;
@@ -90,25 +74,20 @@ async function urlToDataUrl(url: string): Promise<string | null> {
 }
 
 function isLikelyImageUrl(url: string): boolean {
-  // Reject obvious non-image URLs (git repos, etc.) before fetching
   if (/\.git(\?|$|#)/i.test(url)) return false;
   if (/^https?:\/\/(www\.)?github\.com\//i.test(url) && !/\/raw\//.test(url)) return false;
   return true;
 }
 
-async function loadClinicOrDefaultLogo(clinicLogoUrl?: string | null): Promise<string | null> {
-  if (clinicLogoUrl) {
-    let finalUrl = clinicLogoUrl;
-    if (!/^https?:\/\//.test(clinicLogoUrl)) {
-      const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
-      finalUrl = data.publicUrl;
-    }
-    if (isLikelyImageUrl(finalUrl)) {
-      const dataUrl = await urlToDataUrl(finalUrl);
-      if (dataUrl) return dataUrl;
-    }
+async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | null> {
+  if (!clinicLogoUrl) return null;
+  let finalUrl = clinicLogoUrl;
+  if (!/^https?:\/\//.test(clinicLogoUrl)) {
+    const { data } = supabase.storage.from("documents").getPublicUrl(clinicLogoUrl);
+    finalUrl = data.publicUrl;
   }
-  return loadLogoDataUrl();
+  if (!isLikelyImageUrl(finalUrl)) return null;
+  return await urlToDataUrl(finalUrl);
 }
 
 // ---------- Colors ----------
@@ -152,7 +131,7 @@ export async function buildPdf(opts: {
   const H = doc.internal.pageSize.getHeight();
   const M = 40;
   const contentW = W - 2 * M;
-  const logo = await loadClinicOrDefaultLogo(c.logo_url);
+  const logo = await loadClinicLogo(c.logo_url);
 
   // Header (once, page 1)
   const HEADER_H = 165;
@@ -162,8 +141,19 @@ export async function buildPdf(opts: {
     doc.rect(0, 0, W, HEADER_H, "F");
     if (logo) {
       try { doc.addImage(logo, "JPEG", M, 15, LOGO_SIZE, LOGO_SIZE); } catch { /* ignore */ }
+    } else {
+      // Neutral institutional monogram (no legacy brand fallback)
+      const cx = M + LOGO_SIZE / 2;
+      const cy = 15 + LOGO_SIZE / 2;
+      doc.setFillColor(...C.brand);
+      doc.circle(cx, cy, LOGO_SIZE / 2 - 6, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(34);
+      const monogram = (c.nome_fantasia || "FisioOS").trim().charAt(0).toUpperCase() || "F";
+      doc.text(monogram, cx, cy + 12, { align: "center" });
     }
-    const tx = logo ? M + LOGO_SIZE + 14 : M;
+    const tx = M + LOGO_SIZE + 14;
     doc.setTextColor(...C.brand);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
@@ -550,36 +540,79 @@ export async function buildPdf(opts: {
   const dataStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   const localData = `${localStr}, ${dataStr}.`;
 
-  // Helper: desenha um bloco de assinatura individual
+  // Helper: assinatura institucional com hierarquia tipográfica
+  // (linha → nome destacado → profissão → registro). Campos vazios são ocultados.
   function drawSignatureBlock(
     cx: number,
     sigY: number,
     sigW: number,
-    label: string,
-    line1?: string | null,
-    line2?: string | null,
-    line3?: string | null,
+    opts: {
+      name?: string | null;
+      role?: string | null;
+      registry?: string | null;
+      placeholderName?: string; // ex.: "Nome: ____" para contratante/testemunha
+      placeholderId?: string;   // ex.: "CPF: ____"
+    },
   ) {
     doc.setDrawColor(...C.text);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(0.6);
     const sigX = cx - sigW / 2;
     doc.line(sigX, sigY, sigX + sigW, sigY);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...C.label);
-    doc.text(label.toUpperCase(), cx, sigY + 10, { align: "center" });
+    let ly = sigY + 14;
+    const hasName = !!(opts.name && opts.name.trim());
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...C.text);
-    let ly = sigY + 22;
-    for (const ln of [line1, line2, line3]) {
-      if (ln && ln.trim() && !/^—+(\s*—+)*$/.test(ln.trim())) {
-        doc.text(ln, cx, ly, { align: "center" });
-        ly += 11;
-      }
+    if (hasName) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(...C.text);
+      doc.text(opts.name!.trim(), cx, ly, { align: "center" });
+      ly += 12;
+    } else if (opts.placeholderName) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.muted);
+      doc.text(opts.placeholderName, cx, ly, { align: "center" });
+      ly += 12;
     }
+
+    if (opts.role && opts.role.trim()) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.label);
+      doc.text(opts.role.trim(), cx, ly, { align: "center" });
+      ly += 11;
+    }
+
+    if (opts.registry && opts.registry.trim()) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...C.label);
+      doc.text(opts.registry.trim(), cx, ly, { align: "center" });
+      ly += 11;
+    }
+
+    if (opts.placeholderId) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...C.muted);
+      doc.text(opts.placeholderId, cx, ly, { align: "center" });
+    }
+  }
+
+  // Monta linha de registro profissional sem deixar "CREFITO:" solto.
+  function buildRegistryLine(prof?: Professional | null): string | null {
+    if (!prof) return null;
+    const num = (prof.registro || "").trim();
+    if (!num) return null;
+    const council = (prof.conselho || "CREFITO").trim();
+    // Se o conselho já contém um número (ex.: "CREFITO-8 12345"), usa direto.
+    if (/\d/.test(council) && !prof.registro) return council;
+    return `${council} ${num}`;
+  }
+
+  function buildRoleLine(prof?: Professional | null): string {
+    return (prof?.profissao && prof.profissao.trim()) || "Fisioterapeuta";
   }
 
   for (let i = 1; i <= pageCount; i++) {
@@ -590,61 +623,90 @@ export async function buildPdf(opts: {
       const desiredTop = lastPageEndY + 28;
       const sigBlockTop = Math.max(desiredTop, H - SIG_BLOCK_H - 70);
 
-      // Local e data
+      // Local e data — discreto, alinhado à direita para não competir com a assinatura
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.setTextColor(...C.text);
-      doc.text(localData, M, sigBlockTop);
+      doc.setFontSize(9);
+      doc.setTextColor(...C.label);
+      doc.text(localData, W - M, sigBlockTop, { align: "right" });
+
+      const prof = opts.professional ?? null;
+      const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
+      const registry = buildRegistryLine(prof);
+      const role = buildRoleLine(prof);
 
       if (isContract) {
-        // Layout do contrato: 5 blocos
-        // Linha 1: CONTRATANTE | CONTRATADA
-        // Linha 2: PROFISSIONAL RESPONSÁVEL (centralizado)
-        // Linha 3: TESTEMUNHA 1 | TESTEMUNHA 2
         const colW = (W - 2 * M) / 2;
         const sigW = 200;
-        const rowGap = 75;
-        let by = sigBlockTop + 50;
+        const rowGap = 78;
+        let by = sigBlockTop + 56;
 
-        // Linha 1
-        drawSignatureBlock(M + colW / 2, by, sigW, "Contratante", null, "CPF: __________________", null);
-        drawSignatureBlock(M + colW + colW / 2, by, sigW, "Contratada", c.razao_social || c.nome_fantasia || null, c.cnpj ? `CNPJ: ${c.cnpj}` : "CNPJ: __________________", null);
+        // Linha 1: Contratante | Contratada
+        drawSignatureBlock(M + colW / 2, by, sigW, {
+          role: "Contratante",
+          placeholderName: "Nome: __________________",
+          placeholderId: "CPF: __________________",
+        });
+        drawSignatureBlock(M + colW + colW / 2, by, sigW, {
+          name: c.razao_social || c.nome_fantasia || null,
+          role: "Contratada",
+          registry: c.cnpj ? `CNPJ: ${c.cnpj}` : undefined,
+          placeholderId: c.cnpj ? undefined : "CNPJ: __________________",
+        });
 
-        // Linha 2: profissional responsável
+        // Linha 2: Profissional responsável (centralizado)
         by += rowGap;
-        const prof = opts.professional;
-        const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
-        const crefitoNum = prof?.registro || prof?.conselho || "";
-        const crefitoLine = crefitoNum ? `CREFITO-8 ${crefitoNum}` : "CREFITO-8: __________________";
-        drawSignatureBlock(W / 2, by, sigW + 40, "Profissional Responsável", profNome, "Fisioterapeuta", crefitoLine);
+        drawSignatureBlock(W / 2, by, sigW + 60, {
+          name: profNome,
+          role,
+          registry: registry ?? undefined,
+          placeholderName: profNome ? undefined : "Profissional responsável",
+        });
 
-        // Linha 3: testemunhas
+        // Linha 3: Testemunhas
         by += rowGap;
-        drawSignatureBlock(M + colW / 2, by, sigW, "Testemunha 1", null, "Nome: __________________", "CPF: __________________");
-        drawSignatureBlock(M + colW + colW / 2, by, sigW, "Testemunha 2", null, "Nome: __________________", "CPF: __________________");
+        drawSignatureBlock(M + colW / 2, by, sigW, {
+          role: "Testemunha 1",
+          placeholderName: "Nome: __________________",
+          placeholderId: "CPF: __________________",
+        });
+        drawSignatureBlock(M + colW + colW / 2, by, sigW, {
+          role: "Testemunha 2",
+          placeholderName: "Nome: __________________",
+          placeholderId: "CPF: __________________",
+        });
       } else {
-        // Layout padrão: assinatura única do profissional + dados da clínica
-        const sigY = sigBlockTop + 60;
-        const prof = opts.professional;
-        const profNome = prof?.nome && prof.nome.trim() ? prof.nome : null;
-        const crefitoNum = prof?.registro || prof?.conselho || "";
-        const crefitoLine = crefitoNum ? `CREFITO-8 ${crefitoNum}` : "CREFITO-8: __________________";
+        // Fechamento institucional: assinatura única do profissional,
+        // seguida de bloco discreto com identidade da clínica.
+        const sigY = sigBlockTop + 64;
+        drawSignatureBlock(W / 2, sigY, 260, {
+          name: profNome,
+          role,
+          registry: registry ?? undefined,
+          placeholderName: profNome ? undefined : "Profissional responsável",
+        });
 
-        drawSignatureBlock(W / 2, sigY, 240, "Profissional Responsável", profNome, "Fisioterapeuta", crefitoLine);
+        // Separador fino
+        const sepY = sigY + 52;
+        doc.setDrawColor(...C.border);
+        doc.setLineWidth(0.3);
+        const sepW = 80;
+        doc.line(W / 2 - sepW / 2, sepY, W / 2 + sepW / 2, sepY);
 
-        // Dados da clínica logo abaixo
-        const clinicY = sigY + 56;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8.5);
-        doc.setTextColor(...C.muted);
-        const clinicLines = [
-          c.nome_fantasia || c.razao_social,
-          c.cnpj ? `CNPJ: ${c.cnpj}` : null,
-        ].filter(Boolean) as string[];
-        let cyy = clinicY;
-        for (const ln of clinicLines) {
-          doc.text(ln, W / 2, cyy, { align: "center" });
+        // Identidade institucional da clínica (subordinada à assinatura)
+        let cyy = sepY + 14;
+        const clinicName = c.nome_fantasia || c.razao_social;
+        if (clinicName) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(...C.brand);
+          doc.text(clinicName, W / 2, cyy, { align: "center" });
           cyy += 11;
+        }
+        if (c.cnpj) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(...C.muted);
+          doc.text(`CNPJ ${c.cnpj}`, W / 2, cyy, { align: "center" });
         }
       }
     }
@@ -668,7 +730,12 @@ export async function buildPdf(opts: {
     doc.setFontSize(8);
     doc.setTextColor(...C.muted);
     doc.text(`Emitido em ${fmtDateTime(new Date())}`, M, fy + 14);
-    doc.text(c.rodape_institucional || `${c.nome_fantasia ?? "FisioOS"} · ${[c.cidade, c.estado].filter(Boolean).join("/") || "Transformando atendimentos em resultados"}`, M, fy + 26);
+    {
+      const cityState = [c.cidade, c.estado].filter(Boolean).join("/");
+      const footerName = c.nome_fantasia ?? "FisioOS";
+      const footerText = c.rodape_institucional || [footerName, cityState].filter(Boolean).join(" · ");
+      doc.text(footerText, M, fy + 26);
+    }
     doc.text(`Página ${i} de ${pageCount}`, W - M - 4, fy + 14, { align: "right" });
 
     // QR + hash de validação (somente última página)
