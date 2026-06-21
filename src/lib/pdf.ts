@@ -601,16 +601,17 @@ export async function buildPdf(opts: {
     }
   }
 
-  // Monta linha de registro profissional sem deixar "CREFITO:" solto.
-  function buildRegistryLine(prof?: Professional | null): string | null {
-    if (!prof) return null;
+  // Monta linha de registro profissional. Se não houver número, exibe placeholder discreto.
+  function buildRegistryLine(prof?: Professional | null): string {
+    if (!prof) return "CREFITO: __________________";
     const num = (prof.registro || "").trim();
-    if (!num) return null;
     const council = (prof.conselho || "CREFITO").trim();
+    if (!num) return `${council}: __________________`;
     // Se o conselho já contém um número (ex.: "CREFITO-8 12345"), usa direto.
     if (/\d/.test(council) && !prof.registro) return council;
     return `${council}   ${num}`;
   }
+
 
   function buildRoleLine(prof?: Professional | null): string {
     return (prof?.profissao && prof.profissao.trim()) || "Fisioterapeuta";
