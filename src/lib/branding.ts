@@ -34,15 +34,20 @@ async function resolveLogo(raw: string | null | undefined): Promise<string | nul
 }
 
 async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
-  // Platform context (super_admin sem clínica) sempre usa branding FisioOS.
-  if (isPlatformAdmin) return DEFAULTS;
-  // Resolve clinic_id via current_clinic_id() — sem fallback para a primeira clínica.
-  const { data: cid } = await supabase.rpc("current_clinic_id");
+  // Platform context (super_admin sem clínica e SEM modo suporte ativo) usa branding FisioOS.
+  // Durante uma support_session, mesmo um super_admin deve ver o branding da clínica acessada.
+  const { data: supportCid } = await supabase.rpc("current_support_session_clinic");
+  if (isPlatformAdmin && !supportCid) return DEFAULTS;
+  let cid: string | null = (supportCid as string | null) ?? null;
+  if (!cid) {
+    const { data: ownCid } = await supabase.rpc("current_clinic_id");
+    cid = (ownCid as string | null) ?? null;
+  }
   if (!cid) return DEFAULTS;
   const { data } = await supabase
     .from("clinic_settings")
     .select("nome_fantasia, logo_url, primary_color, secondary_color, slogan, app_name, crefito_default")
-    .eq("clinic_id", cid as string)
+    .eq("clinic_id", cid)
     .maybeSingle();
   if (!data) return DEFAULTS;
   const resolvedLogo = await resolveLogo(data.logo_url);

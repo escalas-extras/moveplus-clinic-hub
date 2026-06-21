@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useNavigate } from "@tanstack/react-router";
 import {
   getActiveSupportSession,
   endSupportSession,
@@ -12,6 +13,7 @@ export function SupportBanner() {
   const fetchActive = useServerFn(getActiveSupportSession);
   const endFn = useServerFn(endSupportSession);
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data } = useQuery({
     queryKey: ["support-session-active"],
     queryFn: () => fetchActive(),
@@ -19,10 +21,10 @@ export function SupportBanner() {
   });
   const endMut = useMutation({
     mutationFn: () => endFn(),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Sessão de suporte encerrada");
-      qc.invalidateQueries({ queryKey: ["support-session-active"] });
-      qc.invalidateQueries();
+      await qc.invalidateQueries();
+      navigate({ to: "/app/admin-saas", replace: true });
     },
     onError: (e: any) => toast.error(e.message),
   });

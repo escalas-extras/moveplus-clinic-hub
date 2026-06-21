@@ -181,7 +181,20 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
                 <div className="text-xs text-muted-foreground">{d.professionals?.nome}</div>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button size="sm" variant="outline" onClick={() => downloadPdf(buildPdfOpts(d))}>
+                <Button size="sm" variant="outline" onClick={() => {
+                  const missing: string[] = [];
+                  if (!patient?.nome_completo) missing.push("paciente");
+                  if (!d.professionals?.nome) missing.push("profissional responsável");
+                  if (!d.data_alta) missing.push("data da alta");
+                  if (!d.motivo) missing.push("motivo da alta");
+                  if (!d.recomendacoes) missing.push("recomendações");
+                  if (!d.plano_domiciliar) missing.push("plano domiciliar / orientação pós-alta");
+                  if (missing.length) {
+                    toast.error(`Este documento ainda não possui dados suficientes para emissão. Faltam: ${missing.join(", ")}.`);
+                    return;
+                  }
+                  downloadPdf(buildPdfOpts(d));
+                }}>
                   <FileDown className="h-4 w-4 mr-1" />Relatório
                 </Button>
                 {!d.locked_at && (

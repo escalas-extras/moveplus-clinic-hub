@@ -13,13 +13,16 @@ export const Route = createFileRoute("/_authenticated/app/")({
   beforeLoad: async () => {
     const { data: sess } = await supabase.auth.getUser();
     if (!sess.user) return;
-    const [rolesRes, membersRes] = await Promise.all([
+    const [rolesRes, membersRes, supportRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
       supabase.from("clinic_members").select("id").eq("user_id", sess.user.id).eq("active", true).limit(1),
+      supabase.rpc("current_support_session_clinic"),
     ]);
     const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
     const hasClinic = (membersRes.data ?? []).length > 0;
-    if (isSuperAdmin && !hasClinic) throw redirect({ to: "/app/admin-saas" });
+    const inSupport = !!supportRes.data;
+    // Em modo suporte, o super_admin deve permanecer em /app (experiência da clínica).
+    if (isSuperAdmin && !hasClinic && !inSupport) throw redirect({ to: "/app/admin-saas" });
   },
   component: Dashboard,
 });
@@ -88,9 +91,9 @@ function Dashboard() {
           <h2 className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Indicadores</h2>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} />
-          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} />
-          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} />
+          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} emptyCta="Cadastrar primeiro paciente" />
+          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} emptyCta="Agendar atendimento" />
+          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} emptyCta="Emitir primeiro documento" />
           <StatCard icon={RefreshCw} label="Reavaliações pendentes" value={s?.reavalAtrasadas.length ?? 0} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
         </div>
         {isAdmin && (
@@ -202,7 +205,8 @@ function ExploreCard({ to, icon: Icon, title, desc, color }: { to: string; icon:
   );
 }
 
-function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default", small = false }: { icon: any; label: string; value: any; hint?: string; to?: string; color?: string; tone?: "default" | "warn"; small?: boolean }) {
+function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default", small = false, emptyCta }: { icon: any; label: string; value: any; hint?: string; to?: string; color?: string; tone?: "default" | "warn"; small?: boolean; emptyCta?: string }) {
+  const isEmpty = emptyCta && (value === 0 || value === "0");
   const content = (
     <Card className={cn("p-6 h-full lift relative overflow-hidden", to && "lift-hover cursor-pointer")}>
       {/* halo interno suave na cor */}
@@ -221,11 +225,21 @@ function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default",
           </div>
           {tone === "warn" && <span className="text-[10px] uppercase tracking-wider font-semibold text-orange-600">Atenção</span>}
         </div>
-        <div className={cn("num-hero mt-4 font-semibold", small ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl")} style={{ color: tone === "warn" ? "#c75c3a" : undefined }}>
-          {value}
-        </div>
-        <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
-        {hint && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{hint}</div>}
+        {isEmpty ? (
+          <>
+            <div className="mt-5 text-sm text-muted-foreground leading-snug">Nenhum registro ainda.</div>
+            <div className="mt-2 text-sm font-medium" style={{ color }}>{emptyCta} →</div>
+            <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
+          </>
+        ) : (
+          <>
+            <div className={cn("num-hero mt-4 font-semibold", small ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl")} style={{ color: tone === "warn" ? "#c75c3a" : undefined }}>
+              {value}
+            </div>
+            <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
+            {hint && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{hint}</div>}
+          </>
+        )}
       </div>
     </Card>
   );
