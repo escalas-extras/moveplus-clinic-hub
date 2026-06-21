@@ -141,6 +141,9 @@ export function buildLibraryContentPdfOpts(args: {
     title: args.title,
     subtitle: `${typeLabel[args.type] || "Material da Biblioteca"} · Biblioteca clínica`,
     blocks,
-    // No validation hash — library content is informational, not a clinical/legal document.
+    // Materiais da biblioteca são institucionais — não exigem responsável
+    // técnico nem hash de validação clínica. O rodapé institucional da
+    // clínica já é renderizado pelo engine.
+    hideSignature: true,
   };
 }
