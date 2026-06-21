@@ -754,8 +754,7 @@ function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: numb
   doc.setFont("helvetica", "bold");
   doc.setFontSize(T.blockTitle);
   // Tracked uppercase: emulate letter-spacing by inserting hair spaces
-  const tracked = label.toUpperCase().split("").join("\u200A");
-  doc.text(tracked, x + 10, y + 9.5);
+  doc.text(label.toUpperCase(), x + 10, y + 9.5, { charSpace: 1.2 });
 }
 
 function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: number) {
