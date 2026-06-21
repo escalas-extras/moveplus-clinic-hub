@@ -462,6 +462,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const M = S.M;
   const contentW = W - 2 * M;
   const c = ctx.clinic;
+  applyClinicPalette(c);
   const isContract = /contrato/i.test(opts.title || "");
 
   // ----- Normalize blocks -----
