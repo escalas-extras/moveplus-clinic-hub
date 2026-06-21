@@ -391,8 +391,13 @@ function ClinicsTab() {
   const fetchPlans = useServerFn(listPlans);
   const setStatus = useServerFn(setClinicStatus);
   const assign = useServerFn(assignPlan);
+  const resendOwner = useServerFn(resendOwnerInvite);
+  const cancelOwner = useServerFn(cancelOwnerInvite);
+  const changeOwner = useServerFn(changeClinicOwner);
   const qc = useQueryClient();
   const [detail, setDetail] = useState<any | null>(null);
+  const [changeOwnerFor, setChangeOwnerFor] = useState<any | null>(null);
+  const [newOwnerEmail, setNewOwnerEmail] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-saas-clinics"],
@@ -422,6 +427,40 @@ function ClinicsTab() {
       qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
       qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
       qc.invalidateQueries({ queryKey: ["saas-plans"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const resendMut = useMutation({
+    mutationFn: (clinic_id: string) => resendOwner({ data: { clinic_id } }),
+    onSuccess: () => {
+      toast.success("Convite reenviado ao proprietário.");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const cancelMut = useMutation({
+    mutationFn: (clinic_id: string) => cancelOwner({ data: { clinic_id } }),
+    onSuccess: () => {
+      toast.success("Convite cancelado.");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const changeOwnerMut = useMutation({
+    mutationFn: (input: { clinic_id: string; new_email: string }) =>
+      changeOwner({ data: input }),
+    onSuccess: (res: any) => {
+      toast.success(
+        res?.pending
+          ? "Novo proprietário convidado. Ele receberá um e-mail."
+          : "Proprietário atualizado.",
+      );
+      setChangeOwnerFor(null);
+      setNewOwnerEmail("");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
