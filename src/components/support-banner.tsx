@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
@@ -5,6 +6,7 @@ import {
   getActiveSupportSession,
   endSupportSession,
 } from "@/lib/api/clinic-ops.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, LogOut } from "lucide-react";
 import { toast } from "sonner";
@@ -14,10 +16,20 @@ export function SupportBanner() {
   const endFn = useServerFn(endSupportSession);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) =>
+      setHasSession(!!s),
+    );
+    return () => sub.subscription.unsubscribe();
+  }, []);
   const { data } = useQuery({
     queryKey: ["support-session-active"],
     queryFn: () => fetchActive(),
     refetchInterval: 30_000,
+    enabled: hasSession,
+    retry: false,
   });
   const endMut = useMutation({
     mutationFn: () => endFn(),
