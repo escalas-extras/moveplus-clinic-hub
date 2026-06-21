@@ -2769,6 +2769,7 @@ export type Database = {
           clinic_id: string
           conselho: string | null
           created_at: string
+          email: string | null
           especialidade: string | null
           id: string
           nome: string
@@ -2776,12 +2777,14 @@ export type Database = {
           profissao: string
           registro: string | null
           situacao: Database["public"]["Enums"]["entity_status"]
+          telefone: string | null
           updated_at: string
         }
         Insert: {
           clinic_id: string
           conselho?: string | null
           created_at?: string
+          email?: string | null
           especialidade?: string | null
           id?: string
           nome: string
@@ -2789,12 +2792,14 @@ export type Database = {
           profissao: string
           registro?: string | null
           situacao?: Database["public"]["Enums"]["entity_status"]
+          telefone?: string | null
           updated_at?: string
         }
         Update: {
           clinic_id?: string
           conselho?: string | null
           created_at?: string
+          email?: string | null
           especialidade?: string | null
           id?: string
           nome?: string
@@ -2802,6 +2807,7 @@ export type Database = {
           profissao?: string
           registro?: string | null
           situacao?: Database["public"]["Enums"]["entity_status"]
+          telefone?: string | null
           updated_at?: string
         }
         Relationships: [
