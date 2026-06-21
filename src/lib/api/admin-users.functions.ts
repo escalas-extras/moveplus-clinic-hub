@@ -37,12 +37,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (roleErr) throw new Error(roleErr.message);
-    if (!isAdmin) throw new Error("Forbidden");
+    await ensureCanManageUsers(context);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
