@@ -10,14 +10,17 @@ export type PlatformContext = {
 };
 
 async function fetchContext(userId: string) {
-  const [rolesRes, membersRes] = await Promise.all([
+  const [rolesRes, membersRes, supportRes] = await Promise.all([
     supabase.from("user_roles").select("role").eq("user_id", userId),
     supabase.from("clinic_members").select("id").eq("user_id", userId).eq("active", true).limit(1),
+    supabase.rpc("current_support_session_clinic"),
   ]);
   const roles = (rolesRes.data ?? []).map((r) => r.role as string);
   const isSuperAdmin = roles.includes("super_admin");
   const hasClinic = (membersRes.data ?? []).length > 0;
-  return { isSuperAdmin, hasClinic, isPlatformAdmin: isSuperAdmin && !hasClinic };
+  const inSupport = !!supportRes.data;
+  // Em modo suporte, super_admin opera com a experiência da clínica (não é mais "platform admin").
+  return { isSuperAdmin, hasClinic, isPlatformAdmin: isSuperAdmin && !hasClinic && !inSupport };
 }
 
 export function usePlatformContext(): PlatformContext {
