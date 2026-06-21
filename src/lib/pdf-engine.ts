@@ -501,16 +501,16 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
       doc.addPage();
       // (header não se repete; rodapé sim — será desenhado depois para cada página)
     }
-    renderPageContent(doc, pages[pi], topY, W, contentW, M);
+    renderPageContent(doc, pages[pi], pages[pi].topY, W, contentW, M);
   }
 
   // Signature on last page
-  const lastPageIdx = pages.length; // 1-based for jsPDF; below we call setPage(pageCount)
-  // Compute lastContentY from last page's atoms
+  const lastPageIdx = pages.length;
   const lastPage = pages[pages.length - 1];
-  let lastContentY = topY;
+  let lastContentY = lastPage.topY;
   for (const a of lastPage.atoms) lastContentY += a.h;
   lastContentY = Math.min(lastContentY, bottomY - sigH);
+
 
   doc.setPage(lastPageIdx);
   drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigH, isContract);
