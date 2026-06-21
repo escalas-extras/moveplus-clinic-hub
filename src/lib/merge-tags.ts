@@ -74,20 +74,20 @@ export function buildMergeData(ctx: MergeContext): Record<string, string> {
     convenio_nome: p.convenio_nome || "—",
     convenio_carteirinha: p.convenio_carteirinha || "—",
 
-    // ---- Clínico ----
-    diagnostico: a.diagnostico_clinico || "—",
-    diagnostico_fisio: a.diagnostico_fisio || "—",
-    queixa_principal: a.queixa_principal || "—",
-    hma: a.hma || "—",
-    cid_principal: p.cid_principal || a.diagnosis_codes?.[0] || "—",
-    cid_secundario: p.cid_secundario || a.cid_secundario || a.diagnosis_codes?.[1] || "—",
-    prognostico: a.prognostico || "—",
+    // ---- Clínico (humanizado: vazio vira frase institucional) ----
+    diagnostico: humanizeField(a.diagnostico_clinico, "diagnostico"),
+    diagnostico_fisio: humanizeField(a.diagnostico_fisio, "diagnostico_fisio"),
+    queixa_principal: humanizeField(a.queixa_principal, "queixa_principal"),
+    hma: humanizeField(a.hma, "hma"),
+    cid_principal: humanizeField(p.cid_principal || a.diagnosis_codes?.[0], "cid_principal"),
+    cid_secundario: humanizeField(p.cid_secundario || a.cid_secundario || a.diagnosis_codes?.[1], "cid_secundario"),
+    prognostico: humanizeField(a.prognostico, "prognostico"),
     goniometria: fmtGoniometry(a.rom_goniometry),
 
     // ---- Plano ----
-    objetivos: a.objetivos || "—",
-    condutas: a.condutas || "—",
-    proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "—",
+    objetivos: humanizeField(a.objetivos, "objetivos"),
+    condutas: humanizeField(a.condutas, "condutas"),
+    proxima_reavaliacao: a.next_reassessment_date ? fmtDate(a.next_reassessment_date) : "",
 
     // ---- Profissional ----
     profissional_nome: pr.nome || "—",
