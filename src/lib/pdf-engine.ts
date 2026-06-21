@@ -109,6 +109,13 @@ function applyClinicPalette(c: ClinicData) {
   (C as any).hairlineSoft = mixRgb(primary, [255, 255, 255], 0.16);
 }
 
+function dataUrlImageFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" | undefined {
+  if (/^data:image\/jpe?g/i.test(dataUrl)) return "JPEG";
+  if (/^data:image\/webp/i.test(dataUrl)) return "WEBP";
+  if (/^data:image\/png/i.test(dataUrl)) return "PNG";
+  return undefined;
+}
+
 const S = {
   M: 40,
   HEADER_H: 115,
