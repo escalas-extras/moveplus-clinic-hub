@@ -376,6 +376,8 @@ function NavItem({ to, exact, icon: Icon, label, collapsed, onClick }: { to: str
     <Link
       to={to}
       onClick={onClick}
+      data-active={active}
+      data-sidebar="nav-item"
       className={cn(
         "group relative flex items-center rounded-xl text-[13.5px] lift transition-colors",
         collapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3.5 py-2.5",
