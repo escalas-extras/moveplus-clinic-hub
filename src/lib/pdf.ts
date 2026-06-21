@@ -520,8 +520,8 @@ export async function buildPdf(opts: {
   const isContract = /contrato/i.test(opts.title || "");
   const renderSignatures = true; // sempre renderiza bloco de assinatura nos documentos
 
-  // Altura estimada do bloco de assinatura
-  const SIG_BLOCK_H = isContract ? 360 : 140;
+  // Altura estimada do bloco de assinatura (não-contrato: linha + nome + profissão + registro + separador + clínica + CNPJ)
+  const SIG_BLOCK_H = isContract ? 360 : 185;
 
   // Se assinatura não cabe na última página, abre nova
   if (renderSignatures && y + SIG_BLOCK_H > H - 90) {
@@ -529,6 +529,7 @@ export async function buildPdf(opts: {
     pageY = M + 8;
     y = pageY;
   }
+
 
 
   const pageCount = doc.getNumberOfPages();
