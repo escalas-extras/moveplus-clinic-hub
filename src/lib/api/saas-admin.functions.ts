@@ -130,7 +130,8 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
           .select("id, created_by")
           .in("created_by", userIds);
         for (const p of pats ?? []) {
-          const cid = userToClinic[p.created_by];
+          if (!p.created_by) continue;
+          const cid = userToClinic[p.created_by as string];
           if (cid) patientsByClinic[cid] = (patientsByClinic[cid] || 0) + 1;
         }
       }
