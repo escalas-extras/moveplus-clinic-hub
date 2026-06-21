@@ -19,6 +19,15 @@
   --font-display: "Inter", "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
 
+  /* Tipografia escala FisioOS (32 / 24 / 16 / 14) */
+  --text-display: 2rem;       /* 32px — títulos de página */
+  --text-heading: 1.5rem;     /* 24px — títulos de seção */
+  --text-body: 1rem;          /* 16px — corpo */
+  --text-meta: 0.875rem;      /* 14px — metadados */
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
   --radius-sm: calc(var(--radius) - 8px);
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
@@ -62,14 +71,23 @@
 :root {
   --radius: 1.25rem;          /* 20px base — cards usam rounded-2xl */
 
-  /* Paleta FisioOS */
-  --fos-primary: oklch(0.36 0.05 215);     /* #0F4C5C */
-  --fos-primary-soft: oklch(0.50 0.06 215);
-  --fos-secondary: oklch(0.72 0.16 155);   /* #2BB673 */
-  --fos-accent: oklch(0.69 0.15 250);      /* #4F9CF9 */
-  --fos-bg: oklch(0.978 0.005 250);        /* #F6F8FB */
+  /* ───── FisioOS Premium Palette ─────
+   * Primária  Azul Petróleo  #1B4965
+   * Secundária Verde Esmeralda #10B981
+   * Alerta    Laranja        #F59E0B
+   * Erro      Vermelho       #DC2626
+   * Fundo     Off-white frio #F6F8FB
+   * Texto     Grafite        #1D2939
+   */
+  --fos-primary: oklch(0.40 0.06 235);     /* azul petróleo */
+  --fos-primary-soft: oklch(0.54 0.07 235);
+  --fos-secondary: oklch(0.70 0.16 162);   /* verde esmeralda */
+  --fos-accent: oklch(0.69 0.15 235);      /* azul petróleo claro p/ realces */
+  --fos-warning: oklch(0.78 0.16 70);      /* laranja alerta */
+  --fos-warning-foreground: oklch(0.30 0.08 50);
+  --fos-bg: oklch(0.978 0.005 250);
   --fos-bg-deep: oklch(0.96 0.008 250);
-  --fos-ink: oklch(0.28 0.025 255);        /* #1D2939 */
+  --fos-ink: oklch(0.28 0.025 255);
   --fos-ink-soft: oklch(0.50 0.02 255);
 
   --background: var(--fos-bg);
@@ -93,16 +111,19 @@
   --accent: var(--fos-accent);
   --accent-foreground: oklch(0.99 0.005 250);
 
-  --destructive: oklch(0.62 0.20 25);
+  --warning: var(--fos-warning);
+  --warning-foreground: var(--fos-warning-foreground);
+
+  --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
 
   --border: oklch(0.92 0.008 250);
   --input: oklch(0.94 0.008 250);
-  --ring: var(--fos-accent);
+  --ring: var(--fos-primary);
 
   --chart-1: var(--fos-primary);
   --chart-2: var(--fos-secondary);
-  --chart-3: var(--fos-accent);
+  --chart-3: var(--fos-warning);
   --chart-4: oklch(0.70 0.14 60);
   --chart-5: oklch(0.62 0.15 320);
 

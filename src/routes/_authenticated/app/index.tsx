@@ -1,11 +1,14 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { Card } from "@/components/ui/card";
-import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3, Sparkles, ArrowRight } from "lucide-react";
-import { brl, fmtDate } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
+import {
+  Users, CalendarDays, FileText, RefreshCw, ArrowUpRight, ArrowDownRight,
+  Minus, Sparkles, AlertTriangle, FileSignature, ClipboardList, UserCheck,
+  ArrowRight, Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 
@@ -21,286 +24,358 @@ export const Route = createFileRoute("/_authenticated/app/")({
     const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
     const hasClinic = (membersRes.data ?? []).length > 0;
     const inSupport = !!supportRes.data;
-    // Em modo suporte, o super_admin deve permanecer em /app (experiência da clínica).
     if (isSuperAdmin && !hasClinic && !inSupport) throw redirect({ to: "/app/admin-saas" });
   },
-  component: Dashboard,
+  component: PainelClinico,
 });
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Bom dia";
-  if (h < 18) return "Boa tarde";
-  return "Boa noite";
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function Dashboard() {
-  const { user } = useAuth();
-  const { clinicId, isAdmin } = useActiveClinic();
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  agendado:   { label: "Pendente",   cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200" },
+  pendente:   { label: "Pendente",   cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200" },
+  confirmado: { label: "Confirmado", cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" },
+  realizado:  { label: "Confirmado", cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" },
+  concluido:  { label: "Confirmado", cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" },
+  cancelado:  { label: "Cancelado",  cls: "bg-rose-50 text-rose-700 ring-1 ring-rose-200" },
+  faltou:     { label: "Cancelado",  cls: "bg-rose-50 text-rose-700 ring-1 ring-rose-200" },
+};
+
+function PainelClinico() {
+  const { clinicId } = useActiveClinic();
   const brand = useBranding();
-  const today = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(); monthStart.setDate(1);
-  const monthIso = monthStart.toISOString().slice(0, 10);
+
+  const today = new Date();
+  const todayIso = isoDate(today);
+  const thisMonth = startOfMonth(today);
+  const prevMonth = new Date(thisMonth.getFullYear(), thisMonth.getMonth() - 1, 1);
+  const thisMonthIso = isoDate(thisMonth);
+  const prevMonthIso = isoDate(prevMonth);
 
   const stats = useQuery({
-    queryKey: ["dashboard-premium", clinicId, today, monthIso, isAdmin],
+    queryKey: ["painel-clinico", clinicId, todayIso, thisMonthIso, prevMonthIso],
     enabled: !!clinicId,
     queryFn: async () => {
-      const [pacientes, novos, hoje, mesPag, sessoesMes, pendentes, reavalPend, altasMes, docsMes] = await Promise.all([
-        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("situacao", "ativo"),
-        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).gte("created_at", monthIso),
-        supabase.from("appointments").select("id, horario, status, patients(nome_completo), professionals(nome)").eq("clinic_id", clinicId!).eq("data", today).order("horario"),
-        supabase.from("financial_entries").select("valor").eq("clinic_id", clinicId!).eq("status", "pago").gte("data", monthIso),
-        supabase.from("evolutions").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).gte("data", monthIso),
-        supabase.from("financial_entries").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("status", "pendente"),
-        supabase.from("reassessment_schedule").select("id, patient_id, scheduled_for, patients(nome_completo)").eq("clinic_id", clinicId!).lte("scheduled_for", today).is("completed_at", null).order("scheduled_for").limit(10),
-        supabase.from("patient_discharges").select("id", { count: "exact", head: true }).gte("data_alta", monthIso),
-        supabase.from("assessments").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).gte("created_at", monthIso),
+      const cid = clinicId!;
+      const [
+        pacientesAtivos, pacientesAntes,
+        atendMes, atendPrev,
+        docsMes, docsPrev,
+        reavalPend,
+        // sidebar
+        docsRascunho, evolSemAssin, retorno,
+        hoje,
+      ] = await Promise.all([
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", cid).eq("situacao", "ativo"),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", cid).eq("situacao", "ativo").lt("created_at", thisMonthIso),
+        supabase.from("appointments").select("id", { count: "exact", head: true }).eq("clinic_id", cid).gte("data", thisMonthIso),
+        supabase.from("appointments").select("id", { count: "exact", head: true }).eq("clinic_id", cid).gte("data", prevMonthIso).lt("data", thisMonthIso),
+        supabase.from("clinical_documents").select("id", { count: "exact", head: true }).eq("clinic_id", cid).gte("issued_at", thisMonthIso),
+        supabase.from("clinical_documents").select("id", { count: "exact", head: true }).eq("clinic_id", cid).gte("issued_at", prevMonthIso).lt("issued_at", thisMonthIso),
+        supabase.from("reassessment_schedule").select("id, patient_id, scheduled_for, patients(nome_completo)").eq("clinic_id", cid).lte("scheduled_for", todayIso).is("completed_at", null).order("scheduled_for").limit(10),
+        // sidebar
+        supabase.from("clinical_documents").select("id", { count: "exact", head: true }).eq("clinic_id", cid).is("locked_at", null),
+        supabase.from("evolutions").select("id", { count: "exact", head: true }).eq("clinic_id", cid).is("locked_at", null),
+        supabase.from("patients").select("id, nome_completo, updated_at").eq("clinic_id", cid).eq("situacao", "ativo").order("updated_at", { ascending: true }).limit(5),
+        supabase.from("appointments").select("id, horario, status, observacao, patients(nome_completo), professionals(nome)").eq("clinic_id", cid).eq("data", todayIso).order("horario"),
       ]);
-      const fatMes = (mesPag.data ?? []).reduce((s, r) => s + Number(r.valor ?? 0), 0);
       return {
-        pacientesAtivos: pacientes.count ?? 0,
-        novosMes: novos.count ?? 0,
-        hoje: hoje.data ?? [],
-        fatMes,
-        sessoesMes: sessoesMes.count ?? 0,
-        pendentes: pendentes.count ?? 0,
-        reavalAtrasadas: reavalPend.data ?? [],
-        altasMes: altasMes.count ?? 0,
+        pacientesAtivos: pacientesAtivos.count ?? 0,
+        pacientesAntes: pacientesAntes.count ?? 0,
+        atendMes: atendMes.count ?? 0,
+        atendPrev: atendPrev.count ?? 0,
         docsMes: docsMes.count ?? 0,
+        docsPrev: docsPrev.count ?? 0,
+        reavalPend: reavalPend.data ?? [],
+        docsRascunho: docsRascunho.count ?? 0,
+        evolSemAssin: evolSemAssin.count ?? 0,
+        retorno: retorno.data ?? [],
+        hoje: hoje.data ?? [],
       };
     },
   });
 
   const s = stats.data;
-  const userName = (user?.user_metadata as any)?.full_name?.split(" ")[0] || "";
-  const nextStep = !s || s.pacientesAtivos === 0
-    ? { label: "Cadastrar primeiro paciente", to: "/app/pacientes" as const, icon: Users }
-    : s.hoje.length === 0
-      ? { label: "Agendar próximo atendimento", to: "/app/agenda" as const, icon: CalendarDays }
-      : (s.docsMes ?? 0) === 0
-        ? { label: "Emitir primeiro documento", to: "/app/documentos" as const, icon: FileText }
-        : { label: "Ver indicadores clínicos", to: "/app/dashboard-clinico" as const, icon: BarChart3 };
-  const isNewClinic = !s || (s.pacientesAtivos <= 2 && (s.docsMes ?? 0) === 0 && (s.sessoesMes ?? 0) <= 1);
-  const NextStepIcon = nextStep.icon;
+  const reavalCount = s?.reavalPend.length ?? 0;
+  const isNewClinic = !!s && s.pacientesAtivos === 0 && s.atendMes === 0 && s.docsMes === 0;
 
   return (
-    <div className="space-y-10">
-      <section className="relative overflow-hidden rounded-2xl border border-white/50 p-7 sm:p-9 shadow-soft" style={{ background: `linear-gradient(135deg, ${brand.primaryColor}14, ${brand.secondaryColor}10 52%, #ffffff 100%)` }}>
-        <div className="relative grid gap-7 lg:grid-cols-[1.45fr_0.9fr] lg:items-center">
-          <div className="min-w-0">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" style={{ color: brand.primaryColor }} /> Painel da clínica
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-balance">
-              {greeting()}{userName ? `, ${userName}` : ""}
-            </h1>
-            <p className="mt-3 text-base text-muted-foreground max-w-2xl">
-              {brand.clinicName} pronta para organizar agenda, pacientes, documentos e evolução clínica com identidade própria.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to={nextStep.to} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-soft" style={{ background: brand.primaryColor }}>
-                <NextStepIcon className="h-4 w-4" /> {nextStep.label} <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link to="/app/biblioteca" className="inline-flex items-center gap-2 rounded-xl bg-white/75 px-4 py-2.5 text-sm font-medium shadow-soft hover:bg-white">
-                <BookOpen className="h-4 w-4" /> Abrir biblioteca
-              </Link>
-            </div>
+    <div className="space-y-8">
+      {/* Cabeçalho */}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground mb-3">
+            <Sparkles className="h-3.5 w-3.5" style={{ color: brand.primaryColor }} /> {brand.clinicName}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <GrowthTile label="Pacientes ativos" value={s?.pacientesAtivos ?? 0} icon={Users} color={brand.primaryColor} />
-            <GrowthTile label="Agenda hoje" value={s?.hoje.length ?? 0} icon={CalendarDays} color={brand.secondaryColor} />
-            <GrowthTile label="Documentos no mês" value={s?.docsMes ?? 0} icon={FileText} color={brand.primaryColor} />
-            <GrowthTile label={isNewClinic ? "Pronta para crescer" : "Sessões no mês"} value={isNewClinic ? "✓" : (s?.sessoesMes ?? 0)} icon={TrendingUp} color={brand.secondaryColor} />
-          </div>
+          <h1 className="text-[2rem] leading-tight font-semibold tracking-tight">Painel Clínico</h1>
+          <p className="mt-1.5 text-[16px] text-muted-foreground">Resumo operacional da clínica em tempo real.</p>
         </div>
-      </section>
+        <div className="flex gap-2">
+          <Link to="/app/pacientes" className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-soft" style={{ background: brand.primaryColor }}>
+            <Plus className="h-4 w-4" /> Novo paciente
+          </Link>
+          <Link to="/app/agenda" className="inline-flex items-center gap-2 rounded-xl bg-white/75 px-4 py-2 text-sm font-medium shadow-soft hover:bg-white">
+            <CalendarDays className="h-4 w-4" /> Agendar
+          </Link>
+        </div>
+      </header>
 
-      {/* Indicadores principais */}
-      <section className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">Indicadores</h2>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-          <StatCard icon={Users} label="Pacientes" value={s?.pacientesAtivos ?? 0} hint={s?.novosMes ? `+${s.novosMes} este mês` : undefined} to="/app/pacientes" color={brand.primaryColor} emptyCta="Cadastrar primeiro paciente" />
-          <StatCard icon={CalendarDays} label="Atendimentos de hoje" value={s?.hoje.length ?? 0} to="/app/agenda" color={brand.secondaryColor} emptyCta="Agendar atendimento" />
-          <StatCard icon={FileText} label="Documentos emitidos" value={s?.docsMes ?? 0} to="/app/documentos" color={brand.primaryColor} emptyCta="Emitir primeiro documento" />
-          <StatCard icon={RefreshCw} label="Reavaliações pendentes" value={s?.reavalAtrasadas.length ?? 0} to="/app/reavaliacoes" color={(s?.reavalAtrasadas.length ?? 0) > 0 ? "#c75c3a" : brand.primaryColor} tone={(s?.reavalAtrasadas.length ?? 0) > 0 ? "warn" : "default"} />
-        </div>
-        {isAdmin && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-            <StatCard icon={ClipboardCheck} label="Sessões no mês" value={s?.sessoesMes ?? 0} color={brand.primaryColor} small />
-            <StatCard icon={LogOut} label="Altas no mês" value={s?.altasMes ?? 0} color={brand.secondaryColor} small />
-            <StatCard icon={Wallet} label="Faturamento do mês" value={brl(s?.fatMes ?? 0)} hint={s?.pendentes ? `${s.pendentes} pendentes` : undefined} to="/app/financeiro" color={brand.primaryColor} small />
-            <StatCard icon={TrendingUp} label="Sessões/paciente" value={s && s.pacientesAtivos ? (s.sessoesMes / s.pacientesAtivos).toFixed(1) : "0"} color={brand.primaryColor} small />
-          </div>
-        )}
-      </section>
-
-      {/* Alertas inteligentes */}
-      {s && s.reavalAtrasadas.length > 0 && (
-        <Card className="p-6 border-l-4" style={{ borderLeftColor: "#c75c3a" }}>
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+      {/* Onboarding card quando clínica nova */}
+      {isNewClinic && (
+        <Card className="p-6 border border-dashed" style={{ borderColor: `${brand.primaryColor}66`, background: `linear-gradient(135deg, ${brand.primaryColor}10, ${brand.secondaryColor}08)` }}>
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl p-3 text-white shadow-soft" style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}>
+              <Sparkles className="h-6 w-6" />
+            </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm">{s.reavalAtrasadas.length} reavaliação(ões) em atraso</h3>
-              <ul className="mt-2 space-y-1 text-sm">
-                {s.reavalAtrasadas.slice(0, 5).map((r: any) => (
-                  <li key={r.id} className="flex items-center justify-between gap-2">
-                    <Link to="/app/pacientes/$id" params={{ id: r.patient_id }} className="hover:underline truncate">
-                      {r.patients?.nome_completo}
-                    </Link>
-                    <span className="text-xs text-muted-foreground tabular-nums">vence em {fmtDate(r.scheduled_for)}</span>
-                  </li>
-                ))}
-                {s.reavalAtrasadas.length > 5 && (
-                  <li><Link to="/app/reavaliacoes" className="text-xs text-primary hover:underline">Ver todas →</Link></li>
-                )}
-              </ul>
+              <h2 className="text-[24px] font-semibold tracking-tight">Sua clínica está pronta para iniciar.</h2>
+              <p className="text-[14px] text-muted-foreground mt-1">Cadastre o primeiro paciente, configure sua agenda e emita seu primeiro documento.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link to="/app/pacientes" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">Cadastrar paciente <ArrowRight className="h-3.5 w-3.5" /></Link>
+                <span className="text-muted-foreground/50">·</span>
+                <Link to="/app/agenda" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">Abrir agenda <ArrowRight className="h-3.5 w-3.5" /></Link>
+                <span className="text-muted-foreground/50">·</span>
+                <Link to="/app/configuracoes" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">Personalizar marca <ArrowRight className="h-3.5 w-3.5" /></Link>
+              </div>
             </div>
           </div>
         </Card>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-5">
-        {/* Agenda do dia */}
-        <Card className="p-7 lg:col-span-2">
+      {/* KPIs */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+        <KpiCard
+          icon={Users}
+          label="Pacientes ativos"
+          value={s?.pacientesAtivos ?? 0}
+          previous={s?.pacientesAntes ?? 0}
+          to="/app/pacientes"
+          accent={brand.primaryColor}
+          period="vs início do mês"
+        />
+        <KpiCard
+          icon={CalendarDays}
+          label="Atendimentos do mês"
+          value={s?.atendMes ?? 0}
+          previous={s?.atendPrev ?? 0}
+          to="/app/agenda"
+          accent={brand.secondaryColor}
+          period="vs mês anterior"
+        />
+        <KpiCard
+          icon={FileText}
+          label="Documentos emitidos"
+          value={s?.docsMes ?? 0}
+          previous={s?.docsPrev ?? 0}
+          to="/app/documentos"
+          accent={brand.primaryColor}
+          period="vs mês anterior"
+        />
+        <KpiCard
+          icon={RefreshCw}
+          label="Reavaliações pendentes"
+          value={reavalCount}
+          tone={reavalCount > 0 ? "warning" : "default"}
+          to="/app/reavaliacoes"
+          accent={reavalCount > 0 ? "var(--warning)" : brand.primaryColor}
+          hideDelta
+          subtitle={reavalCount > 0 ? "Requer atenção" : "Em dia"}
+        />
+      </section>
+
+      {/* Agenda + Atividades */}
+      <div className="grid lg:grid-cols-[1.7fr_1fr] gap-5">
+        {/* Agenda de hoje */}
+        <Card className="p-6 lg:p-7 h-full">
           <div className="flex items-center justify-between mb-5">
             <div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Hoje</div>
-              <h2 className="text-xl font-semibold tracking-tight">Agenda do dia</h2>
+              <h2 className="text-[24px] font-semibold tracking-tight">Agenda do dia</h2>
             </div>
-            <Link to="/app/agenda" className="text-xs text-primary hover:underline">Ver semana →</Link>
+            <Link to="/app/agenda" className="text-xs font-medium text-primary hover:underline">Ver semana →</Link>
           </div>
+
           {!s?.hoje.length ? (
-            <p className="text-sm text-muted-foreground">Nenhum atendimento agendado para hoje.</p>
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              <CalendarDays className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+              Nenhum atendimento agendado para hoje.
+            </div>
           ) : (
-            <ul className="divide-y divide-white/60">
-              {s.hoje.map((a: any) => (
-                <li key={a.id} className="py-3.5 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{a.patients?.nome_completo}</div>
-                    <div className="text-xs text-muted-foreground truncate">{a.professionals?.nome} · {a.status}</div>
-                  </div>
-                  <div className="text-base font-semibold tabular-nums" style={{ color: brand.primaryColor }}>{String(a.horario).slice(0, 5)}</div>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-hidden rounded-xl border border-border/60">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 font-semibold">Horário</th>
+                    <th className="text-left px-4 py-2.5 font-semibold">Paciente</th>
+                    <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell">Atendimento</th>
+                    <th className="text-right px-4 py-2.5 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {s.hoje.map((a: any) => {
+                    const meta = STATUS_META[a.status as string] ?? { label: a.status ?? "—", cls: "bg-muted text-muted-foreground" };
+                    return (
+                      <tr key={a.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: brand.primaryColor }}>{String(a.horario).slice(0, 5)}</td>
+                        <td className="px-4 py-3 font-medium truncate">{a.patients?.nome_completo ?? "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground truncate hidden sm:table-cell">
+                          {a.observacao || a.professionals?.nome || "Consulta"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={cn("inline-flex items-center text-[11px] font-semibold rounded-full px-2.5 py-0.5", meta.cls)}>{meta.label}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
 
-        {/* Ações rápidas */}
-        <Card className="p-7">
+        {/* Atividades Importantes */}
+        <Card className="p-6 lg:p-7 h-full">
           <div className="mb-5">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Atalhos</div>
-            <h2 className="text-xl font-semibold tracking-tight">Ações rápidas</h2>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Pendências</div>
+            <h2 className="text-[24px] font-semibold tracking-tight">Atividades importantes</h2>
           </div>
-          <div className="space-y-1.5">
-            <QuickAction to="/app/pacientes" icon={Plus} label="Novo paciente" color={brand.primaryColor} />
-            <QuickAction to="/app/agenda" icon={CalendarDays} label="Agendar atendimento" color={brand.primaryColor} />
-            <QuickAction to="/app/reavaliacoes" icon={RefreshCw} label="Programar reavaliação" color={brand.primaryColor} />
-            <QuickAction to="/app/documentos" icon={ClipboardCheck} label="Emitir documento" color={brand.primaryColor} />
+          <div className="space-y-2">
+            <ActivityRow
+              icon={ClipboardList}
+              label="Documentos pendentes"
+              count={s?.docsRascunho ?? 0}
+              to="/app/documentos"
+              tone={(s?.docsRascunho ?? 0) > 0 ? "warning" : "default"}
+            />
+            <ActivityRow
+              icon={AlertTriangle}
+              label="Reavaliações vencidas"
+              count={reavalCount}
+              to="/app/reavaliacoes"
+              tone={reavalCount > 0 ? "danger" : "default"}
+            />
+            <ActivityRow
+              icon={FileSignature}
+              label="Evoluções sem assinatura"
+              count={s?.evolSemAssin ?? 0}
+              to="/app/evolucoes"
+              tone={(s?.evolSemAssin ?? 0) > 0 ? "warning" : "default"}
+            />
+            <ActivityRow
+              icon={UserCheck}
+              label="Pacientes aguardando retorno"
+              count={s?.retorno.length ?? 0}
+              to="/app/pacientes"
+              tone="default"
+            />
           </div>
+
+          {s && reavalCount === 0 && (s.docsRascunho ?? 0) === 0 && (s.evolSemAssin ?? 0) === 0 && (
+            <div className="mt-6 rounded-xl bg-emerald-50/60 border border-emerald-200/70 px-3 py-2.5 text-xs text-emerald-800 flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5" /> Tudo em dia. Nenhuma pendência crítica.
+            </div>
+          )}
         </Card>
       </div>
-
-      {/* Explore o FisioOS */}
-      <section className="space-y-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Descubra</div>
-          <h2 className="text-xl font-semibold tracking-tight">Explore o {brand.appName}</h2>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <ExploreCard to="/app/biblioteca" icon={BookOpen} title="Biblioteca" desc="Cartilhas, protocolos e materiais clínicos prontos para envio" color={brand.primaryColor} />
-          <ExploreCard to="/app/documentos" icon={FileText} title="Documentos" desc="Emita atestados, recibos e relatórios com sua marca" color={brand.secondaryColor} />
-          <ExploreCard to="/app/relatorios" icon={BarChart3} title="Relatórios" desc="Visão consolidada da operação clínica e financeira" color={brand.primaryColor} />
-          <ExploreCard to="/app/agenda" icon={CalendarDays} title="Agenda" desc="Organize atendimentos, equipe e disponibilidades" color={brand.secondaryColor} />
-        </div>
-      </section>
     </div>
   );
 }
 
-function ExploreCard({ to, icon: Icon, title, desc, color }: { to: string; icon: any; title: string; desc: string; color: string }) {
-  return (
-    <Link to={to} className="block group">
-      <Card className="p-5 h-full lift lift-hover">
-        <div className="rounded-xl p-2.5 w-fit mb-3" style={{ background: `${color}18`, color }}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="font-semibold text-sm mb-1">{title}</div>
-        <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
-        <div className="mt-3 text-xs font-medium" style={{ color }}>Abrir →</div>
-      </Card>
-    </Link>
-  );
-}
+/* ───── Subcomponentes ───── */
 
-function GrowthTile({ icon: Icon, label, value, color }: { icon: any; label: string; value: number | string; color: string }) {
-  return (
-    <div className="rounded-2xl bg-white/75 p-4 shadow-soft min-h-28 flex flex-col justify-between">
-      <div className="flex items-center justify-between gap-3">
-        <div className="rounded-xl p-2" style={{ background: `${color}16`, color }}>
+function KpiCard({
+  icon: Icon, label, value, previous, period, to, accent, tone = "default", hideDelta, subtitle,
+}: {
+  icon: any;
+  label: string;
+  value: number;
+  previous?: number;
+  period?: string;
+  to?: string;
+  accent: string;
+  tone?: "default" | "warning";
+  hideDelta?: boolean;
+  subtitle?: string;
+}) {
+  const hasPrev = typeof previous === "number" && previous > 0;
+  const delta = hasPrev ? ((value - previous!) / previous!) * 100 : value > 0 ? 100 : 0;
+  const up = delta > 0;
+  const down = delta < 0;
+  const DeltaIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
+  const deltaCls = up
+    ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
+    : down
+      ? "text-rose-700 bg-rose-50 ring-rose-200"
+      : "text-muted-foreground bg-muted ring-border";
+
+  const inner = (
+    <Card className={cn("p-5 lg:p-6 h-full lift relative overflow-hidden", to && "lift-hover cursor-pointer")}>
+      <div
+        aria-hidden
+        className="absolute -top-10 -right-10 h-28 w-28 rounded-full opacity-25 blur-2xl pointer-events-none"
+        style={{ background: accent }}
+      />
+      <div className="relative flex items-start justify-between">
+        <div
+          className="rounded-xl p-2.5 flex items-center justify-center"
+          style={{ background: `${accent}1A`, color: accent }}
+        >
           <Icon className="h-4 w-4" />
         </div>
-        <div className="text-3xl font-semibold tabular-nums" style={{ color }}>{value}</div>
-      </div>
-      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium leading-snug">{label}</div>
-    </div>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, hint, to, color, tone = "default", small = false, emptyCta }: { icon: any; label: string; value: any; hint?: string; to?: string; color?: string; tone?: "default" | "warn"; small?: boolean; emptyCta?: string }) {
-  const isEmpty = emptyCta && (value === 0 || value === "0");
-  const content = (
-    <Card className={cn("p-6 h-full lift relative overflow-hidden", to && "lift-hover cursor-pointer")}>
-      {/* halo interno suave na cor */}
-      <div
-        className="absolute -top-12 -right-12 w-40 h-40 rounded-full opacity-30 blur-2xl pointer-events-none"
-        style={{ background: color ?? undefined }}
-        aria-hidden
-      />
-      <div className="relative">
-        <div className="flex items-center justify-between">
-          <div
-            className="rounded-xl p-2 flex items-center justify-center"
-            style={{ background: color ? `${color}18` : undefined, color }}
-          >
-            <Icon className="h-4 w-4" />
-          </div>
-          {tone === "warn" && <span className="text-[10px] uppercase tracking-wider font-semibold text-orange-600">Atenção</span>}
-        </div>
-        {isEmpty ? (
-          <>
-            <div className="mt-5 text-sm text-muted-foreground leading-snug">Nenhum registro ainda.</div>
-            <div className="mt-2 text-sm font-medium" style={{ color }}>{emptyCta} →</div>
-            <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
-          </>
-        ) : (
-          <>
-            <div className={cn("num-hero mt-4 font-semibold", small ? "text-3xl sm:text-4xl" : "text-5xl sm:text-6xl")} style={{ color: tone === "warn" ? "#c75c3a" : undefined }}>
-              {value}
-            </div>
-            <div className="mt-3 text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium truncate">{label}</div>
-            {hint && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{hint}</div>}
-          </>
+        {!hideDelta && (
+          <span className={cn("inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5 ring-1", deltaCls)}>
+            <DeltaIcon className="h-3 w-3" />
+            {hasPrev ? `${Math.abs(delta).toFixed(0)}%` : value > 0 ? "Novo" : "0%"}
+          </span>
         )}
+        {hideDelta && tone === "warning" && (
+          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 ring-1 ring-amber-200 border-0 text-[10px] uppercase tracking-wider">Atenção</Badge>
+        )}
+      </div>
+      <div className="mt-5 num-hero text-[2.5rem] sm:text-[3rem] font-semibold" style={{ color: tone === "warning" ? "var(--warning-foreground)" : undefined }}>
+        {value}
+      </div>
+      <div className="mt-2 text-[14px] font-medium text-foreground truncate">{label}</div>
+      <div className="text-[12px] text-muted-foreground mt-0.5">
+        {subtitle ?? (hasPrev ? `${previous} ${period ?? ""}`.trim() : period ?? "Período inicial")}
       </div>
     </Card>
   );
-  if (!to) return content;
-  return <Link to={to} className="block h-full">{content}</Link>;
+  if (!to) return inner;
+  return <Link to={to} className="block h-full">{inner}</Link>;
 }
 
-function QuickAction({ to, icon: Icon, label, color }: { to: string; icon: any; label: string; color: string }) {
+function ActivityRow({
+  icon: Icon, label, count, to, tone,
+}: {
+  icon: any;
+  label: string;
+  count: number;
+  to: string;
+  tone: "default" | "warning" | "danger";
+}) {
+  const cls =
+    tone === "danger" ? "text-rose-700 bg-rose-50 ring-rose-200" :
+    tone === "warning" ? "text-amber-700 bg-amber-50 ring-amber-200" :
+    "text-muted-foreground bg-muted ring-border";
   return (
-    <Link to={to} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/60 transition-colors text-sm lift">
-      <div className="rounded-lg p-1.5" style={{ background: `${color}18`, color }}>
+    <Link
+      to={to}
+      className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/70 transition-colors group border border-transparent hover:border-border/60"
+    >
+      <div className={cn("rounded-lg p-2 ring-1", cls)}>
         <Icon className="h-4 w-4" />
       </div>
-      <span className="flex-1">{label}</span>
-      <span className="text-muted-foreground/60">→</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[14px] font-medium truncate">{label}</div>
+      </div>
+      <div className="text-[20px] font-semibold tabular-nums" style={{ color: count > 0 ? undefined : "var(--muted-foreground)" }}>{count}</div>
+      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
     </Link>
   );
 }
-
