@@ -219,7 +219,7 @@
 
 /* ====== Glassmorphism premium — contraste elevado ====== */
 @utility glass {
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(32px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
@@ -228,7 +228,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 @utility glass-strong {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(36px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.88);
   box-shadow:
@@ -237,23 +237,37 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 @utility glass-card {
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(32px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow:
-    0 1px 3px rgba(15, 76, 92, 0.08),
-    0 20px 48px -18px rgba(15, 76, 92, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  transition: transform 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms ease, background-color 250ms ease;
+  border: 1.5px solid rgba(15, 23, 42, 0.18);
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.12);
+  transition: transform 200ms cubic-bezier(.2,.7,.2,1), box-shadow 200ms ease, background-color 200ms ease, border-color 200ms ease;
   &:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.84);
-    box-shadow:
-      0 2px 4px rgba(15, 76, 92, 0.09),
-      0 32px 64px -26px rgba(15, 76, 92, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.94);
+    border-color: rgba(15, 23, 42, 0.28);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
   }
 }
+@utility glass-sidebar {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(34px) saturate(180%);
+  border-right: 1px solid rgba(15, 76, 92, 0.08);
+}
+@utility glass-topbar {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-bottom: 1px solid rgba(15, 76, 92, 0.08);
+}
+@utility lift {
+  transition: transform 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms ease, background-color 250ms ease;
+}
+@utility lift-hover {
+  &:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+}
+@utility shadow-soft { box-shadow: var(--shadow-soft); }
+@utility shadow-lift { box-shadow: var(--shadow-lift); }
+@utility shadow-glow { box-shadow: var(--shadow-glow); }
 @utility glass-sidebar {
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(34px) saturate(180%);
@@ -277,103 +291,89 @@
 .dark .glass,
 .dark .glass-strong { background: rgba(20, 28, 40, 0.68); border-color: rgba(255,255,255,0.12); }
 .dark .glass-card {
-  background: rgba(20, 28, 40, 0.72);
-  border-color: rgba(255,255,255,0.14);
+  background: rgba(20, 28, 40, 0.82);
+  border-color: rgba(255,255,255,0.16);
   &:hover {
-    background: rgba(20, 28, 40, 0.78);
-    border-color: rgba(255,255,255,0.17);
+    background: rgba(20, 28, 40, 0.88);
+    border-color: rgba(255,255,255,0.24);
   }
 }
 .dark .glass-sidebar { background: rgba(20, 28, 40, 0.72); border-color: rgba(255,255,255,0.08); }
 .dark .glass-topbar { background: rgba(20, 28, 40, 0.70); border-color: rgba(255,255,255,0.07); }
 
 /* ===========================================================
- * UX Premium Linear — refinos globais (visual apenas)
- * - bordas mais perceptíveis em cards
- * - sidebar com indicador lateral sólido no item ativo
- * - hover suave (150-200ms) em itens de navegação
- * - títulos com contraste superior
+ * UX Premium Linear — intensificado (visual apenas)
  * =========================================================== */
 
-/* Cards — borda mais marcada, hover Linear-like */
-.glass-card {
-  border: 1.5px solid rgba(15, 23, 42, 0.10);
-  transition:
-    transform 180ms cubic-bezier(.2,.7,.2,1),
-    box-shadow 180ms ease,
-    background-color 180ms ease,
-    border-color 180ms ease;
-}
-.glass-card:hover {
-  border-color: rgba(15, 23, 42, 0.14);
-}
-.dark .glass-card {
-  border-color: rgba(255, 255, 255, 0.10);
-}
-.dark .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-}
-
-/* Sidebar — itens com hover elegante + barra lateral ativa */
+/* Sidebar — hover mais forte e item ativo sólido */
 [data-sidebar="menu-button"],
 [data-sidebar="menu-sub-button"] {
   position: relative;
   transition:
-    background-color 170ms ease,
-    color 170ms ease;
+    background-color 180ms ease,
+    color 180ms ease,
+    font-weight 180ms ease;
 }
 [data-sidebar="menu-button"]:hover,
 [data-sidebar="menu-sub-button"]:hover {
-  background-color: color-mix(in oklab, var(--fos-primary) 8%, transparent);
+  background-color: rgba(15, 23, 42, 0.10);
   color: var(--fos-primary);
 }
 .dark [data-sidebar="menu-button"]:hover,
 .dark [data-sidebar="menu-sub-button"]:hover {
-  background-color: rgba(255, 255, 255, 0.06);
+  background-color: rgba(255, 255, 255, 0.10);
 }
 
-/* Item ativo: fundo discretamente mais escuro + barra lateral sólida */
+/* Item ativo: fundo sólido + barra lateral grossa */
 [data-sidebar="menu-button"][data-active="true"],
 [data-sidebar="menu-sub-button"][data-active="true"] {
-  background-color: color-mix(in oklab, var(--fos-primary) 12%, transparent);
+  background-color: rgba(15, 23, 42, 0.14);
   color: var(--fos-primary);
-  font-weight: 600;
-}
-[data-sidebar="menu-button"][data-active="true"]::before,
-[data-sidebar="menu-sub-button"][data-active="true"]::before {
-  content: "";
-  position: absolute;
-  left: -6px;
-  top: 6px;
-  bottom: 6px;
-  width: 4px;
-  border-radius: 4px;
-  background: var(--fos-primary);
+  font-weight: 700;
+  border-left: 5px solid var(--primary);
 }
 .dark [data-sidebar="menu-button"][data-active="true"],
 .dark [data-sidebar="menu-sub-button"][data-active="true"] {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.14);
   color: var(--foreground);
+  border-left-color: var(--primary);
 }
 
-/* Botões — feedback visual mais perceptível no hover (sem alterar identidade) */
+/* Botões — hover mais perceptível */
 @layer base {
   button, [role="button"] {
-    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease, filter 160ms ease;
+  }
+  button:hover, [role="button"]:hover {
+    filter: brightness(0.88);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+  }
+  .dark button:hover, .dark [role="button"]:hover {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
   }
 }
 
-/* Tipografia — títulos com contraste superior */
+/* Tipografia — títulos e KPIs com mais contraste */
 @layer base {
   h1, h2, h3 {
-    color: oklch(0.22 0.03 255);
+    color: rgba(15, 23, 42, 0.92);
     letter-spacing: -0.03em;
   }
   h4, h5 {
-    color: oklch(0.26 0.03 255);
+    color: rgba(15, 23, 42, 0.88);
   }
   .dark h1, .dark h2, .dark h3, .dark h4, .dark h5 {
-    color: oklch(0.98 0.005 250);
+    color: rgba(255, 255, 255, 0.96);
+  }
+  .num-hero, .kpi-value {
+    font-weight: 800;
+    color: rgba(15, 23, 42, 0.95);
+    font-feature-settings: "tnum", "lnum";
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+  .dark .num-hero, .dark .kpi-value {
+    color: rgba(255, 255, 255, 0.98);
   }
 }
 
