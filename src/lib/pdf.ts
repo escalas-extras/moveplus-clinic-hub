@@ -225,8 +225,8 @@ export async function buildPdf(opts: {
         children: [{ kind: "paragraph" as const, text: s.body || "—" }],
       }));
 
-  for (const block of blocks) {
-    renderBlock(block);
+  for (let bi = 0; bi < blocks.length; bi++) {
+    renderBlock(blocks[bi], bi === blocks.length - 1);
   }
 
   function drawBlockTitleBar(label: string) {
