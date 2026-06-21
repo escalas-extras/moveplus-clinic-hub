@@ -1902,6 +1902,7 @@ export type Database = {
       financial_entries: {
         Row: {
           appointment_id: string | null
+          clinic_id: string | null
           created_at: string
           created_by: string | null
           data: string
@@ -1916,6 +1917,7 @@ export type Database = {
         }
         Insert: {
           appointment_id?: string | null
+          clinic_id?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
@@ -1930,6 +1932,7 @@ export type Database = {
         }
         Update: {
           appointment_id?: string | null
+          clinic_id?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
@@ -1948,6 +1951,20 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_usage"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "financial_entries_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
           {
