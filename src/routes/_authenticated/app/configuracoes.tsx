@@ -143,23 +143,27 @@ function ConfigPage() {
     onSuccess: (data, v) => {
       toast.success("Configurações salvas");
       if (clinicId) {
-        pcSet(`fos:branding:${clinicId}`, {
-          appName: v.app_name || "FisioOS",
-          clinicName: v.nome_fantasia || "FisioOS",
-          slogan: v.slogan || "Transformando atendimentos em resultados",
-          logoUrl: data.resolvedLogo,
-          primaryColor: v.primary_color || "#2f5d3a",
-          secondaryColor: v.secondary_color || "#c75c3a",
-          crefitoDefault: v.crefito_default || null,
-          hasOwnLogo: !!data.resolvedLogo,
-        }, 24 * 60 * 60_000);
+        pcSet(
+          `fos:branding:${clinicId}`,
+          {
+            appName: v.app_name || "FisioOS",
+            clinicName: v.nome_fantasia || "FisioOS",
+            slogan: v.slogan || "Transformando atendimentos em resultados",
+            logoUrl: data.resolvedLogo,
+            primaryColor: v.primary_color || "#2f5d3a",
+            secondaryColor: v.secondary_color || "#c75c3a",
+            crefitoDefault: v.crefito_default || null,
+            hasOwnLogo: !!data.resolvedLogo,
+          },
+          24 * 60 * 60_000,
+        );
       }
       qc.invalidateQueries({ queryKey: ["clinic-settings"] });
       qc.invalidateQueries({ queryKey: ["branding"] });
       qc.invalidateQueries({ queryKey: ["logo-preview"] });
       qc.invalidateQueries({ queryKey: ["logo-preview-config"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(errorMessage(e)),
   });
 
   return (
