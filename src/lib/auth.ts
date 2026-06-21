@@ -15,12 +15,17 @@ export function useAuth() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const nextUser = session?.user ?? null;
       setUser((prev) => {
-        // Invalida caches de permissões quando o usuário muda ou ao login/logout
+        // Invalida caches sensíveis ao usuário/clínica quando o usuário muda
+        // ou ao login/logout. Bloco B: incluído `active-clinic` para evitar
+        // qualquer reuso de contexto de clínica entre usuários no mesmo browser.
         if (prev?.id !== nextUser?.id || event === "SIGNED_IN" || event === "SIGNED_OUT") {
           qc.invalidateQueries({ queryKey: ["user-roles-combined"] });
           qc.invalidateQueries({ queryKey: ["platform-context"] });
           qc.invalidateQueries({ queryKey: ["plan-features"] });
+          qc.invalidateQueries({ queryKey: ["active-clinic"] });
+          qc.invalidateQueries({ queryKey: ["branding"] });
         }
+
         return nextUser;
       });
     });
@@ -35,10 +40,15 @@ export function useAuth() {
 }
 
 /**
- * Returns the user's roles.
- * `isAdmin` is true when the user is a platform admin/super_admin OR
- * when the user is owner/admin of their current clinic (clinic_members.role).
- * This drives in-clinic admin-only UI (Usuários, Configurações, Financeiro, etc).
+ * Returns the user's clinic-scoped role.
+ *
+ * `isAdmin` is true ONLY when the user is owner/admin of the active clinic
+ * (clinic_members.role) OR a super_admin impersonating that clinic via a
+ * support session. The legacy global `user_roles.admin` role is INTENTIONALLY
+ * NOT consulted here — it is reserved for the SaaS panel (see
+ * `usePlatformContext`) and must not grant clinical-area permissions.
+ *
+ * Prefer `useActiveClinic()` (src/lib/active-clinic.ts) for new code.
  */
 export function useRoles(userId?: string) {
   const { data, isLoading } = useQuery({
@@ -60,19 +70,20 @@ export function useRoles(userId?: string) {
       const roles = (rolesRes.data ?? []).map((r) => r.role as AppRole);
       const members = memberRes.data ?? [];
       const supportClinic = (supportRes.data as string | null) ?? null;
-      // In support mode, super_admin operates as the clinic owner.
+      // In support mode, super_admin operates with the clinic's role context.
       const activeMember = supportClinic
         ? members.find((m) => m.clinic_id === supportClinic) ?? members[0]
         : members[0];
       const clinicRole = (activeMember?.role as ClinicRole | undefined) ?? null;
-      const isPlatformAdmin = roles.includes("admin") || roles.includes("super_admin" as AppRole);
       const isClinicAdmin = clinicRole === "owner" || clinicRole === "admin";
-      // In support mode super_admin should see admin UI of the impersonated clinic.
+      // Super_admin actively in support mode sees the admin UI of the
+      // impersonated clinic. OUTSIDE support mode super_admin must NOT
+      // get clinical admin privileges (only the SaaS panel).
       const isSupportAdmin = !!supportClinic && roles.includes("super_admin" as AppRole);
       return {
         roles,
         clinicRole,
-        isAdmin: isPlatformAdmin || isClinicAdmin || isSupportAdmin,
+        isAdmin: isClinicAdmin || isSupportAdmin,
       };
     },
   });
@@ -84,3 +95,4 @@ export function useRoles(userId?: string) {
     loading: isLoading,
   };
 }
+
