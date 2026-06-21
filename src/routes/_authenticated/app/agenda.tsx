@@ -306,8 +306,8 @@ function AgendaPage() {
 
 /* ───────────────────────── DAY VIEW ───────────────────────── */
 
-function DayView({ items, day, onStatus, disabled, onNew }: {
-  items: any[]; day: string; onStatus: (id: string, s: Status) => void; disabled: boolean; onNew: () => void;
+function DayView({ items, day, onStatus, onEdit, disabled, onNew }: {
+  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void;
 }) {
   const todays = items.filter((a) => a.data === day);
   if (!todays.length) {
@@ -335,7 +335,7 @@ function DayView({ items, day, onStatus, disabled, onNew }: {
               <div className="space-y-2">
                 {slot.length === 0 ? (
                   <div className="h-full" />
-                ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} disabled={disabled} />)}
+                ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
               </div>
             </li>
           );
@@ -345,7 +345,7 @@ function DayView({ items, day, onStatus, disabled, onNew }: {
   );
 }
 
-function AppointmentBlock({ a, onStatus, disabled }: { a: any; onStatus: (id: string, s: Status) => void; disabled: boolean }) {
+function AppointmentBlock({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean }) {
   const s = (a.status ?? "agendado") as Status;
   return (
     <div className={cn("rounded-xl border-l-4 ring-1 px-3 py-2 flex items-start gap-3", STATUS_CLASS[s])}>
@@ -357,12 +357,12 @@ function AppointmentBlock({ a, onStatus, disabled }: { a: any; onStatus: (id: st
         </div>
       </div>
       <Badge variant="outline" className="bg-white/60 border-transparent text-[10px] uppercase tracking-wide shrink-0">{STATUS_LABEL[s]}</Badge>
-      <RowActions a={a} onStatus={onStatus} disabled={disabled} />
+      <RowActions a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />
     </div>
   );
 }
 
-function RowActions({ a, onStatus, disabled }: { a: any; onStatus: (id: string, s: Status) => void; disabled: boolean }) {
+function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -374,7 +374,7 @@ function RowActions({ a, onStatus, disabled }: { a: any; onStatus: (id: string, 
             <Link to="/app/pacientes/$id" params={{ id: a.patient_id }}><UserCircle2 className="h-4 w-4 mr-2" /> Ver paciente</Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem disabled={disabled} onClick={() => toast.info("Edição em breve")}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+        <DropdownMenuItem disabled={disabled} onClick={() => onEdit(a)}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "confirmado")}>Marcar como Confirmado</DropdownMenuItem>
         <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "realizado")}><CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado</DropdownMenuItem>
