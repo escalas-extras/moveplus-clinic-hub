@@ -246,7 +246,12 @@ function DocumentosPage() {
   const emit = useMutation({
     mutationFn: async () => {
       if (!template || !patient) throw new Error("Selecione paciente e modelo");
-      // 1) generate validation hash client-side (DB also has trigger fallback)
+      if (isContractTemplate && contratanteMode === "responsavel") {
+        const f = contratanteForm;
+        if (!f.nome?.trim() || !f.cpf?.trim() || !f.rg?.trim() || !f.vinculo?.trim() || !f.telefone?.trim() || !f.endereco?.trim()) {
+          throw new Error("Preencha os dados obrigatórios do responsável (nome, CPF, RG, vínculo, telefone, endereço).");
+        }
+      }
       const hashBytes = crypto.getRandomValues(new Uint8Array(24));
       const validation_hash = Array.from(hashBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 
