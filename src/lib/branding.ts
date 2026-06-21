@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlatformContext } from "@/lib/platform-context";
+import { useAuth } from "@/lib/auth";
 
 export type Branding = {
   appName: string;
@@ -50,9 +51,11 @@ async function loadBranding(isPlatformAdmin: boolean): Promise<Branding> {
 
 export function useBranding(): Branding {
   const { isPlatformAdmin, loading } = usePlatformContext();
+  const { user } = useAuth();
   const { data } = useQuery({
-    queryKey: ["branding", isPlatformAdmin],
-    enabled: !loading,
+    // queryKey inclui user.id para evitar reuso de cache entre usuários/clínicas no mesmo browser.
+    queryKey: ["branding", user?.id ?? "anon", isPlatformAdmin],
+    enabled: !loading && !!user?.id,
     staleTime: 5 * 60_000,
     queryFn: () => loadBranding(isPlatformAdmin),
   });

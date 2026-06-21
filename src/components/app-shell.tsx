@@ -77,9 +77,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const brand = useBranding();
 
+  const qc = useQueryClient();
   async function logout() {
+    await qc.cancelQueries();
+    qc.clear();
     await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", replace: true });
   }
 
   const { has: hasFeature } = usePlanFeatures();
