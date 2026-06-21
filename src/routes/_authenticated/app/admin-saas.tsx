@@ -55,6 +55,7 @@ import {
   reorderPlans,
   listSaasAudit,
 } from "@/lib/api/saas-admin.functions";
+import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -538,9 +539,15 @@ function ClinicsTab() {
           </TableBody>
         </Table>
       </CardContent>
+      <ClinicDetailDialog
+        clinic={detail}
+        open={!!detail}
+        onOpenChange={(b) => !b && setDetail(null)}
+      />
     </Card>
   );
 }
+
 
 // ============================================================
 // Showcase comercial (read-only, exatamente como vendido)
