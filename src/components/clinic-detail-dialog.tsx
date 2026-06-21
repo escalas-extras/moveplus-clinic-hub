@@ -42,7 +42,7 @@ import {
 import { toast } from "sonner";
 import { Trash2, RefreshCw, ShieldAlert, UserPlus, Upload, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 const LOGO_MAX = 5 * 1024 * 1024;
 const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
