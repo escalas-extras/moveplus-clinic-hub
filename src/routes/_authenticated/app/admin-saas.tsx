@@ -54,6 +54,9 @@ import {
   togglePlanActive,
   reorderPlans,
   listSaasAudit,
+  resendOwnerInvite,
+  cancelOwnerInvite,
+  changeClinicOwner,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -388,8 +391,13 @@ function ClinicsTab() {
   const fetchPlans = useServerFn(listPlans);
   const setStatus = useServerFn(setClinicStatus);
   const assign = useServerFn(assignPlan);
+  const resendOwner = useServerFn(resendOwnerInvite);
+  const cancelOwner = useServerFn(cancelOwnerInvite);
+  const changeOwner = useServerFn(changeClinicOwner);
   const qc = useQueryClient();
   const [detail, setDetail] = useState<any | null>(null);
+  const [changeOwnerFor, setChangeOwnerFor] = useState<any | null>(null);
+  const [newOwnerEmail, setNewOwnerEmail] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-saas-clinics"],
@@ -423,6 +431,40 @@ function ClinicsTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const resendMut = useMutation({
+    mutationFn: (clinic_id: string) => resendOwner({ data: { clinic_id } }),
+    onSuccess: () => {
+      toast.success("Convite reenviado ao proprietário.");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const cancelMut = useMutation({
+    mutationFn: (clinic_id: string) => cancelOwner({ data: { clinic_id } }),
+    onSuccess: () => {
+      toast.success("Convite cancelado.");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const changeOwnerMut = useMutation({
+    mutationFn: (input: { clinic_id: string; new_email: string }) =>
+      changeOwner({ data: input }),
+    onSuccess: (res: any) => {
+      toast.success(
+        res?.pending
+          ? "Novo proprietário convidado. Ele receberá um e-mail."
+          : "Proprietário atualizado.",
+      );
+      setChangeOwnerFor(null);
+      setNewOwnerEmail("");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   const planOptions = (plans ?? []).filter((p: any) => p.active);
@@ -437,6 +479,7 @@ function ClinicsTab() {
               <TableHead>Slug</TableHead>
               <TableHead>Plano</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Proprietário</TableHead>
               <TableHead className="text-right">Usuários</TableHead>
               <TableHead className="text-right">Pacientes</TableHead>
               <TableHead>Criada em</TableHead>
@@ -444,94 +487,151 @@ function ClinicsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(data ?? []).map((c: any) => (
-              <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.nome}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">
-                  /{c.slug ?? "—"}
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={c.plan ?? planOptions[0]?.code ?? ""}
-                    onValueChange={(v) =>
-                      planMut.mutate({ clinic_id: c.id, plan_code: v })
-                    }
-                  >
-                    <SelectTrigger className="h-8 w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {planOptions.map((p: any) => (
-                        <SelectItem key={p.code} value={p.code}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      c.status === "active"
-                        ? "default"
-                        : c.status === "suspended"
-                          ? "destructive"
-                          : "secondary"
-                    }
-                  >
-                    {STATUS_LABEL[c.status] ?? c.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">{c.user_count}</TableCell>
-                <TableCell className="text-right">{c.patient_count}</TableCell>
-                <TableCell className="text-xs">
-                  {new Date(c.created_at).toLocaleDateString("pt-BR")}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setDetail(c)}>
-                        <Eye className="h-4 w-4 mr-2" /> Visualizar / Gerenciar
-                      </DropdownMenuItem>
-                      {c.status === "active" ? (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              statusMut.mutate({ id: c.id, status: "inactive" })
-                            }
-                          >
-                            <Power className="h-4 w-4 mr-2" /> Inativar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              statusMut.mutate({ id: c.id, status: "suspended" })
-                            }
-                          >
-                            <Power className="h-4 w-4 mr-2" /> Suspender
-                          </DropdownMenuItem>
-                        </>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={() =>
-                            statusMut.mutate({ id: c.id, status: "active" })
-                          }
+            {(data ?? []).map((c: any) => {
+              const ownerLabel =
+                c.owner_status === "active"
+                  ? "Ativo"
+                  : c.owner_status === "pending"
+                    ? "Convite Pendente"
+                    : c.owner_status === "expired"
+                      ? "Convite Expirado"
+                      : "Sem Proprietário";
+              const ownerVariant: any =
+                c.owner_status === "active"
+                  ? "default"
+                  : c.owner_status === "expired"
+                    ? "destructive"
+                    : c.owner_status === "pending"
+                      ? "secondary"
+                      : "outline";
+              return (
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium">{c.nome}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    /{c.slug ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={c.plan ?? planOptions[0]?.code ?? ""}
+                      onValueChange={(v) =>
+                        planMut.mutate({ clinic_id: c.id, plan_code: v })
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {planOptions.map((p: any) => (
+                          <SelectItem key={p.code} value={p.code}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        c.status === "active"
+                          ? "default"
+                          : c.status === "suspended"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {STATUS_LABEL[c.status] ?? c.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={ownerVariant} className="w-fit">
+                        {ownerLabel}
+                      </Badge>
+                      {c.owner_email && (
+                        <span
+                          className="text-muted-foreground truncate max-w-[180px]"
+                          title={c.owner_email}
                         >
-                          <Power className="h-4 w-4 mr-2" /> Ativar
-                        </DropdownMenuItem>
+                          {c.owner_email}
+                        </span>
                       )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">{c.user_count}</TableCell>
+                  <TableCell className="text-right">{c.patient_count}</TableCell>
+                  <TableCell className="text-xs">
+                    {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setDetail(c)}>
+                          <Eye className="h-4 w-4 mr-2" /> Visualizar / Gerenciar
+                        </DropdownMenuItem>
+                        {(c.owner_status === "pending" ||
+                          c.owner_status === "expired") && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => resendMut.mutate(c.id)}
+                            >
+                              <Users className="h-4 w-4 mr-2" /> Reenviar convite
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => cancelMut.mutate(c.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Cancelar convite
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setNewOwnerEmail("");
+                            setChangeOwnerFor(c);
+                          }}
+                        >
+                          <UserCheck className="h-4 w-4 mr-2" /> Alterar
+                          proprietário
+                        </DropdownMenuItem>
+                        {c.status === "active" ? (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                statusMut.mutate({ id: c.id, status: "inactive" })
+                              }
+                            >
+                              <Power className="h-4 w-4 mr-2" /> Inativar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                statusMut.mutate({ id: c.id, status: "suspended" })
+                              }
+                            >
+                              <Power className="h-4 w-4 mr-2" /> Suspender
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              statusMut.mutate({ id: c.id, status: "active" })
+                            }
+                          >
+                            <Power className="h-4 w-4 mr-2" /> Ativar
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {(data ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground text-sm py-6">
+                <TableCell colSpan={9} className="text-center text-muted-foreground text-sm py-6">
                   Nenhuma clínica cadastrada.
                 </TableCell>
               </TableRow>
@@ -544,6 +644,56 @@ function ClinicsTab() {
         open={!!detail}
         onOpenChange={(b) => !b && setDetail(null)}
       />
+      <Dialog
+        open={!!changeOwnerFor}
+        onOpenChange={(b) => {
+          if (!b) {
+            setChangeOwnerFor(null);
+            setNewOwnerEmail("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Alterar proprietário · {changeOwnerFor?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!changeOwnerFor) return;
+              changeOwnerMut.mutate({
+                clinic_id: changeOwnerFor.id,
+                new_email: newOwnerEmail,
+              });
+            }}
+          >
+            <div>
+              <Label>Novo e-mail do proprietário</Label>
+              <Input
+                type="email"
+                value={newOwnerEmail}
+                onChange={(e) => setNewOwnerEmail(e.target.value)}
+                placeholder="novo-owner@clinica.com"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Se o e-mail ainda não tiver conta, o sistema enviará um convite
+                automaticamente.
+              </p>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={changeOwnerMut.isPending}
+            >
+              {changeOwnerMut.isPending ? "Salvando..." : "Confirmar"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -1144,7 +1294,11 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
         data: { ...data, plan_code: data.plan_code || planOptions[0]?.code || "starter" },
       }),
     onSuccess: (res: any) => {
-      toast.success(`Clínica criada (/${res.slug ?? "—"})`);
+      toast.success(
+        res?.owner_invited
+          ? "Clínica criada com sucesso. O proprietário receberá um convite por e-mail para concluir o acesso."
+          : `Clínica criada (/${res.slug ?? "—"})`,
+      );
       qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
       qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
       onDone();
@@ -1220,7 +1374,7 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
           placeholder="owner@clinica.com"
         />
         <p className="text-xs text-muted-foreground mt-1">
-          O usuário precisa já existir no sistema. Gestão de convites: Entrega 2.
+          Se o e-mail ainda não tiver conta, o sistema enviará um convite automaticamente.
         </p>
       </div>
       <Button type="submit" disabled={mut.isPending} className="w-full">
@@ -1246,6 +1400,11 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
   "clinic.suspend": "Clínica · suspensão",
   "clinic.plan_change": "Clínica · troca de plano",
   "clinic.branding": "Clínica · identidade visual",
+  "clinic.owner_invited": "Clínica · convite enviado",
+  "clinic.owner_activated": "Clínica · proprietário ativado",
+  "clinic.owner_reinvited": "Clínica · convite reenviado",
+  "clinic.owner_changed": "Clínica · proprietário alterado",
+  "clinic.owner_invite_canceled": "Clínica · convite cancelado",
 };
 
 function AuditTab() {
