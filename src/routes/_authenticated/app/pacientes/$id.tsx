@@ -287,9 +287,9 @@ function PatientPage() {
                   </DialogTitle>
                 </DialogHeader>
                 {editMode === "wizard" ? (
-                  <AssessmentWizard patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", id] }); }} />
+                  <AssessmentWizard patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
                 ) : (
-                  <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", id] }); }} />
+                  <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
                 )}
               </DialogContent>
             </Dialog>
@@ -391,7 +391,7 @@ function PatientPage() {
                 patientId={p.id}
                 patient={p}
                 assessmentId={linkedEvoFor}
-                onDone={() => { setLinkedEvoFor(null); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }}
+                onDone={() => { setLinkedEvoFor(null); qc.invalidateQueries({ queryKey: ["evolutions", clinicId, id] }); }}
               />
               )}
             </DialogContent>
@@ -422,14 +422,14 @@ function PatientPage() {
                     patientId={p.id}
                     patient={p}
                     assessment={editAssessment}
-                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
+                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
                   />
                 ) : (
                   <AssessmentForm
                     patientId={p.id}
                     patient={p}
                     assessment={editAssessment}
-                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", id] }); }}
+                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
                   />
                 )
               )}
@@ -443,7 +443,7 @@ function PatientPage() {
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova evolução</Button></DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Nova evolução</DialogTitle></DialogHeader>
-                <EvolutionForm patientId={p.id} patient={p} onDone={() => { setEvoOpen(false); qc.invalidateQueries({ queryKey: ["evolutions", id] }); }} />
+                <EvolutionForm patientId={p.id} patient={p} onDone={() => { setEvoOpen(false); qc.invalidateQueries({ queryKey: ["evolutions", clinicId, id] }); }} />
               </DialogContent>
             </Dialog>
           </div>
