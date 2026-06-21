@@ -818,11 +818,11 @@ function drawSignatureArea(
   isContract: boolean,
 ) {
   // Anchor: 24pt below content (breathing room), but not past the footer reservation
-  // Em contratos reservamos espaço extra abaixo da assinatura para o QR (que
-  // vai à direita, abaixo do bloco de testemunhas) e para o "local e data".
+  // Reserva extra abaixo da assinatura para QR (somente contratos).
   const qrReserve = isContract ? 56 : 0;
-  const topAnchor = Math.min(contentEndY + 24, H - S.FOOTER_H - 16 - sigH - qrReserve);
-  const top = Math.max(topAnchor, contentEndY + 12);
+  // Cap rígido: top + sigH + qrReserve ≤ bottomY → sig nunca colide com QR/rodapé.
+  const topMax = H - S.FOOTER_H - 16 - sigH - qrReserve;
+  const top = Math.min(Math.max(contentEndY + 18, topMax - 80), topMax);
 
   // Local + data discreet, right aligned
   const dataStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
