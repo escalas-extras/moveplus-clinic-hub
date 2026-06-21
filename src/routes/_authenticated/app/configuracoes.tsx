@@ -229,6 +229,34 @@ function ConfigPage() {
   );
 }
 
+function MyAccountCard() {
+  const { user } = useAuth();
+  const profileQ = useQuery({
+    queryKey: ["my-profile", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url, full_name, email")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  if (!user?.id) return null;
+  return (
+    <Card className="p-6">
+      <h2 className="font-semibold flex items-center gap-2 mb-4">
+        <UserCircle2 className="h-4 w-4" /> Minha conta
+      </h2>
+      <AvatarUploader userId={user.id} initial={(profileQ.data as any)?.avatar_url ?? null} />
+      <div className="mt-4 text-xs text-muted-foreground">
+        {(profileQ.data as any)?.full_name ?? user.email}
+      </div>
+    </Card>
+  );
+}
+
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
