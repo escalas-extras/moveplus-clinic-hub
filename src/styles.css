@@ -145,12 +145,12 @@
 
   /* Sombras premium */
   --shadow-soft:
-    0 1px 2px rgba(15, 76, 92, 0.05),
-    0 12px 32px -14px rgba(15, 76, 92, 0.14),
+    0 1px 2px rgba(15, 76, 92, 0.06),
+    0 16px 40px -16px rgba(15, 76, 92, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.55);
   --shadow-lift:
-    0 2px 4px rgba(15, 76, 92, 0.06),
-    0 28px 56px -24px rgba(15, 76, 92, 0.28),
+    0 2px 4px rgba(15, 76, 92, 0.08),
+    0 28px 56px -24px rgba(15, 76, 92, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --shadow-glow:
     0 0 0 1px rgba(255, 255, 255, 0.6),
