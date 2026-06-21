@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, X, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AVATAR_BUCKET, AVATAR_MAX, AVATAR_TYPES, getCachedAvatarUrl, invalidateSignedAvatarUrl, signedAvatarUrl } from "@/lib/user-avatar";
+import { pcSet } from "@/lib/persistent-cache";
 
 /**
  * Upload de avatar do usuário no bucket `user-avatars`.
@@ -56,6 +57,7 @@ export function AvatarUploader({
     if (error) throw error;
     invalidateSignedAvatarUrl(newPath);
     setPath(newPath);
+    pcSet(`fos:profile-avatar:${userId}`, { avatar_url: newPath }, 24 * 60 * 60_000);
     qc.setQueryData(["user-avatar", userId], { avatar_url: newPath });
     await qc.invalidateQueries({ queryKey: ["user-avatar", userId] });
     await qc.invalidateQueries({ queryKey: ["my-profile", userId] });
