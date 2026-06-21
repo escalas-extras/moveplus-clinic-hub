@@ -820,7 +820,10 @@ function drawSignatureArea(
   isContract: boolean,
 ) {
   // Anchor: 24pt below content (breathing room), but not past the footer reservation
-  const topAnchor = Math.min(contentEndY + 24, H - S.FOOTER_H - 16 - sigH);
+  // Em contratos reservamos espaço extra abaixo da assinatura para o QR (que
+  // vai à direita, abaixo do bloco de testemunhas) e para o "local e data".
+  const qrReserve = isContract ? 56 : 0;
+  const topAnchor = Math.min(contentEndY + 24, H - S.FOOTER_H - 16 - sigH - qrReserve);
   const top = Math.max(topAnchor, contentEndY + 12);
 
   // Local + data discreet, right aligned
