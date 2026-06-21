@@ -123,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Cmd/Ctrl+K → open global search
   const [searchOpen, setSearchOpen] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
