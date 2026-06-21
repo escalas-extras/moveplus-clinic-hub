@@ -104,9 +104,34 @@ export function AppShell({ children }: { children: ReactNode }) {
     .filter((g) => g.items.length > 0);
 
   const userName = (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
-  const initial = (userName || "U").charAt(0).toUpperCase();
   const today = new Date();
   const todayLabel = today.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+  const avatarGradient = `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})`;
+
+  // Current user's avatar path (profiles.avatar_url)
+  const { data: profile } = useQuery({
+    queryKey: ["user-avatar", user?.id],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("avatar_url").eq("id", user!.id).maybeSingle();
+      return data;
+    },
+  });
+  const avatarPath = (profile as any)?.avatar_url ?? null;
+
+  // Cmd/Ctrl+K → open global search
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
