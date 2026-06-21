@@ -396,6 +396,7 @@ function ClinicsTab() {
   const qc = useQueryClient();
   const [detail, setDetail] = useState<any | null>(null);
   const [changeOwnerFor, setChangeOwnerFor] = useState<any | null>(null);
+  const [deleteFor, setDeleteFor] = useState<any | null>(null);
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
 
   const { data, isLoading } = useQuery({
