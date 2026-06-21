@@ -820,9 +820,9 @@ function drawSignatureArea(
   // Anchor: 24pt below content (breathing room), but not past the footer reservation
   // Reserva extra abaixo da assinatura para QR (somente contratos).
   const qrReserve = isContract ? 56 : 0;
-  // Cap rígido: top + sigH + qrReserve ≤ bottomY → sig nunca colide com QR/rodapé.
-  const topMax = H - S.FOOTER_H - 16 - sigH - qrReserve;
-  const top = Math.min(Math.max(contentEndY + 18, topMax - 80), topMax);
+  // Sig ancorada sempre na base útil — compose reserva exatamente esse espaço,
+  // então não há sobreposição com o conteúdo nem com o QR/rodapé.
+  const top = H - S.FOOTER_H - 16 - sigH - qrReserve;
 
   // Local + data discreet, right aligned
   const dataStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
