@@ -2545,18 +2545,86 @@ export type Database = {
           },
         ]
       }
+      plan_change_audit: {
+        Row: {
+          changed_by: string | null
+          clinic_id: string
+          created_at: string
+          from_plan_code: string | null
+          from_plan_id: string | null
+          id: string
+          notes: string | null
+          to_plan_code: string | null
+          to_plan_id: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          clinic_id: string
+          created_at?: string
+          from_plan_code?: string | null
+          from_plan_id?: string | null
+          id?: string
+          notes?: string | null
+          to_plan_code?: string | null
+          to_plan_id?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          clinic_id?: string
+          created_at?: string
+          from_plan_code?: string | null
+          from_plan_id?: string | null
+          id?: string
+          notes?: string | null
+          to_plan_code?: string | null
+          to_plan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_change_audit_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_usage"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "plan_change_audit_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_change_audit_from_plan_id_fkey"
+            columns: ["from_plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_change_audit_to_plan_id_fkey"
+            columns: ["to_plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active: boolean
+          annual_price: number | null
           code: string
           created_at: string
           description: string | null
+          featured: boolean
           id: string
           max_documents_month: number | null
           max_patients: number | null
           max_storage_mb: number | null
           max_users: number | null
           modules: Json
+          monthly_price: number | null
           name: string
           price_cents: number
           sort_order: number
@@ -2564,15 +2632,18 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          annual_price?: number | null
           code: string
           created_at?: string
           description?: string | null
+          featured?: boolean
           id?: string
           max_documents_month?: number | null
           max_patients?: number | null
           max_storage_mb?: number | null
           max_users?: number | null
           modules?: Json
+          monthly_price?: number | null
           name: string
           price_cents?: number
           sort_order?: number
@@ -2580,15 +2651,18 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          annual_price?: number | null
           code?: string
           created_at?: string
           description?: string | null
+          featured?: boolean
           id?: string
           max_documents_month?: number | null
           max_patients?: number | null
           max_storage_mb?: number | null
           max_users?: number | null
           modules?: Json
+          monthly_price?: number | null
           name?: string
           price_cents?: number
           sort_order?: number
