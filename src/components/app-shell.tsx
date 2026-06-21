@@ -5,10 +5,12 @@ import {
   ShieldCheck, Activity, FileText, RefreshCw, BarChart3, BookOpen, Home as HomeIcon,
   Megaphone, Sparkles, Stethoscope, PenLine, Bell, Search, Building2,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useRoles } from "@/lib/auth";
+import { GlobalSearch } from "@/components/global-search";
+import { UserAvatar } from "@/components/avatar-uploader";
 import { usePlatformContext } from "@/lib/platform-context";
 import { usePlanFeatures } from "@/lib/plan-features";
 import { Button } from "@/components/ui/button";
