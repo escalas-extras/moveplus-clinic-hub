@@ -69,7 +69,7 @@ const platformGroups: NavGroup[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isAdmin, roles } = useRoles(user?.id);
+  const { isAdmin } = useRoles(user?.id);
   const { isPlatformAdmin, isSuperAdmin } = usePlatformContext();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
