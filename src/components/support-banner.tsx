@@ -52,7 +52,7 @@ export function SupportBanner() {
             Modo Suporte — {clinicName}
           </span>
           <span className="hidden sm:inline text-amber-900/80 truncate">
-            · somente leitura · alterações estão bloqueadas
+            · prontuário protegido · cadastros administrativos liberados
           </span>
         </div>
         <Button
