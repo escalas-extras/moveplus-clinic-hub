@@ -1,4 +1,4 @@
-// Centralized configuration for clinical scales used in Move+
+// Centralized configuration for clinical scales used in FisioOS
 // Each scale = items (with options/score) + classifier (total -> label + risk_level)
 
 export type RiskLevel = "baixo" | "moderado" | "alto" | "muito_alto";
