@@ -84,7 +84,8 @@ function ReportsPage() {
   });
 
   const { data: operational } = useQuery({
-    queryKey: ["report-operational", from, to],
+    queryKey: ["report-operational", clinicId, from, to],
+    enabled: !!clinicId,
     queryFn: async () => {
       const [appt, prof] = await Promise.all([
         supabase.from("appointments").select("status, data, professional_id, professionals(nome)").gte("data", from).lte("data", to),
@@ -106,9 +107,10 @@ function ReportsPage() {
   });
 
   const { data: financial } = useQuery({
-    queryKey: ["report-financial", from, to],
+    queryKey: ["report-financial", clinicId, from, to],
+    enabled: !!clinicId,
     queryFn: async () => {
-      const { data } = await supabase.from("financial_entries").select("*").gte("data", from).lte("data", to);
+      const { data } = await supabase.from("financial_entries").select("*").eq("clinic_id", clinicId!).gte("data", from).lte("data", to);
       const rows: any[] = data ?? [];
       const recebido = rows.filter((d) => d.status === "pago" && d.tipo === "receita").reduce((s, d) => s + Number(d.valor || 0), 0);
       const pendente = rows.filter((d) => d.status === "pendente").reduce((s, d) => s + Number(d.valor || 0), 0);
