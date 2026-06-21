@@ -250,15 +250,41 @@ export async function buildPdf(opts: {
 
 
   function renderBlock(block: PdfBlock, isLastBlock: boolean = false) {
+    // Em contratos, suprime a cláusula "Partes Contratantes" do corpo —
+    // a identificação das partes fica somente no bloco visual de assinaturas
+    // no fim do documento, evitando duplicidade.
+    if (isContract && /partes\s+contratantes/i.test(block.title || "")) {
+      return;
+    }
+
     // Reserva extra de espaço no fim da página para o bloco de assinatura,
     // SOMENTE no último bloco de contrato — evita a página de "(continuação)"
     // com 1 linha órfã seguida de grande área vazia antes da assinatura.
     const reserveSig = isContract && isLastBlock;
     const bottomLimit = reserveSig ? H - 80 - SIG_BLOCK_H - 24 : H - 80;
 
-    // Ensure title bar + at least one content line fits together (no orphan titles)
-    const MIN_TITLE_WITH_CONTENT = 56; // 20 title + 10 gap + ~26 first line + breathing
-    ensure(MIN_TITLE_WITH_CONTENT);
+    // Pré-medição: garantir que o título NUNCA seja renderizado sozinho no fim
+    // da página. Calcula a altura do título + pelo menos as primeiras linhas
+    // do primeiro parágrafo (até 4 linhas) e quebra a página antes do título
+    // se o conjunto não couber no espaço útil (respeitando reserva de assinatura).
+    const lineH = 12;
+    const firstPara = block.children.find((c) => c.kind === "paragraph") as
+      | { kind: "paragraph"; label?: string; text: string }
+      | undefined;
+    let firstParaLines = 4;
+    if (firstPara) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      const measured = doc.splitTextToSize(firstPara.text || "—", contentW - 20);
+      firstParaLines = Math.min(4, measured.length);
+    }
+    const MIN_TITLE_WITH_CONTENT = 20 /*title*/ + 10 /*gap*/ + firstParaLines * lineH + 6;
+
+    if (y + MIN_TITLE_WITH_CONTENT > bottomLimit) {
+      doc.addPage();
+      y = M + 8;
+      pageY = y;
+    }
 
     let segStartY = y;
     let currentTitle = block.title;
@@ -280,7 +306,9 @@ export async function buildPdf(opts: {
         y = M + 8;
         pageY = y;
         segStartY = y;
-        // Repeat title with "(continuação)" so content never floats loose
+        // Repete o título com "(continuação)" apenas porque o conteúdo
+        // realmente foi cortado — caso preventivo de título órfão já foi
+        // tratado antes do drawBlockTitleBar inicial.
         const contTitle = `${block.title} (continuação)`;
         drawBlockTitleBar(contTitle);
         segStartY = y - 30; // include the title bar inside the new card border
@@ -302,6 +330,7 @@ export async function buildPdf(opts: {
     getBottom = prevGetBottom;
     y += 10;
   }
+
 
 
   function renderContent(ch: PdfContent) {
