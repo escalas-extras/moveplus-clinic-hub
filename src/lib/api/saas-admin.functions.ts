@@ -176,6 +176,7 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
     const { data: clinics, error } = await supabaseAdmin
       .from("clinics")
       .select("id, nome, slug, plan, status, active, created_at, settings_id")
+      .neq("status", "deleted")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
