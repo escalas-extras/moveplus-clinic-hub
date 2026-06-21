@@ -80,10 +80,10 @@ function AgendaPage() {
   const [view, setView] = useState<ViewMode>("dia");
   const [anchor, setAnchor] = useState<Date>(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [open, setOpen] = useState(false);
+  const [slotPrefill, setSlotPrefill] = useState<{ data: string; horario: string } | null>(null);
   const [filterProf, setFilterProf] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Status | "all">("all");
 
-  // Range based on view
   const { rangeStart, rangeEnd } = useMemo(() => {
     if (view === "dia")    return { rangeStart: anchor, rangeEnd: anchor };
     if (view === "semana") { const s = startOfWeek(anchor); return { rangeStart: s, rangeEnd: addDays(s, 6) }; }
@@ -122,9 +122,16 @@ function AgendaPage() {
       const { error } = await supabase.from("appointments").insert({ ...v, created_by: u.user?.id } as any);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
+    onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); setSlotPrefill(null); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  function openNewSlot(dateStr: string, hour?: number) {
+    if (supportMode) return;
+    const horario = hour != null ? `${String(hour).padStart(2, "0")}:00` : "08:00";
+    setSlotPrefill({ data: dateStr, horario });
+    setOpen(true);
+  }
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Status }) => {
@@ -205,10 +212,17 @@ function AgendaPage() {
           <p className="mt-1.5 text-[15px] text-muted-foreground capitalize">{headerLabel}</p>
         </div>
         <div className="shrink-0">
+          <Button disabled={supportMode} onClick={() => openNewSlot(ymd(anchor))}>
+            <Plus className="h-4 w-4 mr-2" />Novo agendamento
+          </Button>
           <NewAppointmentDialog
-            open={open} setOpen={setOpen} create={create}
-            patients={patients.data ?? []} profs={profs.data ?? []}
-            initialDate={ymd(anchor)} disabled={supportMode}
+            open={open}
+            setOpen={(o: boolean) => { setOpen(o); if (!o) setSlotPrefill(null); }}
+            create={create}
+            patients={patients.data ?? []}
+            profs={profs.data ?? []}
+            initialDate={slotPrefill?.data ?? ymd(anchor)}
+            initialHora={slotPrefill?.horario ?? "08:00"}
           />
         </div>
       </header>
@@ -237,9 +251,9 @@ function AgendaPage() {
           {list.isLoading ? (
             <Card className="p-8 text-center text-sm text-muted-foreground">Carregando…</Card>
           ) : view === "dia" ? (
-            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} onEdit={(a) => setEditing(a)} disabled={supportMode} onNew={() => setOpen(true)} />
+            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} onEdit={(a) => setEditing(a)} disabled={supportMode} onNew={() => openNewSlot(ymd(anchor))} onSlotClick={(h) => openNewSlot(ymd(anchor), h)} />
           ) : view === "semana" ? (
-            <WeekView items={filtered} weekStart={startOfWeek(anchor)} onPick={(d) => { setAnchor(d); setView("dia"); }} />
+            <WeekView items={filtered} weekStart={startOfWeek(anchor)} onPick={(d) => { setAnchor(d); setView("dia"); }} onNewOnDay={(d) => openNewSlot(ymd(d))} disabled={supportMode} />
           ) : (
             <MonthView items={filtered} anchor={anchor} onPick={(d) => { setAnchor(d); setView("dia"); }} />
           )}
@@ -315,23 +329,36 @@ function AgendaPage() {
 
 /* ───────────────────────── DAY VIEW ───────────────────────── */
 
-function DayView({ items, day, onStatus, onEdit, disabled, onNew }: {
-  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void;
+function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }: {
+  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void; onSlotClick: (hour: number) => void;
 }) {
   const todays = items.filter((a) => a.data === day);
   if (!todays.length) {
+    // Mesmo sem agendamentos, mostrar grade clicável de horários
+    const hours = Array.from({ length: 14 }, (_, i) => i + 7);
     return (
-      <Card className="p-0">
-        <EmptyState
-          icon={CalendarDays}
-          title="Nenhum atendimento agendado"
-          description="Organize a rotina da clínica criando o primeiro atendimento."
-          action={disabled ? undefined : { label: "Novo agendamento", onClick: onNew }}
-        />
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b bg-muted/30 text-xs text-muted-foreground">
+          Clique em um horário vazio para criar um agendamento.
+        </div>
+        <ul className="divide-y divide-border/60">
+          {hours.map((h) => (
+            <li key={h} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 min-h-[56px]">
+              <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2,"0")}:00</div>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onSlotClick(h)}
+                className="rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {disabled ? "—" : "+ Novo agendamento"}
+              </button>
+            </li>
+          ))}
+        </ul>
       </Card>
     );
   }
-  // Hour slots 7..20
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
   return (
     <Card className="p-0 overflow-hidden">
@@ -343,7 +370,15 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew }: {
               <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2, "0")}:00</div>
               <div className="space-y-2">
                 {slot.length === 0 ? (
-                  <div className="h-full" />
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSlotClick(h)}
+                    className="w-full h-10 rounded-md border border-dashed border-transparent text-xs text-transparent hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition disabled:cursor-not-allowed"
+                    aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                  >
+                    + Novo agendamento
+                  </button>
                 ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
               </div>
             </li>
@@ -395,7 +430,7 @@ function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: 
 
 /* ───────────────────────── WEEK VIEW ───────────────────────── */
 
-function WeekView({ items, weekStart, onPick }: { items: any[]; weekStart: Date; onPick: (d: Date) => void }) {
+function WeekView({ items, weekStart, onPick, onNewOnDay, disabled }: { items: any[]; weekStart: Date; onPick: (d: Date) => void; onNewOnDay: (d: Date) => void; disabled: boolean }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = ymd(new Date());
   return (
@@ -421,9 +456,7 @@ function WeekView({ items, weekStart, onPick }: { items: any[]; weekStart: Date;
           const dayItems = items.filter((a) => a.data === key).sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
           return (
             <div key={key} className="p-2 space-y-1.5">
-              {dayItems.length === 0 ? (
-                <div className="text-[11px] text-muted-foreground/70 italic">—</div>
-              ) : dayItems.map((a) => {
+              {dayItems.map((a) => {
                 const s = (a.status ?? "agendado") as Status;
                 return (
                   <button
@@ -437,6 +470,14 @@ function WeekView({ items, weekStart, onPick }: { items: any[]; weekStart: Date;
                   </button>
                 );
               })}
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onNewOnDay(d)}
+                className="w-full text-[11px] rounded-md border border-dashed border-border/60 text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary py-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                + Novo
+              </button>
             </div>
           );
         })}
@@ -496,18 +537,29 @@ function MonthView({ items, anchor, onPick }: { items: any[]; anchor: Date; onPi
 
 /* ───────────────────────── NEW DIALOG ───────────────────────── */
 
-function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, disabled }: any) {
+function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora }: any) {
   const { register, handleSubmit, setValue, watch, reset } = useForm<Form>({
-    defaultValues: { data: initialDate, horario: "08:00", duracao_min: 60 },
+    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60 },
   });
   const patient_id = watch("patient_id");
   const professional_id = watch("professional_id");
 
+  // Reset whenever the dialog opens with a new slot
+  useEffect(() => {
+    if (open) {
+      reset({
+        patient_id: "" as any,
+        professional_id: "" as any,
+        data: initialDate,
+        horario: initialHora ?? "08:00",
+        duracao_min: 60,
+        observacao: "",
+      });
+    }
+  }, [open, initialDate, initialHora, reset]);
+
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button disabled={disabled}><Plus className="h-4 w-4 mr-2" />Novo agendamento</Button>
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo agendamento</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
