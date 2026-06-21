@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { usePlatformContext } from "@/lib/platform-context";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Search,
@@ -37,10 +37,11 @@ const TYPE_META: Record<Hit["type"], { label: string; icon: any }> = {
 
 export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
   const { clinicId, loading: clinicLoading } = useActiveClinic();
-  const { isPlatformAdmin } = usePlatformContext();
+  const { isPlatformAdmin, isSuperAdmin } = usePlatformContext();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 220);
@@ -56,14 +57,18 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
 
   const term = debounced;
   // Prioridade:
-  //  - Existe clínica ativa (inclui super_admin em modo suporte) → busca dentro da clínica.
+  //  - Na rota do Painel SaaS, super_admin busca clínicas mesmo se houver suporte ativo.
+  //  - Existe clínica ativa fora do Painel SaaS → busca dentro da clínica.
   //  - Super admin sem clínica ativa → busca clínicas no Painel SaaS.
   //  - Sem clínica e sem super_admin → sem contexto.
-  const mode: "platform" | "clinic" | "none" = clinicId
-    ? "clinic"
-    : isPlatformAdmin
-      ? "platform"
-      : "none";
+  const isSaasRoute = location.pathname.startsWith("/app/admin-saas");
+  const mode: "platform" | "clinic" | "none" = isSaasRoute && isSuperAdmin
+    ? "platform"
+    : clinicId
+      ? "clinic"
+      : isPlatformAdmin
+        ? "platform"
+        : "none";
   const canSearch = mode !== "none" && term.length >= 2;
 
   const { data: hits = [], isFetching } = useQuery<Hit[]>({
@@ -118,7 +123,8 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
         supabase
           .from("library_contents")
           .select("id, title, slug, category_id")
-          .eq("clinic_id", cid)
+          .eq("status", "active")
+          .or(`clinic_id.eq.${cid},clinic_id.is.null`)
           .or(`title.ilike.${like},slug.ilike.${like}`)
           .limit(6),
         supabase
@@ -129,10 +135,11 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
           .limit(6),
         supabase
           .from("appointments")
-          .select("id, scheduled_at, status, patient_id, patients(nome_completo)")
+          .select("id, data, horario, status, patient_id, patients!inner(nome_completo)")
           .eq("clinic_id", cid)
           .ilike("patients.nome_completo", like)
-          .order("scheduled_at", { ascending: false })
+          .order("data", { ascending: false })
+          .order("horario", { ascending: false })
           .limit(6),
       ]);
 
@@ -186,7 +193,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
           type: "agenda",
           id: a.id,
           title: a.patients?.nome_completo ?? "Agendamento",
-          subtitle: new Date(a.scheduled_at).toLocaleString("pt-BR"),
+          subtitle: [a.data ? new Date(`${a.data}T00:00:00`).toLocaleDateString("pt-BR") : null, a.horario ? String(a.horario).slice(0, 5) : null, a.status].filter(Boolean).join(" · "),
           to: `/app/agenda`,
         });
       }
@@ -213,6 +220,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Busca global</DialogTitle>
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input

@@ -146,9 +146,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Logo brand={brand} compact />
           <span className="font-semibold truncate" style={{ color: brand.primaryColor }}>{brand.clinicName}</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setOpen(!open)}>
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button variant="ghost" size="icon" onClick={() => setSearchOpen(true)} aria-label="Buscar">
+            <Search className="h-5 w-5" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => setAvatarOpen(true)}
+            className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer hover:opacity-90 transition-opacity"
+            aria-label="Alterar foto de perfil"
+            title="Alterar foto de perfil"
+          >
+            <UserAvatar userId={user?.id} avatarPath={avatarPath} name={userName} size={34} gradient={avatarGradient} />
+          </button>
+          <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} aria-label="Abrir menu">
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </header>
 
       {/* Sidebar */}
