@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { LibraryContentView } from "@/components/library/library-content-view";
 import { buildLibraryContentPdfOpts } from "@/lib/library-pdf";
 import { buildPdf } from "@/lib/pdf";
+import { useBranding } from "@/lib/branding";
 
 export const Route = createFileRoute("/_authenticated/app/biblioteca")({
   component: BibliotecaPage,
@@ -44,6 +45,7 @@ const TYPE_META: Record<string, { label: string; icon: typeof BookOpen }> = {
 };
 
 function BibliotecaPage() {
+  const brand = useBranding();
   const [contents, setContents] = useState<Content[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [favs, setFavs] = useState<Set<string>>(new Set());
@@ -96,8 +98,8 @@ function BibliotecaPage() {
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Biblioteca FisioOS</h1>
-          <p className="text-muted-foreground text-sm">Cartilhas, protocolos, exercícios, documentos, materiais de marketing e treinamentos.</p>
+          <h1 className="text-2xl font-bold">Biblioteca clínica</h1>
+          <p className="text-muted-foreground text-sm">Cartilhas, protocolos, exercícios, documentos, materiais de marketing e treinamentos com a identidade da {brand.clinicName}.</p>
         </div>
 
         <Card>
