@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer } from "lucide-react";
+import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
-import { generatePdf } from "@/lib/pdf";
+import { downloadPdf, previewPdf, printPdf } from "@/lib/pdf";
 import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
@@ -23,6 +23,23 @@ export const Route = createFileRoute("/_authenticated/app/financeiro")({
 });
 
 type Form = { patient_id: string; professional_id: string; data: string; valor: number; forma_pagamento?: any; status: "pago" | "pendente"; observacoes?: string };
+
+function requiredDate(value?: string | null) {
+  const v = value?.trim();
+  return v ? v : null;
+}
+
+function requiredText(value: unknown, label: string) {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (!v) throw new Error(`${label} é obrigatório.`);
+  return v;
+}
+
+function requiredAmount(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) throw new Error("Informe um valor maior que zero.");
+  return n;
+}
 
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
@@ -65,12 +82,13 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     queryKey: ["fin", clinicId],
     enabled: !!clinicId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("financial_entries")
         .select("*, patients(nome_completo, cpf), professionals(nome, conselho, registro, profissao)")
         .eq("clinic_id", clinicId!)
         .order("data", { ascending: false })
         .limit(200);
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -87,14 +105,26 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     },
   });
 
-  const patients = useQuery({ queryKey: ["patients-all", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("patients").select("id, nome_completo").order("nome_completo")).data ?? [] });
-  const profs = useQuery({ queryKey: ["professionals-active", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("situacao", "ativo").order("nome")).data ?? [] });
+  const patients = useQuery({ queryKey: ["patients-all", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("patients").select("id, nome_completo").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [] });
+  const profs = useQuery({ queryKey: ["professionals-active", clinicId], enabled: !!clinicId, queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("clinic_id", clinicId!).eq("situacao", "ativo").order("nome")).data ?? [] });
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       const { data: u } = await supabase.auth.getUser();
-      const payload: any = { ...v, created_by: u.user?.id };
-      if (clinicId) payload.clinic_id = clinicId;
+      const payload: any = {
+        clinic_id: clinicId,
+        patient_id: requiredText(v.patient_id, "Paciente"),
+        professional_id: requiredText(v.professional_id, "Profissional"),
+        data: requiredDate(v.data),
+        valor: requiredAmount(v.valor),
+        forma_pagamento: v.forma_pagamento || null,
+        status: v.status ?? "pendente",
+        observacoes: v.observacoes?.trim() || null,
+        created_by: u.user?.id ?? null,
+      };
+      if (!payload.data) throw new Error("Data é obrigatória.");
       const { error } = await supabase.from("financial_entries").insert(payload);
       if (error) throw error;
     },
@@ -104,7 +134,9 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
 
   const markPaid = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("financial_entries").update({ status: "pago" }).eq("id", id);
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      const { error } = await supabase.from("financial_entries").update({ status: "pago" }).eq("id", id).eq("clinic_id", clinicId);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },
@@ -135,7 +167,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
       payment_method: entry.forma_pagamento,
       payment_date: entry.data,
       issued_at: new Date().toISOString(),
-    });
+    }, "download");
     toast.success(`Recibo nº ${rec!.numero} emitido`);
     qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
   }
@@ -203,29 +235,29 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo lançamento</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
+          <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)}>
+            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs uppercase">Profissional</Label>
-            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
+            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" {...register("data")} /></div>
-            <div><Label className="text-xs uppercase">Valor</Label><Input type="number" step="0.01" {...register("valor", { valueAsNumber: true })} /></div>
+            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
+            <div><Label className="text-xs uppercase">Valor</Label><Input type="number" step="0.01" min="0.01" required {...register("valor", { valueAsNumber: true })} disabled={disabled} /></div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs uppercase">Forma</Label>
-              <Select value={forma} onValueChange={(v) => setValue("forma_pagamento", v)}>
+              <Select value={forma} onValueChange={(v) => setValue("forma_pagamento", v)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {["pix", "dinheiro", "cartao", "transferencia"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -234,7 +266,7 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
             </div>
             <div>
               <Label className="text-xs uppercase">Status</Label>
-              <Select value={status} onValueChange={(v) => setValue("status", v as any)}>
+              <Select value={status} onValueChange={(v) => setValue("status", v as any)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pago">Pago</SelectItem>
@@ -243,8 +275,8 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
               </Select>
             </div>
           </div>
-          <div><Label className="text-xs uppercase">Observações</Label><Textarea rows={2} {...register("observacoes")} /></div>
-          <div className="flex justify-end"><Button type="submit" disabled={create.isPending || !patient_id || !professional_id}>Salvar</Button></div>
+          <div><Label className="text-xs uppercase">Observações</Label><Textarea rows={2} {...register("observacoes")} disabled={disabled} /></div>
+          <div className="flex justify-end"><Button type="submit" disabled={disabled || create.isPending || !patient_id || !professional_id}>Salvar</Button></div>
         </form>
       </DialogContent>
     </Dialog>
