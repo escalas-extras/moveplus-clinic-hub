@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,21 +19,44 @@ export const Route = createFileRoute("/_authenticated/app/profissionais")({
 
 type Form = { nome: string; profissao: string; conselho?: string; registro?: string; especialidade?: string; situacao: "ativo" | "inativo" };
 
+async function resolveActiveClinicId(): Promise<string | null> {
+  const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
+    supabase.rpc("current_support_session_clinic"),
+    supabase.rpc("current_clinic_id"),
+  ]);
+  return (supportCid as string | null) ?? (ownCid as string | null) ?? null;
+}
+
 function ProfPage() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
 
+  const { data: activeClinicId } = useQuery({
+    queryKey: ["active-clinic-id", user?.id],
+    enabled: !!user?.id,
+    queryFn: resolveActiveClinicId,
+  });
+
   const list = useQuery({
-    queryKey: ["professionals"],
-    queryFn: async () => (await supabase.from("professionals").select("*").order("nome")).data ?? [],
+    queryKey: ["professionals", activeClinicId],
+    enabled: !!activeClinicId,
+    queryFn: async () =>
+      (await supabase.from("professionals").select("*").eq("clinic_id", activeClinicId!).order("nome")).data ?? [],
   });
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
-      const { error } = await supabase.from("professionals").insert(v as any);
+      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
+      const { error } = await supabase.from("professionals").insert({ ...v, clinic_id: activeClinicId } as any);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Profissional cadastrado"); setOpen(false); qc.invalidateQueries({ queryKey: ["professionals"] }); },
+    onSuccess: () => {
+      toast.success("Profissional cadastrado");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["professionals"] });
+      qc.invalidateQueries({ queryKey: ["my-professional"] });
+    },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -55,6 +79,11 @@ function ProfPage() {
                 <td className="px-4 py-2">{p.situacao}</td>
               </tr>
             ))}
+            {list.data && list.data.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                Nenhum profissional cadastrado nesta clínica. Cadastre um profissional responsável para emitir documentos clínicos.
+              </td></tr>
+            )}
           </tbody>
         </table>
       </Card>
@@ -79,7 +108,7 @@ function NewDialog({ open, setOpen, create }: any) {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div><Label className="text-xs uppercase">Conselho</Label><Input placeholder="CREFITO-8" {...register("conselho")} /></div>
-            <div><Label className="text-xs uppercase">Registro</Label><Input {...register("registro")} /></div>
+            <div><Label className="text-xs uppercase">Registro</Label><Input required {...register("registro")} /></div>
           </div>
           <div>
             <Label className="text-xs uppercase">Situação</Label>
