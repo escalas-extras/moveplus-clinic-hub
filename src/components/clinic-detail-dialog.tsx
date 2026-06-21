@@ -436,15 +436,17 @@ function SupportPanel({
 }) {
   const start = useServerFn(startSupportSession);
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [reason, setReason] = useState("");
   const mut = useMutation({
     mutationFn: () =>
       start({ data: { clinic_id: clinic.id, reason: reason || undefined } }),
-    onSuccess: () => {
-      toast.success("Modo Suporte iniciado");
-      qc.invalidateQueries({ queryKey: ["support-session-active"] });
-      qc.invalidateQueries();
+    onSuccess: async () => {
+      toast.success(`Modo Suporte iniciado em ${clinic.nome}`);
+      await qc.invalidateQueries();
       onStart();
+      // Entra na experiência real da clínica.
+      navigate({ to: "/app", replace: true });
     },
     onError: (e: any) => toast.error(e.message),
   });
