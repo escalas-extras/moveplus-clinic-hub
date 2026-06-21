@@ -3,6 +3,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
 import {
   renderPdf,
   urlToDataUrl,
@@ -40,16 +41,12 @@ async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | n
  * clínica ativa (sessão de suporte → clínica do usuário).
  */
 export async function buildPdf(opts: BuildPdfOpts & { clinicId?: string | null }) {
-  // Documentos clínicos exigem profissional responsável (nome + conselho/registro).
+  // Documentos clínicos exigem profissional responsável com nome + conselho + registro.
   // Materiais institucionais da biblioteca passam hideSignature=true e ficam isentos.
   if (!opts.hideSignature) {
-    const prof = opts.professional;
-    const nome = (prof?.nome ?? "").trim();
-    const registro = (prof?.registro ?? "").trim();
-    if (!nome || !registro) {
-      throw new Error(
-        "Documento clínico exige profissional responsável com nome e número de registro (CREFITO).",
-      );
+    const v = validateProfessionalForDoc((opts.professional ?? null) as any);
+    if (v.status !== "ok") {
+      throw new Error(v.message);
     }
   }
 
