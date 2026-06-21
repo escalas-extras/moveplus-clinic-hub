@@ -245,7 +245,7 @@ function TemplateEditor({ template, mergeTags, onSave, onDuplicate, onNewVersion
         </div>
 
         <Card className="p-3 max-h-[60vh] overflow-auto">
-          <h4 className="text-sm font-semibold mb-2">Merge tags</h4>
+          <h4 className="text-sm font-semibold mb-2">Variáveis de mesclagem</h4>
           {Object.entries(grouped).map(([cat, tags]: any) => (
             <div key={cat} className="mb-3">
               <p className="text-xs font-medium text-muted-foreground mb-1">{cat}</p>
