@@ -14,6 +14,7 @@ import { calcImc, calcAge, fmtDate } from "@/lib/format";
 import { Eye } from "lucide-react";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildAssessmentPdfOpts } from "@/lib/pdf-builders";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 type ModuleType = "geral" | "traumato_ortopedica" | "neurologica" | "cardiorrespiratoria" | "postural" | "geriatrica" | "pediatrica" | "esportiva" | "rpg" | "pilates" | "dor_cronica" | "funcional" | "personalizada";
 
@@ -115,6 +116,7 @@ type FormInput = {
 
 export function AssessmentForm({ patientId, patient, assessment, onDone }: { patientId: string; patient?: any; assessment?: any; onDone: () => void }) {
   const isEdit = !!assessment?.id;
+  const { clinicId } = useActiveClinic();
   const [modules, setModules] = useState<ModuleType[]>(
     assessment?.assessment_modules?.length ? assessment.assessment_modules.map((m: any) => m.module_type) : ["geral"]
   );
@@ -184,18 +186,26 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   });
 
   const profs = useQuery({
-    queryKey: ["professionals-active"],
+    queryKey: ["professionals-active", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
-      const { data } = await supabase.from("professionals").select("id, nome, profissao, conselho, registro").eq("situacao", "ativo").order("nome");
+      const { data } = await supabase
+        .from("professionals")
+        .select("id, nome, profissao, conselho, registro")
+        .eq("clinic_id", clinicId!)
+        .eq("situacao", "ativo")
+        .order("nome");
       return data ?? [];
     },
   });
 
   const save = useMutation({
     mutationFn: async ({ v, finalize }: { v: FormInput; finalize: boolean }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
       const { data: u } = await supabase.auth.getUser();
       const imc = calcImc(v.peso, v.estatura);
       const payload: any = {
+        clinic_id: clinicId,
         patient_id: patientId,
         professional_id: v.professional_id,
         tipo: v.tipo,
@@ -247,7 +257,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           payload.status = "finalizada";
           payload.locked_at = new Date().toISOString();
         }
-        const { error } = await supabase.from("assessments").update(payload).eq("id", assessment.id);
+        const { error } = await supabase.from("assessments").update(payload).eq("clinic_id", clinicId).eq("id", assessment.id);
         if (error) throw error;
       } else {
         payload.created_by = u.user?.id;

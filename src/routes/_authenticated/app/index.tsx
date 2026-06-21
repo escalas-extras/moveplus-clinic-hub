@@ -1,7 +1,8 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, useRoles } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
+import { useActiveClinic } from "@/lib/active-clinic";
 import { Card } from "@/components/ui/card";
 import { Users, CalendarDays, ClipboardCheck, Wallet, RefreshCw, LogOut, AlertTriangle, TrendingUp, Plus, FileText, BookOpen, BarChart3, Sparkles, ArrowRight } from "lucide-react";
 import { brl, fmtDate } from "@/lib/format";
@@ -35,25 +36,26 @@ function greeting() {
 
 function Dashboard() {
   const { user } = useAuth();
-  const { isAdmin } = useRoles(user?.id);
+  const { clinicId, isAdmin } = useActiveClinic();
   const brand = useBranding();
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(); monthStart.setDate(1);
   const monthIso = monthStart.toISOString().slice(0, 10);
 
   const stats = useQuery({
-    queryKey: ["dashboard-premium", today, monthIso, isAdmin],
+    queryKey: ["dashboard-premium", clinicId, today, monthIso, isAdmin],
+    enabled: !!clinicId,
     queryFn: async () => {
       const [pacientes, novos, hoje, mesPag, sessoesMes, pendentes, reavalPend, altasMes, docsMes] = await Promise.all([
-        supabase.from("patients").select("id", { count: "exact", head: true }).eq("situacao", "ativo"),
-        supabase.from("patients").select("id", { count: "exact", head: true }).gte("created_at", monthIso),
-        supabase.from("appointments").select("id, horario, status, patients(nome_completo), professionals(nome)").eq("data", today).order("horario"),
-        supabase.from("financial_entries").select("valor").eq("status", "pago").gte("data", monthIso),
-        supabase.from("evolutions").select("id", { count: "exact", head: true }).gte("data", monthIso),
-        supabase.from("financial_entries").select("id", { count: "exact", head: true }).eq("status", "pendente"),
-        supabase.from("reassessment_schedule").select("id, patient_id, scheduled_for, patients(nome_completo)").lte("scheduled_for", today).is("completed_at", null).order("scheduled_for").limit(10),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("situacao", "ativo"),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).gte("created_at", monthIso),
+        supabase.from("appointments").select("id, horario, status, patients(nome_completo), professionals(nome)").eq("clinic_id", clinicId!).eq("data", today).order("horario"),
+        supabase.from("financial_entries").select("valor").eq("clinic_id", clinicId!).eq("status", "pago").gte("data", monthIso),
+        supabase.from("evolutions").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).gte("data", monthIso),
+        supabase.from("financial_entries").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("status", "pendente"),
+        supabase.from("reassessment_schedule").select("id, patient_id, scheduled_for, patients(nome_completo)").eq("clinic_id", clinicId!).lte("scheduled_for", today).is("completed_at", null).order("scheduled_for").limit(10),
         supabase.from("patient_discharges").select("id", { count: "exact", head: true }).gte("data_alta", monthIso),
-        supabase.from("assessments").select("id", { count: "exact", head: true }).gte("created_at", monthIso),
+        supabase.from("assessments").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).gte("created_at", monthIso),
       ]);
       const fatMes = (mesPag.data ?? []).reduce((s, r) => s + Number(r.valor ?? 0), 0);
       return {

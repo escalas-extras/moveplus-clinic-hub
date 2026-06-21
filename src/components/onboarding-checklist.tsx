@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useBranding } from "@/lib/branding";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 type Step = { key: string; label: string; description: string; to: string; done: boolean };
 
@@ -17,6 +18,7 @@ export function OnboardingChecklist() {
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const brand = useBranding();
+  const { clinicId } = useActiveClinic();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -30,17 +32,14 @@ export function OnboardingChecklist() {
   }, []);
 
   const { data: steps = [] } = useQuery<Step[]>({
-    queryKey: ["onboarding-checklist"],
+    queryKey: ["onboarding-checklist", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
-      const { data: cid } = await supabase.rpc("current_clinic_id");
-      const clinicQuery = cid
-        ? supabase.from("clinic_settings").select("nome_fantasia, logo_url").eq("clinic_id", cid as string).maybeSingle()
-        : Promise.resolve({ data: null });
       const [clinic, prof, pat, assess] = await Promise.all([
-        clinicQuery,
-        supabase.from("professionals").select("id", { count: "exact", head: true }),
-        supabase.from("patients").select("id", { count: "exact", head: true }),
-        supabase.from("assessments").select("id", { count: "exact", head: true }),
+        supabase.from("clinic_settings").select("nome_fantasia, logo_url").eq("clinic_id", clinicId!).maybeSingle(),
+        supabase.from("professionals").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!),
+        supabase.from("assessments").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!),
       ]);
       return [
         {

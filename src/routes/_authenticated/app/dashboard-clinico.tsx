@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, ClipboardList, TrendingUp, Users, CalendarCloc
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, LineChart, Line } from "recharts";
 import { RISK_COLORS, SCALES, type ScaleType } from "@/lib/clinical-scales";
 import { useMemo } from "react";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/dashboard-clinico")({
   component: ClinicalDashboard,
@@ -14,18 +15,20 @@ export const Route = createFileRoute("/_authenticated/app/dashboard-clinico")({
 const COLORS = ["#2f5d3a", "#4a8c5e", "#7bb88a", "#b3dcbd", "#d9eede"];
 
 function ClinicalDashboard() {
+  const { clinicId } = useActiveClinic();
   const monthIso = useMemo(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0,10); }, []);
 
   const counts = useQuery({
-    queryKey: ["clinical-dashboard"],
+    queryKey: ["clinical-dashboard", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
       const [pacientes, ativos, altas, scales, goals, reass] = await Promise.all([
-        supabase.from("patients").select("id", { count: "exact", head: true }),
-        supabase.from("patients").select("id", { count: "exact", head: true }).eq("situacao", "ativo"),
-        supabase.from("patients").select("id", { count: "exact", head: true }).eq("situacao", "inativo"),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("situacao", "ativo"),
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("situacao", "inativo"),
         supabase.from("assessment_scales").select("scale_type, risk_level, total_score, applied_at").gte("applied_at", monthIso),
         supabase.from("assessment_goals").select("status, term"),
-        supabase.from("reassessment_schedule").select("id, scheduled_for, completed_at"),
+        supabase.from("reassessment_schedule").select("id, scheduled_for, completed_at").eq("clinic_id", clinicId!),
       ]);
       return {
         total: pacientes.count ?? 0,

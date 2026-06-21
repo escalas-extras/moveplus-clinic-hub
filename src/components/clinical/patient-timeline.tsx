@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { ClipboardList, Activity, RefreshCw, LogOut, FileText } from "lucide-react";
 import { fmtDate } from "@/lib/format";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 type TimelineItem = {
   id: string;
@@ -22,12 +23,14 @@ const KIND_META: Record<TimelineItem["kind"], { label: string; icon: any; color:
 };
 
 export function PatientTimeline({ patientId }: { patientId: string }) {
+  const { clinicId } = useActiveClinic();
   const q = useQuery({
-    queryKey: ["timeline", patientId],
+    queryKey: ["timeline", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async (): Promise<TimelineItem[]> => {
       const [assess, evol, disc, docs] = await Promise.all([
-        supabase.from("assessments").select("id, data, tipo, queixa_principal, professionals(nome)").eq("patient_id", patientId),
-        supabase.from("evolutions").select("id, data, hora, procedimentos, professionals(nome)").eq("patient_id", patientId),
+        supabase.from("assessments").select("id, data, tipo, queixa_principal, professionals(nome)").eq("clinic_id", clinicId!).eq("patient_id", patientId),
+        supabase.from("evolutions").select("id, data, hora, procedimentos, professionals(nome)").eq("clinic_id", clinicId!).eq("patient_id", patientId),
         supabase.from("patient_discharges").select("id, data_alta, motivo, professionals(nome)").eq("patient_id", patientId),
         supabase.from("documents").select("id, tipo, emitido_em").eq("patient_id", patientId).limit(50),
       ]);

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Eye } from "lucide-react";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildEvolutionPdfOpts } from "@/lib/pdf-builders";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 type FormInput = {
   professional_id: string;
@@ -43,6 +44,7 @@ export function EvolutionForm({
   onDone: () => void;
 }) {
   const today = new Date();
+  const { clinicId } = useActiveClinic();
   const [eva, setEva] = useState<number>(0);
   const [sv, setSv] = useState<Record<string, string>>({
     pa: "", fc: "", fr: "", pr: "", spo2: "",
@@ -63,17 +65,25 @@ export function EvolutionForm({
   });
 
   const profs = useQuery({
-    queryKey: ["professionals-active"],
+    queryKey: ["professionals-active", clinicId],
+    enabled: !!clinicId,
     queryFn: async () => {
-      const { data } = await supabase.from("professionals").select("id, nome, profissao, conselho, registro").eq("situacao", "ativo").order("nome");
+      const { data } = await supabase
+        .from("professionals")
+        .select("id, nome, profissao, conselho, registro")
+        .eq("clinic_id", clinicId!)
+        .eq("situacao", "ativo")
+        .order("nome");
       return data ?? [];
     },
   });
 
   const save = useMutation({
     mutationFn: async (v: FormInput) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("evolutions").insert({
+        clinic_id: clinicId,
         patient_id: patientId,
         assessment_id: assessmentId ?? null,
         professional_id: v.professional_id,

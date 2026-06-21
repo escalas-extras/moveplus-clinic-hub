@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Eraser, Pen, Trash2 } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { useAuth, useRoles } from "@/lib/auth";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 type Role = "paciente" | "responsavel" | "profissional";
 
@@ -21,6 +22,7 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
   const [doc, setDoc] = useState("");
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
+  const { clinicId } = useActiveClinic();
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
@@ -29,7 +31,8 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
   }, []);
 
   const list = useQuery({
-    queryKey: ["sigs", patientId, documentId, assessmentId],
+    queryKey: ["sigs", clinicId, patientId, documentId, assessmentId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
       let q = supabase.from("clinical_signatures").select("*").eq("patient_id", patientId);
       if (documentId) q = q.eq("document_id", documentId);

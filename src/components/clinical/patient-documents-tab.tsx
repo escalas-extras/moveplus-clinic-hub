@@ -22,13 +22,18 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   recibo: "Recibo",
 };
 
+import { useActiveClinic } from "@/lib/active-clinic";
+
 export function PatientDocumentsTab({ patientId }: { patientId: string }) {
+  const { clinicId } = useActiveClinic();
   const { data: docs = [], isLoading } = useQuery({
-    queryKey: ["patient-clinical-documents", patientId],
+    queryKey: ["patient-clinical-documents", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
         .from("clinical_documents")
         .select("*")
+        .eq("clinic_id", clinicId!)
         .eq("patient_id", patientId)
         .order("issued_at", { ascending: false });
       return data || [];
