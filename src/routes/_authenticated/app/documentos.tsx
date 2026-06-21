@@ -170,7 +170,7 @@ function DocumentosPage() {
     },
   });
 
-  const { data: professional } = useQuery({
+  const { data: professionalInfo } = useQuery({
     queryKey: ["my-professional", user?.id, activeClinicId],
     enabled: !!user?.id && !!activeClinicId,
     queryFn: async () => {
@@ -180,19 +180,35 @@ function DocumentosPage() {
         .eq("clinic_id", activeClinicId!)
         .eq("profile_id", user!.id)
         .maybeSingle();
-      if (byProfile) return byProfile;
-      // Fallback: se o vínculo profile_id não existir, usa o primeiro profissional ativo da clínica.
-      const { data: fallback } = await supabase
-        .from("professionals")
-        .select("*")
-        .eq("clinic_id", activeClinicId!)
-        .eq("situacao", "ativo")
-        .order("nome")
-        .limit(1)
-        .maybeSingle();
-      return fallback;
+      if (!byProfile) {
+        return {
+          professional: null,
+          status: "no-link" as const,
+          message: "Seu usuário ainda não está vinculado a um profissional responsável.",
+        };
+      }
+      if (byProfile.situacao !== "ativo") {
+        return { professional: byProfile, status: "inactive" as const, message: "O profissional responsável está inativo." };
+      }
+      if (!byProfile.conselho?.trim()) {
+        return {
+          professional: byProfile,
+          status: "missing-conselho" as const,
+          message: "Preencha o conselho profissional do responsável antes de emitir documentos.",
+        };
+      }
+      if (!byProfile.registro?.trim()) {
+        return {
+          professional: byProfile,
+          status: "missing-registro" as const,
+          message: "Preencha o número de registro profissional antes de emitir documentos.",
+        };
+      }
+      return { professional: byProfile, status: "ok" as const, message: "" };
     },
   });
+  const professional = professionalInfo?.professional ?? null;
+  const professionalReady = professionalInfo?.status === "ok";
 
   const { data: emitted = [], refetch: refetchEmitted } = useQuery({
     queryKey: ["clinical-documents", activeClinicId, patientId],
