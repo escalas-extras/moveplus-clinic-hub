@@ -534,6 +534,8 @@ export async function buildPdf(opts: {
 
   const pageCount = doc.getNumberOfPages();
   const lastPageEndY = y; // posição real do cursor após renderização
+  console.log("[PDF DEBUG] lastPageEndY", lastPageEndY, "pageCount", pageCount, "SIG_BLOCK_H", SIG_BLOCK_H);
+
 
 
   // Helper: monta cidade/UF da clínica para "local e data"
