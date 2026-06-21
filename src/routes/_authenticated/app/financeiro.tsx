@@ -495,7 +495,7 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => { setValue("patient_id", v); setValue("financial_entry_id", null); }}>
+            <Select value={patient_id ?? ""} onValueChange={(v) => { setValue("patient_id", v); setValue("financial_entry_id", null); }} disabled={disabled}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
             </Select>
@@ -506,7 +506,7 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
             <Select
               value={financial_entry_id ?? "none"}
               onValueChange={(v) => setValue("financial_entry_id", v === "none" ? null : v)}
-              disabled={!patient_id}
+              disabled={disabled || !patient_id}
             >
               <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
               <SelectContent>
@@ -520,21 +520,21 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
 
           <div>
             <Label className="text-xs uppercase">Descrição do serviço</Label>
-            <Textarea rows={2} {...register("description", { required: true })} />
+            <Textarea rows={2} {...register("description", { required: true })} disabled={disabled} />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div>
               <Label className="text-xs uppercase">Valor</Label>
-              <Input type="number" step="0.01" {...register("amount", { valueAsNumber: true, required: true })} />
+              <Input type="number" step="0.01" min="0.01" {...register("amount", { valueAsNumber: true, required: true })} disabled={disabled} />
             </div>
             <div>
               <Label className="text-xs uppercase">Data</Label>
-              <Input type="date" {...register("payment_date", { required: true })} />
+              <Input type="date" {...register("payment_date", { required: true })} disabled={disabled} />
             </div>
             <div>
               <Label className="text-xs uppercase">Forma</Label>
-              <Select value={payment_method} onValueChange={(v) => setValue("payment_method", v as any)}>
+              <Select value={payment_method} onValueChange={(v) => setValue("payment_method", v as any)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {["pix", "dinheiro", "cartao", "transferencia"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -544,7 +544,7 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={create.isPending || !patient_id}>Emitir recibo</Button>
+            <Button type="submit" disabled={disabled || create.isPending || !patient_id}>Emitir recibo</Button>
           </DialogFooter>
         </form>
       </DialogContent>
