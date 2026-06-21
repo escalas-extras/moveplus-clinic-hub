@@ -155,25 +155,26 @@ export async function urlToDataUrl(url: string): Promise<string | null> {
   }
 }
 
-// ---------- Sanitização contrato ----------
+// ---------- Sanitização contrato (somente cláusula final / Foro) ----------
 
 function sanitizeContractParagraph(raw: string): string {
-  const lines = (raw || "").split(/\r?\n/);
-  const strip: RegExp[] = [
-    /^\s*_{3,}\s*$/,
-    /^\s*(CONTRATANTE|CONTRATADA|TESTEMUNHA(\s*\d+)?)\s*[:\-—].*/i,
-    /^\s*CPF\s*[:\-].*/i,
-    /^\s*RG\s*[:\-].*/i,
-    /^\s*[A-Za-zÀ-ÿ\s\.\-]+\/[A-Z]{2}\s*,\s*\d{1,2}\s+de\s+[a-zA-Zçãéê]+\s+de\s+\d{4}\.?\s*$/,
-    /^\s*[A-ZÀ-Ÿ][^\n]*\s[—\-]\s*CREFITO.*/i,
-  ];
-  const out: string[] = [];
-  for (const ln of lines) {
-    if (strip.some((re) => re.test(ln))) continue;
-    out.push(ln);
-  }
-  return out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  // Em contratos, o template legado armazena nas cláusulas finais (Foro/
+  // Oitava) artefatos visuais de assinatura inline. Como o bloco visual
+  // de assinaturas é renderizado separadamente ao final, esses artefatos
+  // viram duplicidade e devem ser removidos. Cortamos tudo após a frase
+  // "...legais efeitos." (inclusive a linha "Cidade/UF, data." e os
+  // underlines "_____", "CONTRATANTE: ...", etc).
+  const cutMarker = /(jur[ií]dicos e legais efeitos\.)/i;
+  const m = raw.match(cutMarker);
+  if (!m) return raw;
+  const idx = (m.index ?? 0) + m[0].length;
+  return raw.slice(0, idx).trimEnd();
 }
+
+function isClosingClause(title: string): boolean {
+  return /foro|oitava|encerramento/i.test(title || "");
+}
+
 
 // ---------- Atom model ----------
 
