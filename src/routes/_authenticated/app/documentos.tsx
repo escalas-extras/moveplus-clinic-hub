@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { FileText, Eye, Download, Save, Lock, Search } from "lucide-react";
 import { toast } from "sonner";
-import { buildPdf, downloadPdf, previewPdf } from "@/lib/pdf";
-import { buildMergeData, renderTemplateSections } from "@/lib/merge-tags";
+import { buildPdf, previewPdf } from "@/lib/pdf";
+import { buildMergeData, renderTemplateSections, type ContratanteData } from "@/lib/merge-tags";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 
