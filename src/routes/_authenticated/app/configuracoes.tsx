@@ -119,15 +119,16 @@ function ConfigPage() {
         const { error } = await supabase.from("clinic_settings").insert({ ...payload, clinic_id: cid });
         if (error) throw error;
       }
+      return { resolvedLogo: await signedLogoUrl(payload.logo_url) };
     },
-    onSuccess: (_data, v) => {
+    onSuccess: (data, v) => {
       toast.success("Configurações salvas");
       if (clinicId) {
         pcSet(`fos:branding:${clinicId}`, {
           appName: v.app_name || "FisioOS",
           clinicName: v.nome_fantasia || "FisioOS",
           slogan: v.slogan || "Transformando atendimentos em resultados",
-          logoUrl: logoPreview ?? null,
+          logoUrl: data.resolvedLogo,
           primaryColor: v.primary_color || "#2f5d3a",
           secondaryColor: v.secondary_color || "#c75c3a",
           crefitoDefault: v.crefito_default || null,
