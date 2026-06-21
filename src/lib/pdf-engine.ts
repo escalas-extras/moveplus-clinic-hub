@@ -1031,18 +1031,18 @@ async function drawQR(
   try {
     const origin = base || (typeof window !== "undefined" ? window.location.origin : "https://fisioos.app");
     const url = `${origin}/validar/${hash}`;
-    const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 180 });
-    const size = 42;
-    // QR sempre no canto inferior direito; a assinatura reserva espaço
-    // suficiente abaixo dela para o QR (vide drawSignatureArea).
+    const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 200 });
+    const size = 44;
+    // QR no canto inferior direito; assinatura reserva 64pt abaixo, garantindo
+    // afastamento mínimo de ~20pt da área das testemunhas.
     const x = W - M - size;
-    const y = H - S.FOOTER_H - size - 6;
+    const y = H - S.FOOTER_H - size - 8;
     doc.addImage(dataUrl, "PNG", x, y, size, size);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
     doc.setTextColor(...C.meta);
-    doc.text("Valide em:", x, y - 3);
-    doc.text(`${hash.slice(0, 12)}…`, x, y + size + 7);
+    doc.text("Validação digital", x + size / 2, y - 4, { align: "center" });
+    doc.text(`${hash.slice(0, 12)}…`, x + size / 2, y + size + 7, { align: "center" });
   } catch { /* ignore */ }
 }
 
