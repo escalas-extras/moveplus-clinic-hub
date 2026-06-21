@@ -2,6 +2,24 @@
 import { fmtDate, calcAge } from "./format";
 import { computeScale } from "./clinical-scales";
 
+const HUMANIZE_MAP: Record<string, string> = {
+  cid_principal: "CID não informado.",
+  cid_secundario: "CID secundário não informado.",
+  objetivos: "Objetivos terapêuticos a definir após avaliação.",
+  condutas: "Condutas serão estabelecidas após avaliação inicial.",
+  diagnostico_fisio: "Diagnóstico fisioterapêutico em elaboração.",
+  diagnostico: "Hipótese diagnóstica a ser confirmada.",
+  queixa_principal: "Queixa principal a documentar.",
+  hma: "História da moléstia atual a documentar.",
+  prognostico: "Prognóstico a definir após evolução.",
+};
+
+export function humanizeField(value: string | null | undefined, field: string): string {
+  const v = (value ?? "").toString().trim();
+  if (v && v !== "—") return v;
+  return HUMANIZE_MAP[field] ?? "";
+}
+
 export type MergeContext = {
   patient?: any;
   assessment?: any;
