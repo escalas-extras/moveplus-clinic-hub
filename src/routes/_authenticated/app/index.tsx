@@ -42,7 +42,7 @@ function Dashboard() {
   const stats = useQuery({
     queryKey: ["dashboard-premium", today, monthIso, isAdmin],
     queryFn: async () => {
-      const [pacientes, novos, hoje, mesPag, sessoesMes, pendentes, reavalAtrasadas, altasMes] = await Promise.all([
+      const [pacientes, novos, hoje, mesPag, sessoesMes, pendentes, reavalPend, altasMes, docsMes] = await Promise.all([
         supabase.from("patients").select("id", { count: "exact", head: true }).eq("situacao", "ativo"),
         supabase.from("patients").select("id", { count: "exact", head: true }).gte("created_at", monthIso),
         supabase.from("appointments").select("id, horario, status, patients(nome_completo), professionals(nome)").eq("data", today).order("horario"),
@@ -51,6 +51,7 @@ function Dashboard() {
         supabase.from("financial_entries").select("id", { count: "exact", head: true }).eq("status", "pendente"),
         supabase.from("reassessment_schedule").select("id, patient_id, scheduled_for, patients(nome_completo)").lte("scheduled_for", today).is("completed_at", null).order("scheduled_for").limit(10),
         supabase.from("patient_discharges").select("id", { count: "exact", head: true }).gte("data_alta", monthIso),
+        supabase.from("assessments").select("id", { count: "exact", head: true }).gte("created_at", monthIso),
       ]);
       const fatMes = (mesPag.data ?? []).reduce((s, r) => s + Number(r.valor ?? 0), 0);
       return {
@@ -60,8 +61,9 @@ function Dashboard() {
         fatMes,
         sessoesMes: sessoesMes.count ?? 0,
         pendentes: pendentes.count ?? 0,
-        reavalAtrasadas: reavalAtrasadas.data ?? [],
+        reavalAtrasadas: reavalPend.data ?? [],
         altasMes: altasMes.count ?? 0,
+        docsMes: docsMes.count ?? 0,
       };
     },
   });
