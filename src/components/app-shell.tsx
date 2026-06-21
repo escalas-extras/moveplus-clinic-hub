@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { ClinicLogo } from "@/components/clinic-logo";
 import { SupportBanner } from "@/components/support-banner";
+import { SupportClickInterceptor } from "@/components/support-click-interceptor";
 import { pcGet, pcSet } from "@/lib/persistent-cache";
 
 type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean; feature?: string };
