@@ -457,20 +457,18 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
   const usableHRest = bottomY - topYRest;
 
-  // 3 tiers: relaxed → compact → tight. Tier escolhido = primeiro que produz
-  // última página com ocupação ≥ 50% (ou fewer pages).
-  const tiers: Array<{ gap: number; reserve: number }> = [
-    { gap: S.BLOCK_GAP, reserve: sigDraw },
-    { gap: S.BLOCK_GAP_COMPACT, reserve: Math.round(sigDraw * 0.85) },
-    { gap: S.BLOCK_GAP_TIGHT, reserve: Math.round(sigDraw * 0.7) },
-  ];
-  let pages = compose(groups, topYFirst, topYRest, bottomY, tiers[0].reserve, tiers[0].gap);
-  for (let t = 1; t < tiers.length; t++) {
-    const fill = lastPageFill(pages, usableHRest, sigDraw);
+  // Reserva igual ao tamanho real do bloco de assinatura + folga p/ QR.
+  // Compaction varia APENAS o gap entre blocos — assim a reserva nunca é
+  // inferior ao espaço efetivamente desenhado (sem sobreposição com QR/rodapé).
+  const qrReserve = isContract ? 56 : 0;
+  const sigReserve = sigDraw + qrReserve;
+  const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
+  let pages = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[0]);
+  for (let t = 1; t < gapTiers.length; t++) {
+    const fill = lastPageFill(pages, usableHRest, sigReserve);
     if (fill >= 0.5 || pages.length === 1) break;
-    const next = compose(groups, topYFirst, topYRest, bottomY, tiers[t].reserve, tiers[t].gap);
-    // Aceita apenas se reduzir páginas OU aumentar ocupação da última.
-    if (next.length < pages.length || lastPageFill(next, usableHRest, sigDraw) > fill) {
+    const next = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[t]);
+    if (next.length < pages.length || lastPageFill(next, usableHRest, sigReserve) > fill) {
       pages = next;
     }
   }
