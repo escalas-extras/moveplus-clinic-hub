@@ -1018,13 +1018,24 @@ function nowLabel(): string {
   return new Date().toLocaleString("pt-BR");
 }
 
-async function drawQR(doc: jsPDF, hash: string, base: string | undefined, W: number, H: number, M: number) {
+async function drawQR(
+  doc: jsPDF,
+  hash: string,
+  base: string | undefined,
+  W: number,
+  H: number,
+  M: number,
+  isContract: boolean,
+) {
   try {
     const origin = base || (typeof window !== "undefined" ? window.location.origin : "https://fisioos.app");
     const url = `${origin}/validar/${hash}`;
     const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 180 });
-    const size = 44;
-    const x = W - M - size;
+    const size = 42;
+    // Contratos: bloco de testemunhas ocupa o canto inferior direito, então o
+    // QR vai centralizado entre as colunas de assinatura para não sobrepor.
+    // Demais documentos: canto inferior direito (padrão institucional).
+    const x = isContract ? (W / 2) - (size / 2) : W - M - size;
     const y = H - S.FOOTER_H - size - 6;
     doc.addImage(dataUrl, "PNG", x, y, size, size);
     doc.setFont("helvetica", "normal");
@@ -1034,3 +1045,4 @@ async function drawQR(doc: jsPDF, hash: string, base: string | undefined, W: num
     doc.text(`${hash.slice(0, 12)}…`, x, y + size + 7);
   } catch { /* ignore */ }
 }
+
