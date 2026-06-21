@@ -83,7 +83,6 @@ function AgendaPage() {
   const [slotPrefill, setSlotPrefill] = useState<{ data: string; horario: string } | null>(null);
   const [filterProf, setFilterProf] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Status | "all">("all");
-...
   const create = useMutation({
     mutationFn: async (v: Form) => {
       const { data: u } = await supabase.auth.getUser();
