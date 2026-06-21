@@ -116,7 +116,7 @@ const BRL = (v: number | null | undefined) =>
     : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function AdminSaasPage() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState("painel");
   const [openNew, setOpenNew] = useState(false);
 
   return (
@@ -125,10 +125,10 @@ function AdminSaasPage() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Building2 className="h-6 w-6" /> Admin SaaS
+              <Building2 className="h-6 w-6" /> Painel SaaS
             </h1>
             <p className="text-muted-foreground text-sm">
-              Gestão de clínicas, planos e operação multi-tenant do FisioOS.
+              Gestão comercial de clínicas, planos e operação multi-tenant.
             </p>
           </div>
           <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -148,12 +148,13 @@ function AdminSaasPage() {
 
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="painel">Painel</TabsTrigger>
             <TabsTrigger value="clinics">Clínicas</TabsTrigger>
             <TabsTrigger value="plans">Planos contratados</TabsTrigger>
             <TabsTrigger value="catalog">Catálogo de Planos</TabsTrigger>
+            <TabsTrigger value="audit">Auditoria</TabsTrigger>
           </TabsList>
-          <TabsContent value="dashboard" className="mt-4">
+          <TabsContent value="painel" className="mt-4">
             <DashboardTab />
           </TabsContent>
           <TabsContent value="clinics" className="mt-4">
@@ -165,11 +166,22 @@ function AdminSaasPage() {
           <TabsContent value="catalog" className="mt-4">
             <CatalogTab />
           </TabsContent>
+          <TabsContent value="audit" className="mt-4">
+            <AuditTab />
+          </TabsContent>
         </Tabs>
       </div>
     </AppShell>
   );
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  active: "Ativo",
+  inactive: "Inativo",
+  suspended: "Suspenso",
+  trial: "Teste",
+  canceled: "Cancelado",
+};
 
 // ============================================================
 // Dashboard
