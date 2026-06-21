@@ -132,7 +132,7 @@ function ConfigPage() {
           primaryColor: v.primary_color || "#2f5d3a",
           secondaryColor: v.secondary_color || "#c75c3a",
           crefitoDefault: v.crefito_default || null,
-          hasOwnLogo: !!logoPreview,
+          hasOwnLogo: !!data.resolvedLogo,
         }, 24 * 60 * 60_000);
       }
       qc.invalidateQueries({ queryKey: ["clinic-settings"] });
