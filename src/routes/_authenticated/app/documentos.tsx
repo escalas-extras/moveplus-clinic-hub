@@ -539,17 +539,16 @@ function DocumentosPage() {
           )}
 
 
-          {activeClinicId && !professional && (
+          {activeClinicId && professionalInfo && !professionalReady && (
             <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm space-y-2">
               <div className="font-medium text-amber-900 dark:text-amber-200">
-                Profissional responsável não cadastrado
+                Profissional responsável indisponível
               </div>
               <p className="text-amber-800 dark:text-amber-300/90 text-xs">
-                Cadastre um profissional responsável em <strong>Profissionais</strong> antes de emitir documentos clínicos.
-                O CREFITO padrão em Configurações é apenas administrativo e não substitui o cadastro do profissional.
+                {professionalInfo.message}
               </p>
               <Link to="/app/profissionais">
-                <Button size="sm" variant="outline">Cadastrar profissional</Button>
+                <Button size="sm" variant="outline">Abrir Profissionais</Button>
               </Link>
             </div>
           )}
@@ -564,13 +563,13 @@ function DocumentosPage() {
             </Button>
             <Button
               variant="outline"
-              disabled={!template || !patient || !professional}
+              disabled={!template || !patient || !professionalReady}
               onClick={() => previewPdf(buildPdfOpts())}
             >
               <FileText className="h-4 w-4 mr-2" /> Abrir PDF
             </Button>
             <Button
-              disabled={!template || !patient || !professional || emit.isPending}
+              disabled={!template || !patient || !professionalReady || emit.isPending}
               onClick={() => emit.mutate()}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -578,6 +577,7 @@ function DocumentosPage() {
             </Button>
           </div>
         </Card>
+
 
         {/* Coluna direita — documentos emitidos do paciente */}
         <Card className="p-4 space-y-2">
