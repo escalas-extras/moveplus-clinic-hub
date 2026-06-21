@@ -281,12 +281,11 @@ export async function buildPdf(opts: {
   }
 
   function renderBlock(block: PdfBlock, isLastBlock: boolean = false) {
-    // Em contratos, suprime a cláusula "Partes Contratantes" / "Qualificação
-    // das Partes" do corpo — a identificação fica apenas no bloco visual de
-    // assinaturas no fim do documento, evitando duplicidade.
-    if (isContract && /partes\s+contratantes|qualificação\s+das\s+partes/i.test(block.title || "")) {
-      return;
-    }
+    // A "Qualificação das Partes" agora identifica CONTRATANTE (responsável
+    // ou próprio paciente), CONTRATADA e PACIENTE BENEFICIÁRIO — não é mais
+    // suprimida do corpo. A duplicidade é evitada pela sanitização (abaixo)
+    // e pelo bloco visual de assinatura ao final.
+
 
     // Limpa artefatos de assinatura inline em todos os parágrafos do contrato
     // (Cláusula Oitava / Foro traz underlines e rótulos no texto jurídico).
