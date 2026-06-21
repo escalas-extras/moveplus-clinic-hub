@@ -1400,6 +1400,11 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
   "clinic.suspend": "Clínica · suspensão",
   "clinic.plan_change": "Clínica · troca de plano",
   "clinic.branding": "Clínica · identidade visual",
+  "clinic.owner_invited": "Clínica · convite enviado",
+  "clinic.owner_activated": "Clínica · proprietário ativado",
+  "clinic.owner_reinvited": "Clínica · convite reenviado",
+  "clinic.owner_changed": "Clínica · proprietário alterado",
+  "clinic.owner_invite_canceled": "Clínica · convite cancelado",
 };
 
 function AuditTab() {
