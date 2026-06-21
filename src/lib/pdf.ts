@@ -249,12 +249,50 @@ export async function buildPdf(opts: {
   }
 
 
+  function sanitizeContractText(raw: string): string {
+    // Em contratos, remove artefatos visuais de assinatura que o template
+    // armazena inline (linhas de underline, rótulos CONTRATANTE/CONTRATADA/
+    // TESTEMUNHA, identificação repetida do profissional e a linha final
+    // "Cidade/UF, data."). O bloco visual de assinatura é renderizado
+    // separadamente no fim da última página, evitando duplicidade.
+    const lines = (raw || "").split(/\r?\n/);
+    const out: string[] = [];
+    const stripPatterns: RegExp[] = [
+      /^\s*_{3,}\s*$/,
+      /^\s*(CONTRATANTE|CONTRATADA|TESTEMUNHA(\s*\d+)?)\s*[:\-—].*/i,
+      /^\s*CPF\s*[:\-].*/i,
+      /^\s*RG\s*[:\-].*/i,
+      // "Cidade/UF, data." (ex.: "Londrina/PR, 21 de junho de 2026.")
+      /^\s*[A-Za-zÀ-ÿ\s\.\-]+\/[A-Z]{2}\s*,\s*\d{1,2}\s+de\s+[a-zA-Zçãéê]+\s+de\s+\d{4}\.?\s*$/,
+      // identificação solta do profissional ("Nome — CREFITO ...")
+      /^\s*[A-ZÀ-Ÿ][^\n]*\s[—\-]\s*CREFITO.*/i,
+    ];
+    for (const ln of lines) {
+      if (stripPatterns.some((re) => re.test(ln))) continue;
+      out.push(ln);
+    }
+    return out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  }
+
   function renderBlock(block: PdfBlock, isLastBlock: boolean = false) {
-    // Em contratos, suprime a cláusula "Partes Contratantes" do corpo —
-    // a identificação das partes fica somente no bloco visual de assinaturas
-    // no fim do documento, evitando duplicidade.
-    if (isContract && /partes\s+contratantes/i.test(block.title || "")) {
+    // Em contratos, suprime a cláusula "Partes Contratantes" / "Qualificação
+    // das Partes" do corpo — a identificação fica apenas no bloco visual de
+    // assinaturas no fim do documento, evitando duplicidade.
+    if (isContract && /partes\s+contratantes|qualificação\s+das\s+partes/i.test(block.title || "")) {
       return;
+    }
+
+    // Limpa artefatos de assinatura inline em todos os parágrafos do contrato
+    // (Cláusula Oitava / Foro traz underlines e rótulos no texto jurídico).
+    if (isContract) {
+      block = {
+        ...block,
+        children: block.children.map((c) =>
+          c.kind === "paragraph"
+            ? { ...c, text: sanitizeContractText((c as { text: string }).text) }
+            : c,
+        ),
+      };
     }
 
     // Reserva extra de espaço no fim da página para o bloco de assinatura,
