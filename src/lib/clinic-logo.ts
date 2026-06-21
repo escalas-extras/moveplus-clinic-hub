@@ -1,6 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
+import { pcGet, pcSet } from "@/lib/persistent-cache";
 
 type StorageObjectRef = { bucket: string; path: string };
+
+const SIGNED_LOGO_TTL_MS = 50 * 60_000;
+
+function persistKey(raw: string) {
+  return `fos:signed-logo:${raw}`;
+}
 
 function storageObjectFromUrl(raw: string): StorageObjectRef | null {
   try {
@@ -28,16 +35,31 @@ async function signedFrom(bucket: string, path: string): Promise<string | null> 
   return data.signedUrl;
 }
 
+/** Synchronous read of a cached resolved logo URL for a given raw value. */
+export function getCachedClinicLogoUrl(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value) && !value.includes("/storage/v1/object/")) return value;
+  return pcGet<string>(persistKey(value));
+}
+
 export async function resolveClinicLogoUrl(raw: string | null | undefined): Promise<string | null> {
   const value = raw?.trim();
   if (!value) return null;
 
+  const cached = pcGet<string>(persistKey(value));
+  if (cached) return cached;
+
+  let resolved: string | null = null;
   const embeddedStorageRef = /^https?:\/\//i.test(value) ? storageObjectFromUrl(value) : null;
   if (embeddedStorageRef) {
-    return (await signedFrom(embeddedStorageRef.bucket, embeddedStorageRef.path)) ?? value;
+    resolved = (await signedFrom(embeddedStorageRef.bucket, embeddedStorageRef.path)) ?? value;
+  } else if (/^https?:\/\//i.test(value)) {
+    resolved = value;
+  } else {
+    resolved = (await signedFrom("clinic-logos", value)) ?? (await signedFrom("documents", value));
   }
 
-  if (/^https?:\/\//i.test(value)) return value;
-
-  return (await signedFrom("clinic-logos", value)) ?? (await signedFrom("documents", value));
+  if (resolved) pcSet(persistKey(value), resolved, SIGNED_LOGO_TTL_MS);
+  return resolved;
 }

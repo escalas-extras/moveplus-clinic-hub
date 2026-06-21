@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding";
 import { ClinicLogo } from "@/components/clinic-logo";
 import { SupportBanner } from "@/components/support-banner";
+import { pcGet, pcSet } from "@/lib/persistent-cache";
 
 type NavItemDef = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; adminOnly?: boolean; superAdminOnly?: boolean; feature?: string };
 type NavGroup = { title: string; items: NavItemDef[]; platform?: boolean };
@@ -136,8 +137,12 @@ export function AppShell({ children, initialUser = null }: { children: ReactNode
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    initialData: user?.id
+      ? (pcGet<{ avatar_url: string | null }>(`fos:profile-avatar:${user.id}`) ?? undefined)
+      : undefined,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("avatar_url").eq("id", user!.id).maybeSingle();
+      if (user?.id) pcSet(`fos:profile-avatar:${user.id}`, data ?? { avatar_url: null }, 24 * 60 * 60_000);
       return data;
     },
   });
