@@ -20,6 +20,7 @@ import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/utils";
+import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
 
 export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
@@ -245,9 +246,9 @@ function AgendaPage() {
           <p className="mt-1.5 text-[15px] text-muted-foreground capitalize">{headerLabel}</p>
         </div>
         <div className="shrink-0">
-          <Button disabled={supportMode} onClick={() => openNewSlot(ymd(anchor))}>
+          <SupportGuardButton supportMode={supportMode} onClick={() => openNewSlot(ymd(anchor))} tooltip="Modo Suporte ativo — novo agendamento bloqueado">
             <Plus className="h-4 w-4 mr-2" />Novo agendamento
-          </Button>
+          </SupportGuardButton>
           <NewAppointmentDialog
             open={open}
             setOpen={(o: boolean) => { setOpen(o); if (!o) setSlotPrefill(null); }}
@@ -379,14 +380,18 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }:
           {hours.map((h) => (
             <li key={h} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 min-h-[56px]">
               <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2,"0")}:00</div>
-              <button
-                type="button"
-                disabled={disabled}
+              <SupportGuardClickable
+                supportMode={disabled}
                 onClick={() => onSlotClick(h)}
-                className="rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
+                tooltip="Horário vazio bloqueado no Modo Suporte"
               >
-                {disabled ? "—" : "+ Novo agendamento"}
-              </button>
+                <button
+                  type="button"
+                  className="w-full rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {disabled ? "—" : "+ Novo agendamento"}
+                </button>
+              </SupportGuardClickable>
             </li>
           ))}
         </ul>
@@ -404,15 +409,19 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }:
               <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2, "0")}:00</div>
               <div className="space-y-2">
                 {slot.length === 0 ? (
-                  <button
-                    type="button"
-                    disabled={disabled}
+                  <SupportGuardClickable
+                    supportMode={disabled}
                     onClick={() => onSlotClick(h)}
-                    className="w-full h-10 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                    tooltip="Horário vazio bloqueado no Modo Suporte"
                   >
-                    + Novo agendamento
-                  </button>
+                    <button
+                      type="button"
+                      className="w-full h-10 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                    >
+                      + Novo agendamento
+                    </button>
+                  </SupportGuardClickable>
                 ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
               </div>
             </li>
@@ -452,11 +461,35 @@ function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: 
             <Link to="/app/pacientes/$id" params={{ id: a.patient_id }}><UserCircle2 className="h-4 w-4 mr-2" /> Ver paciente</Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem disabled={disabled} onClick={() => onEdit(a)}><Pencil className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onEdit(a); }}
+          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          <Pencil className="h-4 w-4 mr-2" /> Editar
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "confirmado")}>Marcar como Confirmado</DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "realizado")}><CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado</DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onClick={() => onStatus(a.id, "cancelado")} className="text-rose-600"><XCircle className="h-4 w-4 mr-2" /> Cancelar</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "confirmado"); }}
+          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          Marcar como Confirmado
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "realizado"); }}
+          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "cancelado"); }}
+          className={cn("cursor-pointer text-rose-600", disabled && "opacity-50 cursor-not-allowed")}
+          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+        >
+          <XCircle className="h-4 w-4 mr-2" /> Cancelar
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -17,6 +17,7 @@ import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
 import { downloadPdf, previewPdf, printPdf } from "@/lib/pdf";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { SupportGuardButton } from "@/components/support-guard";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
   component: FinanceiroPage,
@@ -176,9 +177,9 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
   return (
     <>
       <div className="flex justify-end">
-        <Button disabled={supportMode} onClick={() => setOpen(true)}>
+        <SupportGuardButton supportMode={supportMode} onClick={() => setOpen(true)} tooltip="Novo lançamento bloqueado no Modo Suporte">
           <Plus className="h-4 w-4 mr-2" />Novo lançamento
-        </Button>
+        </SupportGuardButton>
         <NewEntryDialog open={open} setOpen={setOpen} create={create} patients={patients.data ?? []} profs={profs.data ?? []} disabled={supportMode} />
       </div>
 
@@ -209,8 +210,14 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
                 <td className="px-4 py-2"><span className={"text-xs rounded-full px-2 py-0.5 " + (e.status === "pago" ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground")}>{e.status}</span></td>
                 <td className="px-4 py-2 text-right">
                   <div className="inline-flex gap-1">
-                    {e.status === "pendente" && <Button size="sm" variant="outline" disabled={supportMode} onClick={() => markPaid.mutate(e.id)}><Check className="h-3 w-3 mr-1" />Pago</Button>}
-                    <Button size="sm" variant="outline" disabled={supportMode} onClick={() => emitReceipt(e)}><FileDown className="h-3 w-3 mr-1" />Recibo</Button>
+                    {e.status === "pendente" && (
+                      <SupportGuardButton size="sm" variant="outline" supportMode={supportMode} onClick={() => markPaid.mutate(e.id)} tooltip="Marcar como pago bloqueado no Modo Suporte">
+                        <Check className="h-3 w-3 mr-1" />Pago
+                      </SupportGuardButton>
+                    )}
+                    <SupportGuardButton size="sm" variant="outline" supportMode={supportMode} onClick={() => emitReceipt(e)} tooltip="Emitir recibo bloqueado no Modo Suporte">
+                        <FileDown className="h-3 w-3 mr-1" />Recibo
+                      </SupportGuardButton>
                   </div>
                 </td>
               </tr>
@@ -395,9 +402,9 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   return (
     <>
       <div className="flex justify-end">
-        <Button disabled={supportMode} onClick={() => setOpen(true)}>
+        <SupportGuardButton supportMode={supportMode} onClick={() => setOpen(true)} tooltip="Novo recibo bloqueado no Modo Suporte">
           <Plus className="h-4 w-4 mr-2" />Novo recibo
-        </Button>
+        </SupportGuardButton>
         <NewReceiptDialog
           open={open}
           setOpen={setOpen}
@@ -440,9 +447,9 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
                     <Button size="sm" variant="outline" onClick={() => reprint(r, "download")}><FileDown className="h-3 w-3 mr-1" />Baixar</Button>
                     <Button size="sm" variant="outline" onClick={() => reprint(r, "print")}><Printer className="h-3 w-3 mr-1" />Imprimir</Button>
                     {r.status !== "cancelado" && (
-                      <Button size="sm" variant="outline" disabled={supportMode} onClick={() => setCancelOf(r)} className="text-rose-600 hover:text-rose-700">
+                      <SupportGuardButton size="sm" variant="outline" supportMode={supportMode} onClick={() => setCancelOf(r)} tooltip="Cancelar recibo bloqueado no Modo Suporte" className="text-rose-600 hover:text-rose-700">
                         <XCircle className="h-3 w-3 mr-1" />Cancelar
-                      </Button>
+                      </SupportGuardButton>
                     )}
                   </div>
                 </td>
