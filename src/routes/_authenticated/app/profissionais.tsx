@@ -129,21 +129,49 @@ function ProfPage() {
   const update = useMutation({
     mutationFn: async ({ id, values }: { id: string; values: Form }) => {
       if (!activeClinicId) throw new Error("Clínica ativa não identificada");
-      const payload: any = { ...values };
-      // profile_id may be null (desvincular)
-      const { error } = await supabase
+      // Whitelist somente colunas reais da tabela
+      const payload = {
+        nome: values.nome,
+        profissao: values.profissao,
+        conselho: values.conselho || null,
+        registro: values.registro || null,
+        especialidade: values.especialidade || null,
+        telefone: values.telefone || null,
+        email: values.email || null,
+        profile_id: values.profile_id ? values.profile_id : null,
+        situacao: values.situacao,
+        updated_at: new Date().toISOString(),
+      } satisfies Record<string, unknown>;
+      const { data, error } = await supabase
         .from("professionals")
         .update(payload)
         .eq("id", id)
-        .eq("clinic_id", activeClinicId);
-      if (error) throw error;
+        .eq("clinic_id", activeClinicId)
+        .select("id");
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("Este usuário já está vinculado a outro profissional desta clínica.");
+        }
+        if (error.code === "42501" || /permission|policy|RLS/i.test(error.message)) {
+          throw new Error("Você não tem permissão para editar profissionais desta clínica.");
+        }
+        throw new Error(error.message || "Falha ao salvar profissional.");
+      }
+      if (!data || data.length === 0) {
+        throw new Error(
+          "Nenhum registro foi atualizado. Verifique se você é owner/admin desta clínica e se não está em modo Suporte.",
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Profissional atualizado");
       setEditing(null);
       invalidate();
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => {
+      toast.error(e?.message ?? "Erro ao salvar profissional");
+      // Não fecha o modal — usuário pode corrigir e tentar novamente
+    },
   });
 
   return (
