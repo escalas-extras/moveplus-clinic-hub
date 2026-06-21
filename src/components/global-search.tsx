@@ -36,7 +36,7 @@ const TYPE_META: Record<Hit["type"], { label: string; icon: any }> = {
 };
 
 export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
-  const { clinicId, loading: clinicLoading } = useActiveClinic();
+  const { clinicId, supportMode, loading: clinicLoading } = useActiveClinic();
   const { isPlatformAdmin, isSuperAdmin } = usePlatformContext();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -56,19 +56,24 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   }, [open]);
 
   const term = debounced;
-  // Prioridade:
-  //  - Na rota do Painel SaaS, super_admin busca clínicas mesmo se houver suporte ativo.
-  //  - Existe clínica ativa fora do Painel SaaS → busca dentro da clínica.
-  //  - Super admin sem clínica ativa → busca clínicas no Painel SaaS.
-  //  - Sem clínica e sem super_admin → sem contexto.
+  // Resolução do modo de busca (arquitetura multi-tenant — qualquer clínica):
+  //  1) Modo Suporte ativo → SEMPRE busca dentro da clínica suportada,
+  //     mesmo se a rota for /app/admin-saas. Super_admin em suporte NÃO
+  //     pode buscar outras clínicas da plataforma.
+  //  2) Rota do Painel SaaS + super_admin (sem suporte) → busca clínicas.
+  //  3) Clínica ativa → busca dentro da clínica.
+  //  4) Super_admin sem clínica e sem suporte → busca clínicas.
+  //  5) Caso contrário → sem contexto.
   const isSaasRoute = location.pathname.startsWith("/app/admin-saas");
-  const mode: "platform" | "clinic" | "none" = isSaasRoute && isSuperAdmin
-    ? "platform"
-    : clinicId
-      ? "clinic"
-      : isPlatformAdmin
-        ? "platform"
-        : "none";
+  const mode: "platform" | "clinic" | "none" = supportMode && clinicId
+    ? "clinic"
+    : isSaasRoute && isSuperAdmin
+      ? "platform"
+      : clinicId
+        ? "clinic"
+        : isPlatformAdmin
+          ? "platform"
+          : "none";
   const canSearch = mode !== "none" && term.length >= 2;
 
   const { data: hits = [], isFetching } = useQuery<Hit[]>({
@@ -237,7 +242,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
           {noContext ? (
             <EmptyMsg text="A busca global está disponível dentro de uma clínica ou no Painel SaaS." />
           ) : !canSearch ? (
-            <EmptyMsg text="Digite ao menos 2 caracteres para pesquisar." />
+            <EmptyMsg text={mode === "platform" ? "Busque por clínicas cadastradas." : "Digite ao menos 2 caracteres para pesquisar."} />
           ) : isFetching ? (
             <EmptyMsg text="Buscando…" />
           ) : hits.length === 0 ? (
