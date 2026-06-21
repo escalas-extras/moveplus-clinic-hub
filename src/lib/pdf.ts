@@ -201,6 +201,12 @@ export async function buildPdf(opts: {
   doc.line(M, y, W - M, y);
   y += 14;
 
+  // Reserva inferior de assinatura — precisa ser conhecida antes do loop de blocos
+  // para que o ensure do bloco evite encavalar conteúdo com o bloco de assinatura
+  // (e, no contrato, evite a página de continuação com 1 linha órfã).
+  const isContract = /contrato/i.test(opts.title || "");
+  const SIG_BLOCK_H = isContract ? 360 : 185;
+
   // Page-break helper (replaceable per-block to close borders properly)
   let pageY = y;
   let ensure: (need: number) => void = (need: number) => {
