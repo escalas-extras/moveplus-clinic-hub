@@ -306,11 +306,6 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
 
 // ---------- Composition (two-phase) ----------
 
-type Page = {
-  atoms: Atom[];
-  blockSegments: Array<{ blockId: number; startIdx: number; endIdx: number; isContinuation: boolean }>;
-  contentH: number;
-};
 
 type Page = {
   atoms: Atom[];
