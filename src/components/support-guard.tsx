@@ -34,6 +34,7 @@ export function SupportGuardButton({
       <TooltipTrigger asChild>
         <span
           tabIndex={0}
+          data-support-blocked="handled"
           className="inline-flex cursor-not-allowed rounded-md"
           onClick={() => toast.error(toastMessage || DEFAULT_TOAST)}
           onKeyDown={(e) => {
@@ -43,7 +44,7 @@ export function SupportGuardButton({
             }
           }}
         >
-          <Button {...props} disabled aria-disabled="true">
+          <Button {...props} disabled aria-disabled="true" data-support-blocked="handled">
             {children}
           </Button>
         </span>
