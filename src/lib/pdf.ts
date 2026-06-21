@@ -205,12 +205,15 @@ export async function buildPdf(opts: {
   // para que o ensure do bloco evite encavalar conteúdo com o bloco de assinatura
   // (e, no contrato, evite a página de continuação com 1 linha órfã).
   const isContract = /contrato/i.test(opts.title || "");
-  const SIG_BLOCK_H = isContract ? 360 : 185;
+  const SIG_BLOCK_H = isContract ? 220 : 185;
 
-  // Page-break helper (replaceable per-block to close borders properly)
+  // Page-break helper (replaceable per-block to close borders properly).
+  // getBottom() exposes o limite inferior corrente para que o renderer
+  // de parágrafo possa calcular espaço restante (controle de viúvas/órfãs).
   let pageY = y;
+  let getBottom: () => number = () => H - 80;
   let ensure: (need: number) => void = (need: number) => {
-    if (y + need > H - 80) {
+    if (y + need > getBottom()) {
       doc.addPage();
       y = M + 8;
       pageY = y;
@@ -265,6 +268,8 @@ export async function buildPdf(opts: {
     // Block-scoped ensure: closes the current segment border AND repeats the title
     // on the new page so continuation content stays inside a visible card.
     const prevEnsure = ensure;
+    const prevGetBottom = getBottom;
+    getBottom = () => bottomLimit;
     ensure = (need: number) => {
       if (y + need > bottomLimit) {
         // close current segment border
@@ -294,6 +299,7 @@ export async function buildPdf(opts: {
     doc.rect(M, segStartY, contentW, y - segStartY, "S");
 
     ensure = prevEnsure;
+    getBottom = prevGetBottom;
     y += 10;
   }
 
@@ -343,10 +349,43 @@ export async function buildPdf(opts: {
       doc.setFontSize(9.5);
       doc.setTextColor(...C.text);
       const lines = doc.splitTextToSize(ch.text || "—", contentW - 20);
-      for (const ln of lines) {
-        ensure(12);
-        doc.text(ln, M + 10, y);
-        y += 12;
+      const lineH = 12;
+      const MIN_KEEP = 4; // controle de viúvas/órfãs: mínimo de linhas juntas
+
+      // Calcula quantas linhas cabem antes do limite inferior atual
+      const avail = Math.max(0, getBottom() - y);
+      const linesFit = Math.floor(avail / lineH);
+      let firstChunk = lines.length;
+
+      if (linesFit < lines.length) {
+        // precisará quebrar — decide o ponto evitando órfãs e viúvas
+        const remainIfFitAll = lines.length - linesFit;
+        if (remainIfFitAll < MIN_KEEP) {
+          // empurrar linhas para garantir >= MIN_KEEP na próxima página
+          firstChunk = Math.max(0, lines.length - MIN_KEEP);
+        } else {
+          firstChunk = linesFit;
+        }
+        // evita órfã (< MIN_KEEP linhas no início): move o parágrafo inteiro
+        if (firstChunk > 0 && firstChunk < MIN_KEEP) firstChunk = 0;
+      }
+
+      for (let i = 0; i < firstChunk; i++) {
+        doc.text(lines[i], M + 10, y);
+        y += lineH;
+      }
+      if (firstChunk < lines.length) {
+        // força quebra
+        ensure(getBottom() - y + 1);
+        // reaplica estado tipográfico (drawBlockTitleBar já restaura, mas defensivo)
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(...C.text);
+        for (let i = firstChunk; i < lines.length; i++) {
+          ensure(lineH);
+          doc.text(lines[i], M + 10, y);
+          y += lineH;
+        }
       }
       return;
     }
@@ -662,33 +701,42 @@ export async function buildPdf(opts: {
 
       if (isContract) {
         const colW = (W - 2 * M) / 2;
-        const sigW = 200;
-        const rowGap = 78;
+        const sigW = 220;
+        const rowGap = 92;
         let by = sigBlockTop + 56;
 
-        // Linha 1: Contratante | Contratada
+        // Linha 1: Contratante | Contratada (identificação consolidada do profissional)
         drawSignatureBlock(M + colW / 2, by, sigW, {
           role: "Contratante",
           placeholderName: "Nome: __________________",
           placeholderId: "CPF: __________________",
         });
-        drawSignatureBlock(M + colW + colW / 2, by, sigW, {
-          name: c.razao_social || c.nome_fantasia || null,
-          role: "Contratada",
-          registry: c.cnpj ? `CNPJ: ${c.cnpj}` : undefined,
-          placeholderId: c.cnpj ? undefined : "CNPJ: __________________",
-        });
+        {
+          const cx = M + colW + colW / 2;
+          const sigX = cx - sigW / 2;
+          doc.setDrawColor(...C.text);
+          doc.setLineWidth(0.6);
+          doc.line(sigX, by, sigX + sigW, by);
 
-        // Linha 2: Profissional responsável (centralizado)
-        by += rowGap;
-        drawSignatureBlock(W / 2, by, sigW + 60, {
-          name: profNome,
-          role,
-          registry: registry ?? undefined,
-          placeholderName: profNome ? undefined : "Profissional responsável",
-        });
+          let ly = by + 12;
+          const writeLine = (txt: string, bold = false, size = 9, color: [number, number, number] = C.text) => {
+            if (!txt) return;
+            doc.setFont("helvetica", bold ? "bold" : "normal");
+            doc.setFontSize(size);
+            doc.setTextColor(...color);
+            doc.text(txt, cx, ly, { align: "center" });
+            ly += size + 1.5;
+          };
+          writeLine("CONTRATADA", true, 8, C.label);
+          if (profNome) writeLine(profNome, true, 10);
+          writeLine(role || "Fisioterapeuta", false, 9);
+          if (registry) writeLine(registry, true, 9);
+          const razao = (c.razao_social || c.nome_fantasia || "").trim();
+          if (razao) writeLine(razao, false, 8.5, C.muted);
+          if (c.cnpj) writeLine(`CNPJ: ${c.cnpj}`, false, 8.5, C.muted);
+        }
 
-        // Linha 3: Testemunhas
+        // Linha 2: Testemunhas
         by += rowGap;
         drawSignatureBlock(M + colW / 2, by, sigW, {
           role: "Testemunha 1",
