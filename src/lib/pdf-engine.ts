@@ -949,7 +949,7 @@ function drawProfessionalSignature(
 ) {
   const cx = W / 2;
   const sigY = startY + 38;
-  drawSigCol(doc, cx, sigY, 280, {
+  drawSigCol(doc, cx, sigY, 280, 0, {
     label: profRole.toUpperCase(),
     lines: [
       profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
