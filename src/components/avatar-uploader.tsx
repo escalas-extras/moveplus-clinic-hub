@@ -31,6 +31,10 @@ export function AvatarUploader({
     queryKey: ["avatar-preview", userId, path],
     queryFn: () => signedAvatarUrl(path),
     enabled: !!path,
+    staleTime: 50 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   async function persist(newPath: string | null) {
@@ -144,10 +148,14 @@ export function UserAvatar({
   className?: string;
 }) {
   const [broken, setBroken] = useState(false);
-  const { data: url } = useQuery({
+  const { data: url, isLoading } = useQuery({
     queryKey: ["avatar-preview", userId, avatarPath],
     queryFn: () => signedAvatarUrl(avatarPath ?? null),
     enabled: !!avatarPath,
+    staleTime: 50 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
   useEffect(() => setBroken(false), [avatarPath]);
   const initial = (name || "U").trim().charAt(0).toUpperCase();
@@ -156,13 +164,32 @@ export function UserAvatar({
     height: size,
     background: gradient,
   };
+  // Enquanto a signed URL ainda está sendo gerada e existe um avatarPath,
+  // mostramos um placeholder neutro (mesmo footprint) para evitar flash do
+  // monograma ao trocar de rota.
+  if (avatarPath && isLoading && !url) {
+    return (
+      <div
+        className={["rounded-full bg-muted shrink-0", className || ""].join(" ")}
+        style={{ width: size, height: size }}
+        aria-hidden="true"
+      />
+    );
+  }
   if (url && !broken) {
     return (
       <div
         className={["rounded-full overflow-hidden shrink-0 bg-muted", className || ""].join(" ")}
         style={{ width: size, height: size }}
       >
-        <img src={url} alt={name} className="w-full h-full object-cover" onError={() => setBroken(true)} />
+        <img
+          src={url}
+          alt={name}
+          className="w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
       </div>
     );
   }
