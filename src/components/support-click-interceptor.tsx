@@ -85,10 +85,10 @@ export function SupportClickInterceptor() {
     if (!supportMode) return;
 
     function annotate() {
-      const buttons = document.querySelectorAll<HTMLElement>(
-        "button:not([data-support-checked])",
+      const els = document.querySelectorAll<HTMLElement>(
+        "button:not([data-support-checked]), a:not([data-support-checked])",
       );
-      buttons.forEach((b) => {
+      els.forEach((b) => {
         b.setAttribute("data-support-checked", "1");
         if (shouldBlock(b)) {
           b.setAttribute("data-support-blocked-auto", "1");
@@ -106,9 +106,9 @@ export function SupportClickInterceptor() {
     function onClickCapture(e: MouseEvent) {
       const target = e.target as HTMLElement | null;
       if (!target) return;
-      const btn = target.closest("button") as HTMLElement | null;
-      if (!btn) return;
-      if (btn.getAttribute("data-support-blocked-auto") === "1") {
+      const el = target.closest("button, a") as HTMLElement | null;
+      if (!el) return;
+      if (el.getAttribute("data-support-blocked-auto") === "1") {
         e.preventDefault();
         e.stopPropagation();
         toast.error(TOAST);
