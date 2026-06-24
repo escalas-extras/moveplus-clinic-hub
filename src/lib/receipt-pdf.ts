@@ -399,8 +399,10 @@ export async function buildReceiptPdf(data: ReceiptPdfData): Promise<jsPDF> {
   // Carimbo "CANCELADO"
   if (data.cancelled) {
     doc.saveGraphicsState();
-    // @ts-expect-error jspdf supports setGState
-    doc.setGState(new (doc as any).GState({ opacity: 0.18 }));
+    const anyDoc = doc as any;
+    if (typeof anyDoc.GState === "function" && typeof anyDoc.setGState === "function") {
+      anyDoc.setGState(new anyDoc.GState({ opacity: 0.18 }));
+    }
     doc.setTextColor(200, 30, 30);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(96);
