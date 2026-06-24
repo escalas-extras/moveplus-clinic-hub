@@ -3,7 +3,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(
-  ({ className, style, onInput, value, defaultValue, ...props }, ref) => {
+  ({ className, onInput, onChange, ...props }, ref) => {
     const innerRef = React.useRef<HTMLTextAreaElement | null>(null);
 
     const setRefs = React.useCallback(
@@ -22,16 +22,37 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"tex
       el.style.height = `${el.scrollHeight}px`;
     }, []);
 
+    // Resize on every render (covers controlled value updates, RHF resets, etc.)
     React.useLayoutEffect(() => {
       resize();
-    }, [resize, value, defaultValue]);
+    });
 
+    // Resize when the element changes size (e.g. becomes visible inside a tab/dialog,
+    // viewport resizes, fonts load).
     React.useEffect(() => {
       const el = innerRef.current;
-      if (!el || typeof ResizeObserver === "undefined") return;
-      const ro = new ResizeObserver(() => resize());
-      ro.observe(el);
-      return () => ro.disconnect();
+      if (!el) return;
+      // Initial pass after mount in case layout wasn't ready yet.
+      const raf = requestAnimationFrame(resize);
+
+      let ro: ResizeObserver | undefined;
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(() => resize());
+        if (el.parentElement) ro.observe(el.parentElement);
+      }
+
+      // Catch programmatic value changes that don't go through React (rare, but RHF
+      // sometimes sets the input value via the ref).
+      const mo = new MutationObserver(() => resize());
+      mo.observe(el, { attributes: true, attributeFilter: ["value"] });
+
+      window.addEventListener("resize", resize);
+      return () => {
+        cancelAnimationFrame(raf);
+        ro?.disconnect();
+        mo.disconnect();
+        window.removeEventListener("resize", resize);
+      };
     }, [resize]);
 
     return (
@@ -42,12 +63,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"tex
           className,
         )}
         ref={setRefs}
-        style={style}
-        value={value}
-        defaultValue={defaultValue}
         onInput={(e) => {
           resize();
           onInput?.(e);
+        }}
+        onChange={(e) => {
+          resize();
+          onChange?.(e);
         }}
         {...props}
       />
