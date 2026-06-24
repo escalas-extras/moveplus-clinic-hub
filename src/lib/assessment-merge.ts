@@ -4,6 +4,8 @@ type MergeOptions = {
   source: AssessmentMergeSource;
 };
 
+type AssessmentRecord = Record<string, unknown>;
+
 const FORM_CLEARABLE_FIELDS = new Set([
   "antecedentes_familiares",
   "antecedentes_pessoais",
@@ -76,13 +78,20 @@ function cloneValue<T>(value: T): T {
   return value;
 }
 
-function mergeValue(existing: unknown, incoming: unknown, opts: MergeOptions, path: string[]): unknown {
+function mergeValue(
+  existing: unknown,
+  incoming: unknown,
+  opts: MergeOptions,
+  path: string[],
+): unknown {
   if (incoming === undefined) return cloneValue(existing);
 
   if (Array.isArray(incoming)) {
     if (opts.source === "wizard") return cloneValue(existing);
     const field = path[0];
-    if (FORM_ARRAY_FIELDS.has(field) || CLINICAL_JSON_FIELDS.has(field)) return cloneValue(incoming);
+    if (FORM_ARRAY_FIELDS.has(field) || CLINICAL_JSON_FIELDS.has(field)) {
+      return cloneValue(incoming);
+    }
     return cloneValue(incoming);
   }
 
@@ -105,13 +114,13 @@ function mergeValue(existing: unknown, incoming: unknown, opts: MergeOptions, pa
   return incoming;
 }
 
-export function mergeAssessmentUpdate<T extends Record<string, any>>(
+export function mergeAssessmentUpdate<T extends AssessmentRecord>(
   existing: T | null | undefined,
-  patch: Record<string, any>,
+  patch: AssessmentRecord,
   opts: MergeOptions,
-): Record<string, any> {
+): AssessmentRecord {
   const base = existing ?? {};
-  const merged: Record<string, any> = { ...base };
+  const merged: AssessmentRecord = { ...base };
 
   for (const [key, value] of Object.entries(patch)) {
     merged[key] = mergeValue(base[key], value, opts, [key]);
@@ -125,20 +134,21 @@ function stableJson(value: unknown) {
 }
 
 export function buildAssessmentAuditDetails(args: {
-  existing?: Record<string, any> | null;
-  merged: Record<string, any>;
-  patch: Record<string, any>;
+  existing?: AssessmentRecord | null;
+  merged: AssessmentRecord;
+  patch: AssessmentRecord;
   source: AssessmentMergeSource;
   finalize: boolean;
 }) {
-  const changedFields = Object.keys(args.patch).filter((key) => (
-    stableJson(args.existing?.[key]) !== stableJson(args.merged[key])
-  ));
+  const changedFields = Object.keys(args.patch).filter(
+    (key) => stableJson(args.existing?.[key]) !== stableJson(args.merged[key]),
+  );
 
-  const preservedFields = Object.keys(args.patch).filter((key) => (
-    stableJson(args.existing?.[key]) === stableJson(args.merged[key])
-    && stableJson(args.patch[key]) !== stableJson(args.existing?.[key])
-  ));
+  const preservedFields = Object.keys(args.patch).filter(
+    (key) =>
+      stableJson(args.existing?.[key]) === stableJson(args.merged[key]) &&
+      stableJson(args.patch[key]) !== stableJson(args.existing?.[key]),
+  );
 
   return {
     source: args.source,
