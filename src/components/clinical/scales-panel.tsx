@@ -98,10 +98,10 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_scales").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
-        scale_type: scaleType, items,
+        scale_type: scaleType as any, items,
         total_score: result.total, classification: result.classification, risk_level: result.risk,
         notes: notes || null, created_by: u.user?.id,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Escala registrada"); onDone(); },
