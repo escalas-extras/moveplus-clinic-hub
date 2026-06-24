@@ -164,11 +164,15 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
       numero: rec!.numero,
       patientName: entry.patients?.nome_completo,
       patientCpf: entry.patients?.cpf,
+      responsavelFinanceiro: entry.patients?.responsavel,
       description: payload.description,
+      serviceLabel: "atendimento fisioterapêutico",
       amount: entry.valor,
       payment_method: entry.forma_pagamento,
       payment_date: entry.data,
       issued_at: new Date().toISOString(),
+      professional: entry.professionals,
+      clinicId,
     }, "download");
     toast.success(`Recibo nº ${rec!.numero} emitido`);
     qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
