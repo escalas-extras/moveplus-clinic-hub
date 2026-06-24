@@ -444,7 +444,7 @@ async function main() {
     const file = resolve(OUT, `${f.name}.pdf`);
     writeFileSync(file, Buffer.from(ab));
     // eslint-disable-next-line no-console
-    console.log(`✓ ${file}`);
+    console.log(`[ok] ${file}`);
   }
 }
 

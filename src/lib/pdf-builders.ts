@@ -59,7 +59,7 @@ function buildGeriatricChildren(a: any): any[] {
   const sv = a.sinais_vitais || {};
   const svRows: Array<[string, string]> = [];
   const push = (k: string, v: any) => { if (v != null && String(v).trim() !== "") svRows.push([k, String(v)]); };
-  push("PA", sv.pa); push("FC", sv.fc); push("FR", sv.fr); push("PR", sv.pr); push("SpO₂", sv.spo2);
+  push("PA", sv.pa); push("FC", sv.fc); push("FR", sv.fr); push("PR", sv.pr); push("SpO2", sv.spo2);
   push("Ausculta", sv.ausculta); push("Tosse", sv.tosse); push("Secreção", sv.secrecao);
   push("Tônus", sv.tonus); push("Trofismo", sv.trofismo); push("Clônus", sv.clonus);
   push("Cintura (cm)", a.med_cintura); push("Quadril (cm)", a.med_quadril); push("ICQ", a.icq);
@@ -266,7 +266,7 @@ export function buildEvolutionPdfOpts(e: any, p: any) {
   pushSv("FC", svObj.fc ?? e.fc);
   pushSv("FR", svObj.fr ?? e.fr);
   pushSv("PR", svObj.pr);
-  pushSv("SpO₂", svObj.spo2 ?? e.spo2);
+  pushSv("SpO2", svObj.spo2 ?? e.spo2);
   pushSv("Ausculta", svObj.ausculta);
   pushSv("Tosse", svObj.tosse);
   pushSv("Secreção", svObj.secrecao);

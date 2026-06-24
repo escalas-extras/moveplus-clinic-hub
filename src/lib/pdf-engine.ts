@@ -492,7 +492,8 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
 
   // ----- Compose with progressive compaction -----
   const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
-  const topYRest = S.M + 28;
+  const compactHeaderH = 42;
+  const topYRest = S.M + compactHeaderH + 10;
   const bottomY = H - S.FOOTER_H - 16;
   const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
   const usableHRest = bottomY - topYRest;
@@ -551,7 +552,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   for (let pi = 0; pi < pages.length; pi++) {
     if (pi > 0) {
       doc.addPage();
-      // (header não se repete; rodapé sim — será desenhado depois para cada página)
+      drawCompactHeader(doc, opts, c, W, M, pi + 1);
     }
     renderPageContent(doc, pages[pi], pages[pi].topY, W, contentW, M);
   }
@@ -636,6 +637,32 @@ function drawHeader(doc: jsPDF, c: ClinicData, logo: string | null, W: number) {
   doc.setFontSize(metaSize);
   doc.setTextColor(...C.meta);
   lines.forEach((ln, i) => doc.text(ln, tx, startY + 6 + (i + 1) * lineH - lineH + 4));
+}
+
+function drawCompactHeader(doc: jsPDF, opts: BuildPdfOpts, c: ClinicData, W: number, M: number, pageNumber: number) {
+  const top = M - 14;
+  const clinicName = cleanText(c.nome_fantasia ?? "") || cleanText(c.razao_social ?? "") || "FisioOS";
+  const left = [clinicName, opts.title].filter(Boolean).join(" · ");
+  const patient = cleanText(opts.patientName ?? "");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...C.brand);
+  doc.text(left, M, top + 10);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.meta);
+  const right = [patient, `Página ${pageNumber}`].filter(Boolean).join(" · ");
+  doc.text(right, W - M, top + 10, { align: "right" });
+
+  if (opts.subtitle) {
+    doc.text(opts.subtitle, M, top + 22);
+  }
+
+  doc.setDrawColor(...C.hairline);
+  doc.setLineWidth(0.3);
+  doc.line(M, top + 30, W - M, top + 30);
 }
 
 function drawMonogram(doc: jsPDF, c: ClinicData, x: number, y: number, size: number) {
@@ -767,7 +794,7 @@ function renderPageContent(
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(...C.brand);
-          doc.text("✓", x + 1.6, y + 10.4);
+          doc.text("X", x + 2.2, y + 10.4);
         }
         doc.setFont("helvetica", "normal");
         doc.setFontSize(T.body);
