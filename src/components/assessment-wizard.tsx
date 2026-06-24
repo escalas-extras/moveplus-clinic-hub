@@ -23,6 +23,7 @@ import {
   type ClinicalProfile, type DiagnosisCatalogItem,
 } from "@/lib/clinical-profiles";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 
 const STEPS = [
   { key: "identificacao", label: "Identificação", icon: User },
