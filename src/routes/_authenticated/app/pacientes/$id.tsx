@@ -88,6 +88,29 @@ function PatientPage() {
     },
   });
 
+  async function loadAssessmentInstruments(assessmentId: string) {
+    const [scales, goniometry, mrc, goals] = await Promise.all([
+      supabase.from("assessment_scales").select("*").eq("assessment_id", assessmentId).order("applied_at", { ascending: false }),
+      supabase.from("assessment_goniometry").select("*").eq("assessment_id", assessmentId).order("applied_at", { ascending: false }),
+      supabase.from("assessment_mrc").select("*").eq("assessment_id", assessmentId).order("applied_at", { ascending: false }),
+      supabase.from("assessment_goals").select("*").eq("assessment_id", assessmentId).order("term").order("created_at", { ascending: false }),
+    ]);
+    for (const res of [scales, goniometry, mrc, goals]) {
+      if (res.error) throw res.error;
+    }
+    return {
+      scales: scales.data ?? [],
+      goniometry: goniometry.data ?? [],
+      mrc: mrc.data ?? [],
+      goals: goals.data ?? [],
+    };
+  }
+
+  async function buildAssessmentPdfWithInstruments(a: any) {
+    const instruments = await loadAssessmentInstruments(a.id);
+    return buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? [], instruments);
+  }
+
   const update = useMutation({
     mutationFn: async (input: any) => {
       const { error } = await supabase.from("patients").update(input).eq("clinic_id", clinicId!).eq("id", id);
@@ -121,6 +144,7 @@ function PatientPage() {
         .limit(1);
       if (sigErr) throw sigErr;
       if (!sigs?.length) throw new Error("Registre a assinatura do profissional responsável antes de finalizar.");
+      const pdfOpts = await buildAssessmentPdfWithInstruments(a);
       const { error } = await supabase
         .from("assessments")
         .update({ status: "finalizada", locked_at: new Date().toISOString() })
@@ -128,7 +152,7 @@ function PatientPage() {
         .eq("id", a.id);
       if (error) throw error;
       await uploadAndRegisterPdf({
-        pdfOpts: buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? []),
+        pdfOpts,
         folder: a.tipo === "reavaliacao" ? "reavaliacoes" : "avaliacoes",
         tipo: a.tipo === "reavaliacao" ? "reavaliacao" : "avaliacao",
         patientId: a.patient_id,
@@ -313,9 +337,18 @@ function PatientPage() {
                       <span className={`text-xs self-center px-2 py-0.5 rounded-full ${a.status === "finalizada" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {a.status === "finalizada" ? "Finalizada" : "Rascunho"}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => setPdfPreview(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
-                      <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try { setPdfPreview(await buildAssessmentPdfWithInstruments(a)); }
+                        catch (e: any) { toast.error(e.message); }
+                      }}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try { downloadPdf(await buildAssessmentPdfWithInstruments(a)); }
+                        catch (e: any) { toast.error(e.message); }
+                      }}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try { printPdf(await buildAssessmentPdfWithInstruments(a)); }
+                        catch (e: any) { toast.error(e.message); }
+                      }}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
 
                       {a.status !== "finalizada" && (
                         <Button size="sm" onClick={() => finalize.mutate(a)} disabled={finalize.isPending}>

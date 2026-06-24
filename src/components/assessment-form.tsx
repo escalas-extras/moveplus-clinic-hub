@@ -370,7 +370,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
     handleSubmit((v) => save.mutate({ v, finalize }))();
   };
 
-  const openPreview = () => {
+  const openPreview = async () => {
     const v = watch();
     const prof = profs.data?.find((p) => p.id === v.professional_id);
     const preview: any = {
@@ -393,7 +393,26 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
       professionals: prof,
       status: "rascunho",
     };
-    setPdfPreview(buildAssessmentPdfOpts(preview, patient, []));
+    let instruments = undefined;
+    const idForInstruments = savedAssessmentId ?? assessment?.id;
+    if (idForInstruments) {
+      const [scales, goniometry, mrc, goals] = await Promise.all([
+        supabase.from("assessment_scales").select("*").eq("assessment_id", idForInstruments).order("applied_at", { ascending: false }),
+        supabase.from("assessment_goniometry").select("*").eq("assessment_id", idForInstruments).order("applied_at", { ascending: false }),
+        supabase.from("assessment_mrc").select("*").eq("assessment_id", idForInstruments).order("applied_at", { ascending: false }),
+        supabase.from("assessment_goals").select("*").eq("assessment_id", idForInstruments).order("term").order("created_at", { ascending: false }),
+      ]);
+      for (const res of [scales, goniometry, mrc, goals]) {
+        if (res.error) throw res.error;
+      }
+      instruments = {
+        scales: scales.data ?? [],
+        goniometry: goniometry.data ?? [],
+        mrc: mrc.data ?? [],
+        goals: goals.data ?? [],
+      };
+    }
+    setPdfPreview(buildAssessmentPdfOpts(preview, patient, [], instruments));
   };
 
   return (
@@ -830,7 +849,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           </p>
         )}
         <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={openPreview} className="flex-1 sm:flex-none">
+          <Button type="button" variant="outline" onClick={() => openPreview().catch((e: any) => toast.error(e.message))} className="flex-1 sm:flex-none">
             <Eye className="h-4 w-4 mr-1" />Pré-visualizar
           </Button>
           <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">
