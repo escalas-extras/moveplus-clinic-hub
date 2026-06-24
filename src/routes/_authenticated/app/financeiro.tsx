@@ -596,57 +596,14 @@ function CancelReceiptDialog({ receipt, onClose, onConfirm, pending }: { receipt
 }
 
 /* ───────────────────────── PDF ───────────────────────── */
+// Template White Label dinâmico — vide src/lib/receipt-pdf.ts
 
-const PAYMENT_LABEL: Record<string, string> = {
-  pix: "PIX",
-  dinheiro: "Dinheiro",
-  cartao: "Cartão",
-  transferencia: "Transferência",
-};
-
-async function renderReceiptPdf(opts: {
-  numero: number;
-  patientName?: string | null;
-  patientCpf?: string | null;
-  description: string;
-  amount: number;
-  payment_method: string;
-  payment_date: string;
-  issued_at: string;
-  cancelled?: boolean;
-  cancellation_reason?: string | null;
-}, mode: "preview" | "download" | "print" = "download") {
-  const sections: any[] = [
-    {
-      title: `Recibo nº ${opts.numero}`,
-      body: [
-        `Recebi(emos) de ${opts.patientName ?? "—"}${opts.patientCpf ? ` (CPF ${opts.patientCpf})` : ""}`,
-        `a importância de ${brl(opts.amount)} (${PAYMENT_LABEL[opts.payment_method] ?? opts.payment_method})`,
-        `referente a: ${opts.description}`,
-        ``,
-        `Data do pagamento: ${fmtDate(opts.payment_date)}`,
-        `Data de emissão: ${fmtDate(opts.issued_at.slice(0, 10))}`,
-      ].join("\n"),
-    },
-    {
-      title: "Declaração",
-      body: `Para clareza e devida quitação, firma-se o presente recibo no valor de ${brl(opts.amount)}.`,
-    },
-  ];
-  if (opts.cancelled) {
-    sections.push({
-      title: "⚠️ RECIBO CANCELADO",
-      body: opts.cancellation_reason ? `Motivo: ${opts.cancellation_reason}` : "Este recibo foi cancelado e não possui validade fiscal.",
-    });
-  }
-
-  const pdfOpts = {
-    title: `Recibo nº ${opts.numero}`,
-    patientName: opts.patientName ?? undefined,
-    sections,
-    hideSignature: true,
-  } as any;
-  if (mode === "preview") await previewPdf(pdfOpts);
-  else if (mode === "print") await printPdf(pdfOpts);
-  else await downloadPdf(pdfOpts);
+async function renderReceiptPdf(
+  opts: ReceiptPdfData,
+  mode: "preview" | "download" | "print" = "download",
+) {
+  if (mode === "preview") await previewReceiptPdf(opts);
+  else if (mode === "print") await printReceiptPdf(opts);
+  else await downloadReceiptPdf(opts);
 }
+
