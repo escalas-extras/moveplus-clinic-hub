@@ -15,7 +15,7 @@ import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye } from "lucide-re
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
-import { downloadPdf, previewPdf, printPdf } from "@/lib/pdf";
+import { downloadReceiptPdf, previewReceiptPdf, printReceiptPdf, type ReceiptPdfData } from "@/lib/receipt-pdf";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
 
@@ -164,11 +164,15 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
       numero: rec!.numero,
       patientName: entry.patients?.nome_completo,
       patientCpf: entry.patients?.cpf,
+      responsavelFinanceiro: entry.patients?.responsavel,
       description: payload.description,
+      serviceLabel: "atendimento fisioterapêutico",
       amount: entry.valor,
       payment_method: entry.forma_pagamento,
       payment_date: entry.data,
       issued_at: new Date().toISOString(),
+      professional: entry.professionals,
+      clinicId,
     }, "download");
     toast.success(`Recibo nº ${rec!.numero} emitido`);
     qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
@@ -313,7 +317,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
     queryFn: async () => {
       const { data, error } = await supabase
         .from("receipts")
-        .select("id, numero, data, valor, forma_pagamento, description, status, cancelled_at, cancellation_reason, created_at, patient_id, financial_entry_id, patients(nome_completo, cpf)")
+        .select("id, numero, data, valor, forma_pagamento, description, status, cancelled_at, cancellation_reason, created_at, patient_id, professional_id, financial_entry_id, patients(nome_completo, cpf, responsavel), professionals(nome, profissao, conselho, registro)")
         .eq("clinic_id", clinicId!)
         .order("numero", { ascending: false })
         .limit(200);
@@ -325,7 +329,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   const patients = useQuery({
     queryKey: ["patients-all", clinicId],
     enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("patients").select("id, nome_completo, cpf").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
+    queryFn: async () => (await supabase.from("patients").select("id, nome_completo, cpf, responsavel").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
   });
 
   const create = useMutation({
@@ -356,11 +360,14 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
         numero,
         patientName: pat?.nome_completo,
         patientCpf: pat?.cpf,
+        responsavelFinanceiro: pat?.responsavel,
         description: v.description,
+        serviceLabel: v.description,
         amount: v.amount,
         payment_method: v.payment_method,
         payment_date: v.payment_date,
         issued_at: new Date().toISOString(),
+        clinicId,
       }, "download");
       qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
     },
@@ -389,15 +396,20 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
       numero: r.numero,
       patientName: r.patients?.nome_completo,
       patientCpf: r.patients?.cpf,
+      responsavelFinanceiro: r.patients?.responsavel,
       description: r.description ?? "Atendimento",
+      serviceLabel: r.description ?? "atendimento fisioterapêutico",
       amount: Number(r.valor),
       payment_method: r.forma_pagamento ?? "—",
       payment_date: r.data,
       issued_at: r.created_at,
+      professional: r.professionals,
       cancelled: r.status === "cancelado",
       cancellation_reason: r.cancellation_reason,
+      clinicId,
     }, mode);
   }
+
 
   return (
     <>
@@ -592,57 +604,14 @@ function CancelReceiptDialog({ receipt, onClose, onConfirm, pending }: { receipt
 }
 
 /* ───────────────────────── PDF ───────────────────────── */
+// Template White Label dinâmico — vide src/lib/receipt-pdf.ts
 
-const PAYMENT_LABEL: Record<string, string> = {
-  pix: "PIX",
-  dinheiro: "Dinheiro",
-  cartao: "Cartão",
-  transferencia: "Transferência",
-};
-
-async function renderReceiptPdf(opts: {
-  numero: number;
-  patientName?: string | null;
-  patientCpf?: string | null;
-  description: string;
-  amount: number;
-  payment_method: string;
-  payment_date: string;
-  issued_at: string;
-  cancelled?: boolean;
-  cancellation_reason?: string | null;
-}, mode: "preview" | "download" | "print" = "download") {
-  const sections: any[] = [
-    {
-      title: `Recibo nº ${opts.numero}`,
-      body: [
-        `Recebi(emos) de ${opts.patientName ?? "—"}${opts.patientCpf ? ` (CPF ${opts.patientCpf})` : ""}`,
-        `a importância de ${brl(opts.amount)} (${PAYMENT_LABEL[opts.payment_method] ?? opts.payment_method})`,
-        `referente a: ${opts.description}`,
-        ``,
-        `Data do pagamento: ${fmtDate(opts.payment_date)}`,
-        `Data de emissão: ${fmtDate(opts.issued_at.slice(0, 10))}`,
-      ].join("\n"),
-    },
-    {
-      title: "Declaração",
-      body: `Para clareza e devida quitação, firma-se o presente recibo no valor de ${brl(opts.amount)}.`,
-    },
-  ];
-  if (opts.cancelled) {
-    sections.push({
-      title: "⚠️ RECIBO CANCELADO",
-      body: opts.cancellation_reason ? `Motivo: ${opts.cancellation_reason}` : "Este recibo foi cancelado e não possui validade fiscal.",
-    });
-  }
-
-  const pdfOpts = {
-    title: `Recibo nº ${opts.numero}`,
-    patientName: opts.patientName ?? undefined,
-    sections,
-    hideSignature: true,
-  } as any;
-  if (mode === "preview") await previewPdf(pdfOpts);
-  else if (mode === "print") await printPdf(pdfOpts);
-  else await downloadPdf(pdfOpts);
+async function renderReceiptPdf(
+  opts: ReceiptPdfData,
+  mode: "preview" | "download" | "print" = "download",
+) {
+  if (mode === "preview") await previewReceiptPdf(opts);
+  else if (mode === "print") await printReceiptPdf(opts);
+  else await downloadReceiptPdf(opts);
 }
+
