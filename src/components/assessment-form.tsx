@@ -15,6 +15,7 @@ import { Eye } from "lucide-react";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildAssessmentPdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { buildAssessmentAuditDetails, mergeAssessmentUpdate } from "@/lib/assessment-merge";
 
 type ModuleType = "geral" | "traumato_ortopedica" | "neurologica" | "cardiorrespiratoria" | "postural" | "geriatrica" | "pediatrica" | "esportiva" | "rpg" | "pilates" | "dor_cronica" | "funcional" | "personalizada";
 
@@ -252,20 +253,53 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         nivel_consciencia: sinaisVitais.nivel_consciencia || null,
         observacoes_gerais: sinaisVitais.observacoes_gerais || null,
       };
+      let assessmentId = assessment?.id as string | undefined;
+      let auditDetails: Record<string, any> = {
+        source: "assessment-form",
+        finalize,
+        changed_fields: Object.keys(payload),
+        preserved_fields: [],
+      };
       if (isEdit) {
         if (finalize) {
           payload.status = "finalizada";
           payload.locked_at = new Date().toISOString();
         }
-        const { error } = await supabase.from("assessments").update(payload).eq("clinic_id", clinicId).eq("id", assessment.id);
+        const { data: current, error: loadErr } = await supabase
+          .from("assessments")
+          .select("*")
+          .eq("clinic_id", clinicId)
+          .eq("id", assessment.id)
+          .maybeSingle();
+        if (loadErr) throw loadErr;
+        if (!current) throw new Error("Avaliação não encontrada para atualização.");
+        const merged = mergeAssessmentUpdate(current, payload, { source: "form" });
+        auditDetails = buildAssessmentAuditDetails({
+          existing: current,
+          merged,
+          patch: payload,
+          source: "form",
+          finalize,
+        });
+        const { error } = await supabase.from("assessments").update(merged as any).eq("clinic_id", clinicId).eq("id", assessment.id);
         if (error) throw error;
       } else {
         payload.created_by = u.user?.id;
         payload.status = finalize ? "finalizada" : "rascunho";
         payload.locked_at = finalize ? new Date().toISOString() : null;
-        const { error } = await supabase.from("assessments").insert(payload).select("id").single();
+        const { data, error } = await supabase.from("assessments").insert(payload).select("id").single();
         if (error) throw error;
+        assessmentId = (data as any)?.id;
       }
+
+      await supabase.from("assessment_audit_log" as any).insert({
+        assessment_id: assessmentId ?? null,
+        patient_id: patientId,
+        user_id: u.user?.id,
+        action: finalize ? "finalize" : isEdit ? "update" : "create",
+        step: "assessment-form",
+        details: auditDetails,
+      });
     },
     onSuccess: (_d, vars) => {
       toast.success(isEdit ? "Avaliação atualizada" : vars.finalize ? "Avaliação finalizada" : "Rascunho salvo");

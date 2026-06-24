@@ -24,6 +24,7 @@ import {
 } from "@/lib/clinical-profiles";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
+import { buildAssessmentAuditDetails, mergeAssessmentUpdate } from "@/lib/assessment-merge";
 
 const STEPS = [
   { key: "identificacao", label: "Identificação", icon: User },
@@ -403,12 +404,41 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       };
 
       let id = assessment?.id as string | undefined;
+      let auditDetails: Record<string, any> = {
+        source: "assessment-wizard",
+        finalize,
+        changed_fields: Object.keys({ ...row, ...extras }),
+        preserved_fields: [],
+        profiles: v.clinical_profiles,
+        diagnoses: v.diagnosis_codes,
+      };
       if (isEdit) {
         if (finalize) {
           extras.status = "finalizada";
           extras.locked_at = new Date().toISOString();
         }
-        const { error } = await supabase.from("assessments").update({ ...row, ...extras } as any).eq("clinic_id", clinicId).eq("id", id!);
+        const patch = { ...row, ...extras };
+        const { data: current, error: loadErr } = await supabase
+          .from("assessments")
+          .select("*")
+          .eq("clinic_id", clinicId)
+          .eq("id", id!)
+          .maybeSingle();
+        if (loadErr) throw loadErr;
+        if (!current) throw new Error("Avaliação não encontrada para atualização.");
+        const merged = mergeAssessmentUpdate(current, patch, { source: "wizard" });
+        auditDetails = {
+          ...buildAssessmentAuditDetails({
+            existing: current,
+            merged,
+            patch,
+            source: "wizard",
+            finalize,
+          }),
+          profiles: v.clinical_profiles,
+          diagnoses: v.diagnosis_codes,
+        };
+        const { error } = await supabase.from("assessments").update(merged as any).eq("clinic_id", clinicId).eq("id", id!);
         if (error) throw error;
       } else {
         const insertRow: any = {
@@ -429,7 +459,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         user_id: u.user?.id,
         action: finalize ? "finalize" : isEdit ? "update" : "create",
         step: STEPS[stepIdx].key,
-        details: { profiles: v.clinical_profiles, diagnoses: v.diagnosis_codes },
+        details: auditDetails,
       });
 
       // limpa rascunho da nova avaliação

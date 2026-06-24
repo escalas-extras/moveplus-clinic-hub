@@ -12,7 +12,6 @@ import { calcAge, fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
-import { AssessmentWizard } from "@/components/assessment-wizard";
 import { toast } from "sonner";
 import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
 import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
@@ -40,7 +39,6 @@ function PatientPage() {
   const [avalOpen, setAvalOpen] = useState(false);
   const [linkedEvoFor, setLinkedEvoFor] = useState<string | null>(null);
   const [editAssessment, setEditAssessment] = useState<any | null>(null);
-  const [editMode, setEditMode] = useState<"wizard" | "classic">("wizard");
   const [pdfPreview, setPdfPreview] = useState<Parameters<typeof buildPdf>[0] | null>(null);
 
   const patient = useQuery({
@@ -266,31 +264,13 @@ function PatientPage() {
 
         <TabsContent value="avaliacoes">
           <div className="flex justify-end mb-3">
-            <Dialog open={avalOpen} onOpenChange={(o) => { setAvalOpen(o); if (o) setEditMode("wizard"); }}>
+            <Dialog open={avalOpen} onOpenChange={setAvalOpen}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova avaliação</Button></DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
-                    <span>Nova avaliação fisioterapêutica</span>
-                    <div className="flex gap-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setEditMode("wizard")}
-                        className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                      >Wizard</button>
-                      <button
-                        type="button"
-                        onClick={() => setEditMode("classic")}
-                        className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                      >Modo clássico</button>
-                    </div>
-                  </DialogTitle>
+                  <DialogTitle>Nova avaliação fisioterapêutica</DialogTitle>
                 </DialogHeader>
-                {editMode === "wizard" ? (
-                  <AssessmentWizard patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
-                ) : (
-                  <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
-                )}
+                <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
               </DialogContent>
             </Dialog>
           </div>
@@ -324,7 +304,7 @@ function PatientPage() {
                         </Button>
                       )}
                       {(isAdmin || a.status !== "finalizada") && (
-                        <Button size="sm" variant="outline" onClick={() => { setEditMode("wizard"); setEditAssessment(a); }}>
+                        <Button size="sm" variant="outline" onClick={() => setEditAssessment(a)}>
                           <Pencil className="h-4 w-4 mr-1" />Editar
                         </Button>
                       )}
@@ -402,36 +382,15 @@ function PatientPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
                   <span>Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · admin)" : ""}</span>
-                  <div className="flex gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setEditMode("wizard")}
-                      className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                    >Wizard</button>
-                    <button
-                      type="button"
-                      onClick={() => setEditMode("classic")}
-                      className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                    >Modo clássico</button>
-                  </div>
                 </DialogTitle>
               </DialogHeader>
               {editAssessment && (
-                editMode === "wizard" ? (
-                  <AssessmentWizard
-                    patientId={p.id}
-                    patient={p}
-                    assessment={editAssessment}
-                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
-                  />
-                ) : (
-                  <AssessmentForm
-                    patientId={p.id}
-                    patient={p}
-                    assessment={editAssessment}
-                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
-                  />
-                )
+                <AssessmentForm
+                  patientId={p.id}
+                  patient={p}
+                  assessment={editAssessment}
+                  onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
+                />
               )}
             </DialogContent>
           </Dialog>
