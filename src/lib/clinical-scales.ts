@@ -2,12 +2,21 @@
 // Each scale = items (with options/score) + classifier (total -> label + risk_level)
 
 export type RiskLevel = "baixo" | "moderado" | "alto" | "muito_alto";
-export type ScaleType = "barthel" | "katz" | "berg" | "tinetti" | "braden";
+export type ScaleType =
+  | "barthel" | "katz" | "berg" | "tinetti" | "braden"
+  | "gds15" | "meem" | "tug" | "ftsst" | "tc6m" | "alcance_funcional"
+  | "romberg" | "tandem" | "unipodal" | "preensao_palmar"
+  | "panturrilha" | "marcha_velocidade" | "sono_idoso" | "aga";
 
 export type ScaleItem = {
   key: string;
   label: string;
-  options: { value: number; label: string }[];
+  options?: { value: number; label: string }[];
+  kind?: "select" | "numeric";
+  unit?: string;
+  min?: number;
+  max?: number;
+  step?: number;
 };
 
 export type ScaleConfig = {
