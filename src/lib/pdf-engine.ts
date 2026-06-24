@@ -223,10 +223,20 @@ type Atom =
   | { kind: "label"; text: string; h: number; blockId: number }
   | { kind: "para-line"; line: string; h: number; blockId: number; splitMarker?: "first" | "mid" | "last" }
   | { kind: "grid-row"; cells: Array<[string, string]>; cols: 1 | 2; h: number; blockId: number }
+  | { kind: "grid-field-label"; text: string; h: number; blockId: number }
+  | { kind: "grid-field-line"; line: string; h: number; blockId: number }
+  | { kind: "field-gap"; h: number; blockId: number }
   | { kind: "highlight"; label: string; lines: string[]; h: number; blockId: number }
+  | { kind: "highlight-head"; label: string; h: number; blockId: number }
+  | { kind: "highlight-line"; line: string; h: number; blockId: number }
+  | { kind: "highlight-gap"; h: number; blockId: number }
   | { kind: "eva"; value: number | null; h: number; blockId: number }
   | { kind: "checks-row"; items: Array<{ label: string; checked: boolean }>; h: number; blockId: number }
   | { kind: "evolution"; item: EvolutionItem; lines: { label: string; text: string[] }[]; h: number; blockId: number }
+  | { kind: "evolution-head"; text: string; h: number; blockId: number }
+  | { kind: "evolution-label"; text: string; h: number; blockId: number }
+  | { kind: "evolution-line"; line: string; h: number; blockId: number }
+  | { kind: "evolution-gap"; h: number; blockId: number }
   | { kind: "block-gap"; h: number; blockId: number };
 
 type BlockGroup = { id: number; title: string; atoms: Atom[]; totalH: number };
@@ -280,6 +290,17 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
           v ? doc.splitTextToSize(v, colW - 8).length * S.LINE_H : 0,
         );
         const rowH = S.LABEL_H + Math.max(...cellH, S.LINE_H) + 6;
+        const shouldSplitRow = rowH > 140 || visibleCells.some(([, v]) => v && doc.splitTextToSize(v, innerW - 8).length > 6);
+        if (shouldSplitRow) {
+          for (const [label, value] of visibleCells) {
+            if (!value) continue;
+            atoms.push({ kind: "grid-field-label", text: label, h: S.LABEL_H, blockId: id });
+            const lines: string[] = doc.splitTextToSize(value, innerW - 8);
+            lines.forEach((line) => atoms.push({ kind: "grid-field-line", line, h: S.LINE_H, blockId: id }));
+            atoms.push({ kind: "field-gap", h: 6, blockId: id });
+          }
+          continue;
+        }
         atoms.push({ kind: "grid-row", cells: visibleCells, cols: cols as 1 | 2, h: rowH, blockId: id });
       }
       continue;
@@ -292,6 +313,12 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
       doc.setFontSize(T.body);
       const lines: string[] = doc.splitTextToSize(text, innerW - 20);
       const h = 14 + lines.length * S.LINE_H + 10;
+      if (h > 120) {
+        atoms.push({ kind: "highlight-head", label: ch.label, h: 24, blockId: id });
+        lines.forEach((line) => atoms.push({ kind: "highlight-line", line, h: S.LINE_H, blockId: id }));
+        atoms.push({ kind: "highlight-gap", h: 8, blockId: id });
+        continue;
+      }
       atoms.push({ kind: "highlight", label: ch.label, lines, h, blockId: id });
       continue;
     }
@@ -331,6 +358,16 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
         add("Próximos passos", e.proximos);
         const linesTotal = fields.reduce((s, f) => s + S.LABEL_H + f.text.length * S.LINE_H, 0);
         const h = 14 + linesTotal + 8;
+        if (h > 140) {
+          const head = `${e.index != null ? `#${e.index} — ` : ""}${e.data}${e.hora ? ` · ${e.hora}` : ""}`;
+          atoms.push({ kind: "evolution-head", text: head, h: S.LABEL_H + 6, blockId: id });
+          for (const f of fields) {
+            atoms.push({ kind: "evolution-label", text: f.label, h: S.LABEL_H, blockId: id });
+            f.text.forEach((line) => atoms.push({ kind: "evolution-line", line, h: S.LINE_H, blockId: id }));
+          }
+          atoms.push({ kind: "evolution-gap", h: 8, blockId: id });
+          continue;
+        }
         atoms.push({ kind: "evolution", item: e, lines: fields, h, blockId: id });
       }
       continue;
@@ -353,6 +390,13 @@ type Page = {
   contentH: number;
   topY: number;
 };
+
+function isBreakableLineAtom(atom: Atom): boolean {
+  return atom.kind === "para-line"
+    || atom.kind === "highlight-line"
+    || atom.kind === "evolution-line"
+    || atom.kind === "grid-field-line";
+}
 
 function compose(
   groups: BlockGroup[],
@@ -419,7 +463,7 @@ function compose(
       }
 
       // doesn't fit: need page break
-      if (atom.kind === "para-line") {
+      if (isBreakableLineAtom(atom)) {
         // line-by-line: just break here, push remaining lines onto next pages
         // Close current segment, push continuation title on next page
         cur.blockSegments.push({ blockId: g.id, startIdx: segStartIdx, endIdx: cur.atoms.length - 1, isContinuation });
@@ -759,6 +803,29 @@ function renderPageContent(
       continue;
     }
 
+    if (a.kind === "grid-field-label") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(T.label);
+      doc.setTextColor(...C.meta);
+      doc.text(a.text.toUpperCase(), M + S.PAD_X, y + 8);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "grid-field-line") {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.body);
+      doc.setTextColor(...C.ink);
+      doc.text(a.line, M + S.PAD_X, y + 10);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "field-gap") {
+      y += a.h;
+      continue;
+    }
+
     if (a.kind === "highlight") {
       doc.setFillColor(...C.highlightBg);
       doc.rect(M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.h, "F");
@@ -772,6 +839,37 @@ function renderPageContent(
       doc.setFontSize(T.body);
       doc.setTextColor(...C.ink);
       doc.text(a.lines, M + S.PAD_X + 10, y + 24);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "highlight-head") {
+      doc.setFillColor(...C.highlightBg);
+      doc.rect(M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.h, "F");
+      doc.setFillColor(...C.brand);
+      doc.rect(M + S.PAD_X, y, 3, a.h, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(T.label);
+      doc.setTextColor(...C.brand);
+      doc.text(a.label.toUpperCase(), M + S.PAD_X + 10, y + 14);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "highlight-line") {
+      doc.setFillColor(...C.highlightBg);
+      doc.rect(M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.h, "F");
+      doc.setFillColor(...C.brand);
+      doc.rect(M + S.PAD_X, y, 3, a.h, "F");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.body);
+      doc.setTextColor(...C.ink);
+      doc.text(a.line, M + S.PAD_X + 10, y + 10);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "highlight-gap") {
       y += a.h;
       continue;
     }
@@ -824,6 +922,38 @@ function renderPageContent(
         doc.text(f.text, M + S.PAD_X, ey + S.LABEL_H);
         ey += S.LABEL_H + f.text.length * S.LINE_H;
       }
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "evolution-head") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(T.label);
+      doc.setTextColor(...C.brand);
+      doc.text(a.text.toUpperCase(), M + S.PAD_X, y + 10);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "evolution-label") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(T.label);
+      doc.setTextColor(...C.meta);
+      doc.text(a.text.toUpperCase(), M + S.PAD_X, y + 8);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "evolution-line") {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.body);
+      doc.setTextColor(...C.ink);
+      doc.text(a.line, M + S.PAD_X, y + 10);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "evolution-gap") {
       y += a.h;
       continue;
     }
