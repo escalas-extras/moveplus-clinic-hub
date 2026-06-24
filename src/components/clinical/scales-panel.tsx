@@ -114,12 +114,35 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
         {cfg.items.map((it) => (
           <div key={it.key} className="grid sm:grid-cols-2 gap-2 items-center">
             <Label className="text-sm">{it.label}</Label>
-            <Select value={items[it.key]?.toString() ?? ""} onValueChange={(v) => setItems((p) => ({ ...p, [it.key]: Number(v) }))}>
-              <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-              <SelectContent>
-                {it.options.map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {it.kind === "numeric" ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={it.min}
+                  max={it.max}
+                  step={it.step ?? 1}
+                  value={items[it.key] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setItems((p) => {
+                      const next = { ...p };
+                      if (v === "") delete next[it.key];
+                      else next[it.key] = Number(v);
+                      return next;
+                    });
+                  }}
+                />
+                {it.unit ? <span className="text-xs text-muted-foreground">{it.unit}</span> : null}
+              </div>
+            ) : (
+              <Select value={items[it.key]?.toString() ?? ""} onValueChange={(v) => setItems((p) => ({ ...p, [it.key]: Number(v) }))}>
+                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectContent>
+                  {(it.options ?? []).map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         ))}
       </div>
