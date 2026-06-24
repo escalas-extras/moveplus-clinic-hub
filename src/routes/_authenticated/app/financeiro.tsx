@@ -360,11 +360,14 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
         numero,
         patientName: pat?.nome_completo,
         patientCpf: pat?.cpf,
+        responsavelFinanceiro: pat?.responsavel,
         description: v.description,
+        serviceLabel: v.description,
         amount: v.amount,
         payment_method: v.payment_method,
         payment_date: v.payment_date,
         issued_at: new Date().toISOString(),
+        clinicId,
       }, "download");
       qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
     },
@@ -393,15 +396,20 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
       numero: r.numero,
       patientName: r.patients?.nome_completo,
       patientCpf: r.patients?.cpf,
+      responsavelFinanceiro: r.patients?.responsavel,
       description: r.description ?? "Atendimento",
+      serviceLabel: r.description ?? "atendimento fisioterapêutico",
       amount: Number(r.valor),
       payment_method: r.forma_pagamento ?? "—",
       payment_date: r.data,
       issued_at: r.created_at,
+      professional: r.professionals,
       cancelled: r.status === "cancelado",
       cancellation_reason: r.cancellation_reason,
+      clinicId,
     }, mode);
   }
+
 
   return (
     <>
