@@ -15,6 +15,9 @@ import { Eye } from "lucide-react";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildAssessmentPdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { buildAssessmentAuditDetails, mergeAssessmentUpdate } from "@/lib/assessment-merge";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
+import { SignaturePad } from "@/components/clinical/signature-pad";
 
 type ModuleType = "geral" | "traumato_ortopedica" | "neurologica" | "cardiorrespiratoria" | "postural" | "geriatrica" | "pediatrica" | "esportiva" | "rpg" | "pilates" | "dor_cronica" | "funcional" | "personalizada";
 
@@ -117,12 +120,13 @@ type FormInput = {
 export function AssessmentForm({ patientId, patient, assessment, onDone }: { patientId: string; patient?: any; assessment?: any; onDone: () => void }) {
   const isEdit = !!assessment?.id;
   const { clinicId } = useActiveClinic();
+  const [savedAssessmentId, setSavedAssessmentId] = useState<string | null>(assessment?.id ?? null);
   const [modules, setModules] = useState<ModuleType[]>(
     assessment?.assessment_modules?.length ? assessment.assessment_modules.map((m: any) => m.module_type) : ["geral"]
   );
   const [apresentacao, setApresentacao] = useState<string[]>(assessment?.apresentacao ?? []);
   const [inspecaoFlags, setInspecaoFlags] = useState<string[]>(assessment?.inspecao_flags ?? []);
-  const [eva, setEva] = useState<number>(assessment?.eva ?? 0);
+  const [eva, setEva] = useState<number | null>(assessment?.eva ?? null);
 
   // Ficha geriátrica
   const [doencasPrevias, setDoencasPrevias] = useState<Array<{ patologia: string; ativo: boolean; medicacao: string; observacao: string }>>(
@@ -191,7 +195,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
     queryFn: async () => {
       const { data } = await supabase
         .from("professionals")
-        .select("id, nome, profissao, conselho, registro")
+        .select("id, nome, profissao, conselho, registro, situacao, profile_id")
         .eq("clinic_id", clinicId!)
         .eq("situacao", "ativo")
         .order("nome");
@@ -204,6 +208,17 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
       if (!clinicId) throw new Error("Clínica ativa não identificada");
       const { data: u } = await supabase.auth.getUser();
       const imc = calcImc(v.peso, v.estatura);
+      const prof = profs.data?.find((p) => p.id === v.professional_id) ?? null;
+      if (finalize) {
+        const validation = validateProfessionalForDoc(prof as any);
+        if (validation.status !== "ok") throw new Error(validation.message);
+        if (!savedAssessmentId && !isEdit) {
+          finalize = false;
+          toast.info("Rascunho salvo. Registre a assinatura profissional antes de finalizar.");
+        } else if (!signatures.data?.some((s) => s.signer_role === "profissional")) {
+          throw new Error("Registre a assinatura do profissional responsável antes de finalizar.");
+        }
+      }
       const payload: any = {
         clinic_id: clinicId,
         patient_id: patientId,
@@ -252,24 +267,59 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         nivel_consciencia: sinaisVitais.nivel_consciencia || null,
         observacoes_gerais: sinaisVitais.observacoes_gerais || null,
       };
+      let assessmentId = assessment?.id as string | undefined;
+      let auditDetails: Record<string, any> = {
+        source: "assessment-form",
+        finalize,
+        changed_fields: Object.keys(payload),
+        preserved_fields: [],
+      };
       if (isEdit) {
         if (finalize) {
           payload.status = "finalizada";
           payload.locked_at = new Date().toISOString();
         }
-        const { error } = await supabase.from("assessments").update(payload).eq("clinic_id", clinicId).eq("id", assessment.id);
+        const { data: current, error: loadErr } = await supabase
+          .from("assessments")
+          .select("*")
+          .eq("clinic_id", clinicId)
+          .eq("id", assessment.id)
+          .maybeSingle();
+        if (loadErr) throw loadErr;
+        if (!current) throw new Error("Avaliação não encontrada para atualização.");
+        const merged = mergeAssessmentUpdate(current, payload, { source: "form" });
+        auditDetails = buildAssessmentAuditDetails({
+          existing: current,
+          merged,
+          patch: payload,
+          source: "form",
+          finalize,
+        });
+        const { error } = await supabase.from("assessments").update(merged as any).eq("clinic_id", clinicId).eq("id", assessment.id);
         if (error) throw error;
       } else {
         payload.created_by = u.user?.id;
         payload.status = finalize ? "finalizada" : "rascunho";
         payload.locked_at = finalize ? new Date().toISOString() : null;
-        const { error } = await supabase.from("assessments").insert(payload).select("id").single();
+        const { data, error } = await supabase.from("assessments").insert(payload).select("id").single();
         if (error) throw error;
+        assessmentId = (data as any)?.id;
+        if (assessmentId) setSavedAssessmentId(assessmentId);
       }
+
+      await supabase.from("assessment_audit_log" as any).insert({
+        assessment_id: assessmentId ?? null,
+        patient_id: patientId,
+        user_id: u.user?.id,
+        action: finalize ? "finalize" : isEdit ? "update" : "create",
+        step: "assessment-form",
+        details: auditDetails,
+      });
+      return { finalized: finalize };
     },
-    onSuccess: (_d, vars) => {
-      toast.success(isEdit ? "Avaliação atualizada" : vars.finalize ? "Avaliação finalizada" : "Rascunho salvo");
-      onDone();
+    onSuccess: (result) => {
+      toast.success(isEdit ? "Avaliação atualizada" : result.finalized ? "Avaliação finalizada" : "Rascunho salvo");
+      if (result.finalized || isEdit) onDone();
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -282,11 +332,31 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   const usaMed = watch("usa_medicamentos");
   const teveCir = watch("teve_cirurgias");
 
+  const selectedProfessional = profs.data?.find((p) => p.id === professional_id) ?? null;
+  const signatures = useQuery({
+    queryKey: ["sigs", clinicId, patientId, savedAssessmentId],
+    enabled: !!clinicId && !!patientId && !!savedAssessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clinical_signatures")
+        .select("id, signer_role")
+        .eq("patient_id", patientId)
+        .eq("assessment_id", savedAssessmentId!)
+        .eq("signer_role", "profissional")
+        .limit(1);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const missingFinalize: string[] = [];
   if (!professional_id) missingFinalize.push("Profissional");
   if (!tipo) missingFinalize.push("Tipo");
   if (!dataVal) missingFinalize.push("Data");
   if (!queixa?.trim()) missingFinalize.push("Queixa principal");
+  if (!watch("diagnostico_fisio")?.trim()) missingFinalize.push("Diagnóstico fisioterapêutico");
+  if (!watch("objetivos")?.trim()) missingFinalize.push("Objetivos terapêuticos");
+  if (!watch("condutas")?.trim()) missingFinalize.push("Plano de tratamento");
 
   const submit = (finalize: boolean) => {
     if (finalize && missingFinalize.length) {
@@ -300,7 +370,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
     handleSubmit((v) => save.mutate({ v, finalize }))();
   };
 
-  const openPreview = () => {
+  const openPreview = async () => {
     const v = watch();
     const prof = profs.data?.find((p) => p.id === v.professional_id);
     const preview: any = {
@@ -323,7 +393,26 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
       professionals: prof,
       status: "rascunho",
     };
-    setPdfPreview(buildAssessmentPdfOpts(preview, patient, []));
+    let instruments = undefined;
+    const idForInstruments = savedAssessmentId ?? assessment?.id;
+    if (idForInstruments) {
+      const [scales, goniometry, mrc, goals] = await Promise.all([
+        supabase.from("assessment_scales").select("*").eq("assessment_id", idForInstruments).order("applied_at", { ascending: false }),
+        supabase.from("assessment_goniometry").select("*").eq("assessment_id", idForInstruments).order("applied_at", { ascending: false }),
+        supabase.from("assessment_mrc").select("*").eq("assessment_id", idForInstruments).order("applied_at", { ascending: false }),
+        supabase.from("assessment_goals").select("*").eq("assessment_id", idForInstruments).order("term").order("created_at", { ascending: false }),
+      ]);
+      for (const res of [scales, goniometry, mrc, goals]) {
+        if (res.error) throw res.error;
+      }
+      instruments = {
+        scales: scales.data ?? [],
+        goniometry: goniometry.data ?? [],
+        mrc: mrc.data ?? [],
+        goals: goals.data ?? [],
+      };
+    }
+    setPdfPreview(buildAssessmentPdfOpts(preview, patient, [], instruments));
   };
 
   return (
@@ -447,12 +536,23 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-xs uppercase">3.7 Avaliação da dor (EVA)</Label>
-              <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
+              <span className="text-sm font-medium tabular-nums">{eva == null ? "Não avaliado" : `${eva.toFixed(0)} / 10`}</span>
             </div>
-            <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
-            <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
-              <span>0 sem dor</span><span>5</span><span>10 dor máxima</span>
-            </div>
+            {eva == null ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setEva(0)}>
+                Registrar EVA
+              </Button>
+            ) : (
+              <>
+                <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
+                  <span>0 sem dor</span><span>5</span><span>10 dor máxima</span>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="mt-2 px-0 text-xs" onClick={() => setEva(null)}>
+                  Marcar como não avaliado
+                </Button>
+              </>
+            )}
           </div>
 
           {(() => {
@@ -702,6 +802,28 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         </div>
       </Section>
 
+      <Section title="6. Assinatura profissional">
+        {savedAssessmentId ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              A assinatura do profissional responsável é obrigatória antes de finalizar a avaliação.
+            </p>
+            <SignaturePad
+              patientId={patientId}
+              assessmentId={savedAssessmentId}
+              defaultRole="profissional"
+              lockRole
+              defaultName={selectedProfessional?.nome ?? ""}
+              onSigned={() => signatures.refetch()}
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Salve a avaliação como rascunho para habilitar a assinatura profissional.
+          </p>
+        )}
+      </Section>
+
       {/* MÓDULOS OPCIONAIS */}
       <Section title="Módulos opcionais (especialidades)">
         <p className="text-xs text-muted-foreground mb-2">Mantenha "Geral" para a ficha CREFITO padrão. Ative módulos adicionais para fluxos especializados.</p>
@@ -727,7 +849,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           </p>
         )}
         <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={openPreview} className="flex-1 sm:flex-none">
+          <Button type="button" variant="outline" onClick={() => openPreview().catch((e: any) => toast.error(e.message))} className="flex-1 sm:flex-none">
             <Eye className="h-4 w-4 mr-1" />Pré-visualizar
           </Button>
           <Button type="button" variant="outline" disabled={save.isPending || !professional_id} onClick={() => submit(false)} className="flex-1 sm:flex-none">

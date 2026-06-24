@@ -12,13 +12,13 @@ import { calcAge, fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
-import { AssessmentWizard } from "@/components/assessment-wizard";
 import { toast } from "sonner";
 import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf";
 import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth } from "@/lib/auth";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
 import { DischargePanel } from "@/components/clinical/discharge-panel";
@@ -40,7 +40,6 @@ function PatientPage() {
   const [avalOpen, setAvalOpen] = useState(false);
   const [linkedEvoFor, setLinkedEvoFor] = useState<string | null>(null);
   const [editAssessment, setEditAssessment] = useState<any | null>(null);
-  const [editMode, setEditMode] = useState<"wizard" | "classic">("wizard");
   const [pdfPreview, setPdfPreview] = useState<Parameters<typeof buildPdf>[0] | null>(null);
 
   const patient = useQuery({
@@ -80,7 +79,7 @@ function PatientPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assessments")
-        .select("*, professionals(nome, conselho, registro, profissao), assessment_modules(module_type)")
+        .select("*, professionals(nome, conselho, registro, profissao, situacao, profile_id), assessment_modules(module_type)")
         .eq("clinic_id", clinicId!)
         .eq("patient_id", id)
         .order("data", { ascending: false });
@@ -88,6 +87,29 @@ function PatientPage() {
       return data;
     },
   });
+
+  async function loadAssessmentInstruments(assessmentId: string) {
+    const [scales, goniometry, mrc, goals] = await Promise.all([
+      supabase.from("assessment_scales").select("*").eq("assessment_id", assessmentId).order("applied_at", { ascending: false }),
+      supabase.from("assessment_goniometry").select("*").eq("assessment_id", assessmentId).order("applied_at", { ascending: false }),
+      supabase.from("assessment_mrc").select("*").eq("assessment_id", assessmentId).order("applied_at", { ascending: false }),
+      supabase.from("assessment_goals").select("*").eq("assessment_id", assessmentId).order("term").order("created_at", { ascending: false }),
+    ]);
+    for (const res of [scales, goniometry, mrc, goals]) {
+      if (res.error) throw res.error;
+    }
+    return {
+      scales: scales.data ?? [],
+      goniometry: goniometry.data ?? [],
+      mrc: mrc.data ?? [],
+      goals: goals.data ?? [],
+    };
+  }
+
+  async function buildAssessmentPdfWithInstruments(a: any) {
+    const instruments = await loadAssessmentInstruments(a.id);
+    return buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? [], instruments);
+  }
 
   const update = useMutation({
     mutationFn: async (input: any) => {
@@ -104,6 +126,25 @@ function PatientPage() {
 
   const finalize = useMutation({
     mutationFn: async (a: any) => {
+      const validation = validateProfessionalForDoc((a.professionals ?? null) as any);
+      if (validation.status !== "ok") throw new Error(validation.message);
+      const missing = [
+        !a.queixa_principal?.trim() ? "Queixa principal" : null,
+        !a.diagnostico_fisio?.trim() ? "Diagnóstico fisioterapêutico" : null,
+        !a.objetivos?.trim() ? "Objetivos terapêuticos" : null,
+        !a.condutas?.trim() ? "Plano de tratamento" : null,
+      ].filter(Boolean);
+      if (missing.length) throw new Error(`Para finalizar, preencha: ${missing.join(", ")}.`);
+      const { data: sigs, error: sigErr } = await supabase
+        .from("clinical_signatures")
+        .select("id")
+        .eq("patient_id", a.patient_id)
+        .eq("assessment_id", a.id)
+        .eq("signer_role", "profissional")
+        .limit(1);
+      if (sigErr) throw sigErr;
+      if (!sigs?.length) throw new Error("Registre a assinatura do profissional responsável antes de finalizar.");
+      const pdfOpts = await buildAssessmentPdfWithInstruments(a);
       const { error } = await supabase
         .from("assessments")
         .update({ status: "finalizada", locked_at: new Date().toISOString() })
@@ -111,7 +152,7 @@ function PatientPage() {
         .eq("id", a.id);
       if (error) throw error;
       await uploadAndRegisterPdf({
-        pdfOpts: buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? []),
+        pdfOpts,
         folder: a.tipo === "reavaliacao" ? "reavaliacoes" : "avaliacoes",
         tipo: a.tipo === "reavaliacao" ? "reavaliacao" : "avaliacao",
         patientId: a.patient_id,
@@ -266,31 +307,13 @@ function PatientPage() {
 
         <TabsContent value="avaliacoes">
           <div className="flex justify-end mb-3">
-            <Dialog open={avalOpen} onOpenChange={(o) => { setAvalOpen(o); if (o) setEditMode("wizard"); }}>
+            <Dialog open={avalOpen} onOpenChange={setAvalOpen}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova avaliação</Button></DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
-                    <span>Nova avaliação fisioterapêutica</span>
-                    <div className="flex gap-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setEditMode("wizard")}
-                        className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                      >Wizard</button>
-                      <button
-                        type="button"
-                        onClick={() => setEditMode("classic")}
-                        className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                      >Modo clássico</button>
-                    </div>
-                  </DialogTitle>
+                  <DialogTitle>Nova avaliação fisioterapêutica</DialogTitle>
                 </DialogHeader>
-                {editMode === "wizard" ? (
-                  <AssessmentWizard patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
-                ) : (
-                  <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
-                )}
+                <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
               </DialogContent>
             </Dialog>
           </div>
@@ -314,9 +337,18 @@ function PatientPage() {
                       <span className={`text-xs self-center px-2 py-0.5 rounded-full ${a.status === "finalizada" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {a.status === "finalizada" ? "Finalizada" : "Rascunho"}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => setPdfPreview(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
-                      <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try { setPdfPreview(await buildAssessmentPdfWithInstruments(a)); }
+                        catch (e: any) { toast.error(e.message); }
+                      }}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try { downloadPdf(await buildAssessmentPdfWithInstruments(a)); }
+                        catch (e: any) { toast.error(e.message); }
+                      }}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try { printPdf(await buildAssessmentPdfWithInstruments(a)); }
+                        catch (e: any) { toast.error(e.message); }
+                      }}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
 
                       {a.status !== "finalizada" && (
                         <Button size="sm" onClick={() => finalize.mutate(a)} disabled={finalize.isPending}>
@@ -324,7 +356,7 @@ function PatientPage() {
                         </Button>
                       )}
                       {(isAdmin || a.status !== "finalizada") && (
-                        <Button size="sm" variant="outline" onClick={() => { setEditMode("wizard"); setEditAssessment(a); }}>
+                        <Button size="sm" variant="outline" onClick={() => setEditAssessment(a)}>
                           <Pencil className="h-4 w-4 mr-1" />Editar
                         </Button>
                       )}
@@ -402,36 +434,15 @@ function PatientPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
                   <span>Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · admin)" : ""}</span>
-                  <div className="flex gap-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setEditMode("wizard")}
-                      className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                    >Wizard</button>
-                    <button
-                      type="button"
-                      onClick={() => setEditMode("classic")}
-                      className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
-                    >Modo clássico</button>
-                  </div>
                 </DialogTitle>
               </DialogHeader>
               {editAssessment && (
-                editMode === "wizard" ? (
-                  <AssessmentWizard
-                    patientId={p.id}
-                    patient={p}
-                    assessment={editAssessment}
-                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
-                  />
-                ) : (
-                  <AssessmentForm
-                    patientId={p.id}
-                    patient={p}
-                    assessment={editAssessment}
-                    onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
-                  />
-                )
+                <AssessmentForm
+                  patientId={p.id}
+                  patient={p}
+                  assessment={editAssessment}
+                  onDone={() => { setEditAssessment(null); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }}
+                />
               )}
             </DialogContent>
           </Dialog>

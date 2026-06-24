@@ -1,10 +1,18 @@
 import { fmtDate, calcAge } from "./format";
+import { MRC_GROUPS, SCALES, type ScaleType } from "./clinical-scales";
 
 export function fmtYesNo(v: any) {
   if (v === true) return "Sim";
   if (v === false) return "Não";
   return "—";
 }
+
+export type AssessmentPdfInstruments = {
+  scales?: any[];
+  goniometry?: any[];
+  mrc?: any[];
+  goals?: any[];
+};
 
 const PDF_HABITOS: { id: string; label: string }[] = [
   { id: "atividade_fisica", label: "Realiza atividade física?" },
@@ -49,8 +57,8 @@ function buildGeriatricChildren(a: any): any[] {
 
   const doencas: any[] = Array.isArray(a.doencas_previas) ? a.doencas_previas : [];
   const doencasRows = doencas
-    .filter((d) => d && (d.patologia || d.medicamento || d.observacao))
-    .map((d) => [d.patologia || "—", [d.medicamento && `Med.: ${d.medicamento}`, d.observacao && `Obs.: ${d.observacao}`].filter(Boolean).join(" · ") || "—"] as [string, string]);
+    .filter((d) => d && (d.patologia || d.medicamento || d.medicacao || d.observacao))
+    .map((d) => [d.patologia || "—", [(d.medicamento || d.medicacao) && `Med.: ${d.medicamento || d.medicacao}`, d.observacao && `Obs.: ${d.observacao}`].filter(Boolean).join(" · ") || "—"] as [string, string]);
   if (doencasRows.length) {
     children.push({ kind: "paragraph" as const, label: "Doenças preexistentes", text: "" });
     children.push({ kind: "grid" as const, rows: doencasRows, columns: 2 as const });
@@ -59,7 +67,7 @@ function buildGeriatricChildren(a: any): any[] {
   const sv = a.sinais_vitais || {};
   const svRows: Array<[string, string]> = [];
   const push = (k: string, v: any) => { if (v != null && String(v).trim() !== "") svRows.push([k, String(v)]); };
-  push("PA", sv.pa); push("FC", sv.fc); push("FR", sv.fr); push("PR", sv.pr); push("SpO₂", sv.spo2);
+  push("PA", sv.pa); push("FC", sv.fc); push("FR", sv.fr); push("PR", sv.pr); push("SpO2", sv.spo2);
   push("Ausculta", sv.ausculta); push("Tosse", sv.tosse); push("Secreção", sv.secrecao);
   push("Tônus", sv.tonus); push("Trofismo", sv.trofismo); push("Clônus", sv.clonus);
   push("Cintura (cm)", a.med_cintura); push("Quadril (cm)", a.med_quadril); push("ICQ", a.icq);
@@ -107,7 +115,7 @@ function buildGeriatricChildren(a: any): any[] {
   for (const it of PDF_POSTURA) {
     const v = post[it.id];
     if (!v) continue;
-    const status = v.status ? (v.status === "normal" ? "Normal" : v.status === "alterado" ? "Alterado" : v.status) : "";
+    const status = v.status ? (v.status === "normal" ? "Normal" : v.status === "alterado" || v.status === "alterada" ? "Alterado" : v.status) : "";
     const obs = v.obs ? ` — ${v.obs}` : "";
     if (status || obs) postRows.push([it.label, `${status}${obs}`]);
   }
@@ -139,7 +147,91 @@ function buildGeriatricChildren(a: any): any[] {
   return children;
 }
 
-export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []) {
+function humanizeKey(key: string) {
+  return String(key || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function buildInstrumentBlocks(instruments?: AssessmentPdfInstruments): Array<{ title: string; children: any[] }> {
+  const blocks: Array<{ title: string; children: any[] }> = [];
+
+  const scales = instruments?.scales ?? [];
+  if (scales.length) {
+    blocks.push({
+      title: "Instrumentos — Escalas aplicadas",
+      children: [{
+        kind: "grid" as const,
+        columns: 1 as const,
+        rows: scales.map((s: any) => {
+          const cfg = SCALES[s.scale_type as ScaleType];
+          const max = cfg?.maxScore != null ? ` / ${cfg.maxScore}` : "";
+          const date = s.applied_at ? fmtDate(s.applied_at) : "—";
+          return [
+            cfg?.title ?? humanizeKey(s.scale_type),
+            [`Data: ${date}`, `Score: ${s.total_score ?? "—"}${max}`, s.classification && `Classificação: ${s.classification}`, s.risk_level && `Risco: ${s.risk_level}`].filter(Boolean).join(" · "),
+          ] as [string, string];
+        }),
+      }],
+    });
+  }
+
+  const goniometry = instruments?.goniometry ?? [];
+  if (goniometry.length) {
+    const rows: Array<[string, string]> = [];
+    for (const g of goniometry) {
+      for (const [key, value] of Object.entries(g.measurements ?? {})) {
+        const v = value as any;
+        rows.push([
+          humanizeKey(key),
+          [`D: ${v?.d ?? "—"}°`, `E: ${v?.e ?? "—"}°`].join(" · "),
+        ]);
+      }
+    }
+    if (rows.length) {
+      blocks.push({ title: "Instrumentos — Goniometria", children: [{ kind: "grid" as const, rows, columns: 2 as const }] });
+    }
+  }
+
+  const mrc = instruments?.mrc ?? [];
+  if (mrc.length) {
+    const groupLabels = Object.fromEntries(MRC_GROUPS.map((g) => [g.key, g.label]));
+    const rows: Array<[string, string]> = [];
+    for (const rec of mrc) {
+      rows.push([
+        rec.applied_at ? fmtDate(rec.applied_at) : "MRC",
+        [`Direita: ${rec.total_right ?? "—"}`, `Esquerda: ${rec.total_left ?? "—"}`, rec.classification && `Classificação: ${rec.classification}`].filter(Boolean).join(" · "),
+      ]);
+      for (const [key, value] of Object.entries(rec.measurements ?? {})) {
+        const v = value as any;
+        rows.push([
+          groupLabels[key] ?? humanizeKey(key),
+          [`D: ${v?.d ?? "—"}`, `E: ${v?.e ?? "—"}`].join(" · "),
+        ]);
+      }
+    }
+    blocks.push({ title: "Instrumentos — Força muscular (MRC)", children: [{ kind: "grid" as const, rows, columns: 2 as const }] });
+  }
+
+  const goals = instruments?.goals ?? [];
+  if (goals.length) {
+    blocks.push({
+      title: "Objetivos terapêuticos estruturados",
+      children: [{
+        kind: "grid" as const,
+        columns: 1 as const,
+        rows: goals.map((g: any) => [
+          g.description || "Objetivo",
+          [`Prazo: ${g.term ?? "—"}`, `Status: ${g.status ?? "—"}`, `Progresso: ${g.progress_pct ?? 0}%`, g.target_date && `Data alvo: ${fmtDate(g.target_date)}`].filter(Boolean).join(" · "),
+        ] as [string, string]),
+      }],
+    });
+  }
+
+  return blocks;
+}
+
+export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = [], instruments?: AssessmentPdfInstruments) {
   const isReaval = a.tipo === "reavaliacao";
   const linked = allEvolutions
     .filter((e) => e.assessment_id === a.id)
@@ -237,6 +329,7 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
           { kind: "paragraph" as const, label: "Recursos terapêuticos", text: a.recursos_terapeuticos || "—" },
         ],
       },
+      ...buildInstrumentBlocks(instruments),
       ...(linked.length
         ? [{
             title: "8. Evoluções Clínicas",
@@ -266,7 +359,7 @@ export function buildEvolutionPdfOpts(e: any, p: any) {
   pushSv("FC", svObj.fc ?? e.fc);
   pushSv("FR", svObj.fr ?? e.fr);
   pushSv("PR", svObj.pr);
-  pushSv("SpO₂", svObj.spo2 ?? e.spo2);
+  pushSv("SpO2", svObj.spo2 ?? e.spo2);
   pushSv("Ausculta", svObj.ausculta);
   pushSv("Tosse", svObj.tosse);
   pushSv("Secreção", svObj.secrecao);

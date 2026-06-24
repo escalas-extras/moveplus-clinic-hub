@@ -13,14 +13,16 @@ import { fmtDate } from "@/lib/format";
 
 type SideScore = { d?: number; e?: number };
 
-export function MRCPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
+export function MRCPanel({ patientId, assessmentId, requireAssessment = false }: { patientId: string; assessmentId?: string; requireAssessment?: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const rows = useQuery({
-    queryKey: ["mrc", patientId],
+    queryKey: ["mrc", patientId, assessmentId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("assessment_mrc").select("*").eq("patient_id", patientId).order("applied_at", { ascending: false });
+      let q = supabase.from("assessment_mrc").select("*").eq("patient_id", patientId);
+      if (assessmentId) q = q.eq("assessment_id", assessmentId);
+      const { data, error } = await q.order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -31,10 +33,10 @@ export function MRCPanel({ patientId, assessmentId }: { patientId: string; asses
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold flex items-center gap-2"><Dumbbell className="h-4 w-4" /> Força Muscular (MRC)</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Avaliar força</Button></DialogTrigger>
+          <DialogTrigger asChild><Button size="sm" disabled={requireAssessment && !assessmentId}><Plus className="h-4 w-4 mr-1" />Avaliar força</Button></DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Escala MRC — Força muscular bilateral</DialogTitle></DialogHeader>
-            <MRCForm patientId={patientId} assessmentId={assessmentId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["mrc", patientId] }); }} />
+            <MRCForm patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["mrc", patientId] }); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -50,12 +52,12 @@ export function MRCPanel({ patientId, assessmentId }: { patientId: string; asses
             </div>
           ))}
         </div>
-      ) : <p className="text-sm text-muted-foreground">Nenhuma avaliação de força registrada.</p>}
+      ) : <p className="text-sm text-muted-foreground">{requireAssessment && !assessmentId ? "Salve a avaliação antes de registrar força muscular." : "Nenhuma avaliação de força registrada."}</p>}
     </Card>
   );
 }
 
-function MRCForm({ patientId, assessmentId, onDone }: { patientId: string; assessmentId?: string; onDone: () => void }) {
+function MRCForm({ patientId, assessmentId, requireAssessment, onDone }: { patientId: string; assessmentId?: string; requireAssessment?: boolean; onDone: () => void }) {
   const [meas, setMeas] = useState<Record<string, SideScore>>({});
 
   const totals = useMemo(() => {
@@ -70,6 +72,7 @@ function MRCForm({ patientId, assessmentId, onDone }: { patientId: string; asses
 
   const save = useMutation({
     mutationFn: async () => {
+      if (requireAssessment && !assessmentId) throw new Error("Salve a avaliação antes de registrar força muscular.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_mrc").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,

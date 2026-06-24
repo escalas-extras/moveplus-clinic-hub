@@ -212,9 +212,9 @@ export async function buildReceiptPdf(data: ReceiptPdfData): Promise<jsPDF> {
   const cityState = [c.cidade, c.estado].filter(Boolean).join("/");
   const addr = [endereco, cityState].filter(Boolean).join(" – ");
   const contactLines: string[] = [];
-  if (addr) contactLines.push(`📍 ${addr}`);
-  if (tels.length) contactLines.push(`✆ ${tels.join(" · ")}`);
-  if (emails.length) contactLines.push(`✉ ${emails.join(" · ")}`);
+  if (addr) contactLines.push(`End.: ${addr}`);
+  if (tels.length) contactLines.push(`Tel.: ${tels.join(" · ")}`);
+  if (emails.length) contactLines.push(`Email: ${emails.join(" · ")}`);
   for (const line of contactLines) {
     const wrapped = doc.splitTextToSize(line, 230);
     doc.text(wrapped, rxStart, ry);
@@ -354,7 +354,7 @@ export async function buildReceiptPdf(data: ReceiptPdfData): Promise<jsPDF> {
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...accent);
   doc.setFontSize(20);
-  doc.text("✚", monoCx, monoCy + 7, { align: "center" });
+  doc.text("+", monoCx, monoCy + 7, { align: "center" });
 
   const prof = data.professional ?? null;
   const profNome = (prof?.nome ?? "").trim();

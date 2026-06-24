@@ -13,6 +13,8 @@ import { fmtDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { downloadPdf } from "@/lib/pdf";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
+import { SignaturePad } from "@/components/clinical/signature-pad";
 
 const MOTIVOS = [
   "Objetivos terapêuticos alcançados",
@@ -28,6 +30,7 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
   const qc = useQueryClient();
   const { user } = useAuth();
   const { clinicId } = useActiveClinic();
+  const [signing, setSigning] = useState<{ discharge: any; documentId: string } | null>(null);
   const [form, setForm] = useState({
     data_alta: new Date().toISOString().slice(0, 10),
     motivo: MOTIVOS[0],
@@ -58,7 +61,7 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
     queryFn: async () =>
       (await supabase
         .from("professionals")
-        .select("id, nome, conselho, registro, profissao")
+        .select("id, nome, conselho, registro, profissao, situacao, profile_id")
         .eq("clinic_id", clinicId!)
         .eq("profile_id", user!.id)
         .maybeSingle()).data,
@@ -67,6 +70,8 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
   const create = useMutation({
     mutationFn: async () => {
       if (!form.motivo) throw new Error("Informe o motivo da alta");
+      const validation = validateProfessionalForDoc((myProf.data ?? null) as any);
+      if (validation.status !== "ok") throw new Error(validation.message);
       const { error } = await supabase.from("patient_discharges").insert({
         patient_id: patientId,
         professional_id: myProf.data?.id ?? null,
@@ -93,6 +98,37 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
     onSuccess: () => { toast.success("Alta assinada"); qc.invalidateQueries({ queryKey: ["discharges", clinicId, patientId] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  async function ensureDischargeDocument(d: any) {
+    if (!clinicId) throw new Error("Clínica ativa não identificada");
+    const validation = validateProfessionalForDoc((d.professionals ?? myProf.data ?? null) as any);
+    if (validation.status !== "ok") throw new Error(validation.message);
+    const { data: existing, error: existingErr } = await supabase
+      .from("clinical_documents")
+      .select("id")
+      .eq("patient_id", patientId)
+      .eq("doc_type", "alta")
+      .contains("content", { discharge_id: d.id })
+      .limit(1)
+      .maybeSingle();
+    if (existingErr) throw existingErr;
+    if (existing?.id) return existing.id as string;
+
+    const { data, error } = await supabase
+      .from("clinical_documents")
+      .insert({
+        clinic_id: clinicId,
+        patient_id: patientId,
+        professional_id: d.professional_id ?? myProf.data?.id ?? null,
+        doc_type: "alta",
+        title: "Relatório de Alta Fisioterapêutica",
+        content: { discharge_id: d.id, source: "patient_discharges" },
+      } as any)
+      .select("id")
+      .single();
+    if (error) throw error;
+    return (data as any).id as string;
+  }
 
   function buildPdfOpts(d: any) {
     return {
@@ -207,7 +243,14 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
                   <FileDown className="h-4 w-4 mr-1" />Relatório
                 </Button>
                 {!d.locked_at && (
-                  <Button size="sm" variant="outline" onClick={() => lock.mutate(d.id)}>
+                  <Button size="sm" variant="outline" onClick={async () => {
+                    try {
+                      const documentId = await ensureDischargeDocument(d);
+                      setSigning({ discharge: d, documentId });
+                    } catch (e: any) {
+                      toast.error(e.message);
+                    }
+                  }}>
                     <Lock className="h-4 w-4 mr-1" />Assinar
                   </Button>
                 )}
@@ -216,6 +259,22 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
             </div>
             {d.objetivos_alcancados && <p className="text-sm mt-3"><b>Alcançado:</b> {d.objetivos_alcancados}</p>}
             {d.plano_domiciliar && <p className="text-sm mt-1"><b>Plano domiciliar:</b> {d.plano_domiciliar}</p>}
+            {signing?.discharge.id === d.id && (
+              <div className="mt-4 border-t pt-4">
+                <h4 className="text-sm font-semibold mb-2">Assinatura profissional da alta</h4>
+                <SignaturePad
+                  patientId={patientId}
+                  documentId={signing.documentId}
+                  defaultRole="profissional"
+                  lockRole
+                  defaultName={d.professionals?.nome ?? myProf.data?.nome ?? ""}
+                  onSigned={() => {
+                    lock.mutate(d.id);
+                    setSigning(null);
+                  }}
+                />
+              </div>
+            )}
           </Card>
         ))}
       </div>

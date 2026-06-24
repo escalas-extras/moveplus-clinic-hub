@@ -13,14 +13,16 @@ import { fmtDate } from "@/lib/format";
 
 const REGIONS = ["ombro","cotovelo","punho","quadril","joelho","tornozelo","cervical","toracica","lombar"];
 
-export function GoniometryPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
+export function GoniometryPanel({ patientId, assessmentId, requireAssessment = false }: { patientId: string; assessmentId?: string; requireAssessment?: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const rows = useQuery({
-    queryKey: ["gonio", patientId],
+    queryKey: ["gonio", patientId, assessmentId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("assessment_goniometry").select("*").eq("patient_id", patientId).order("applied_at", { ascending: false });
+      let q = supabase.from("assessment_goniometry").select("*").eq("patient_id", patientId);
+      if (assessmentId) q = q.eq("assessment_id", assessmentId);
+      const { data, error } = await q.order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -31,10 +33,10 @@ export function GoniometryPanel({ patientId, assessmentId }: { patientId: string
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold flex items-center gap-2"><Ruler className="h-4 w-4" /> Goniometria</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Nova goniometria</Button></DialogTrigger>
+          <DialogTrigger asChild><Button size="sm" disabled={requireAssessment && !assessmentId}><Plus className="h-4 w-4 mr-1" />Nova goniometria</Button></DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Goniometria — Avaliação bilateral</DialogTitle></DialogHeader>
-            <GoniometryForm patientId={patientId} assessmentId={assessmentId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["gonio", patientId] }); }} />
+            <GoniometryForm patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["gonio", patientId] }); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -51,12 +53,12 @@ export function GoniometryPanel({ patientId, assessmentId }: { patientId: string
             </details>
           ))}
         </div>
-      ) : <p className="text-sm text-muted-foreground">Nenhuma goniometria registrada.</p>}
+      ) : <p className="text-sm text-muted-foreground">{requireAssessment && !assessmentId ? "Salve a avaliação antes de registrar goniometria." : "Nenhuma goniometria registrada."}</p>}
     </Card>
   );
 }
 
-function GoniometryForm({ patientId, assessmentId, onDone }: { patientId: string; assessmentId?: string; onDone: () => void }) {
+function GoniometryForm({ patientId, assessmentId, requireAssessment, onDone }: { patientId: string; assessmentId?: string; requireAssessment?: boolean; onDone: () => void }) {
   const [region, setRegion] = useState("ombro");
   const [meas, setMeas] = useState<Record<string, { d?: number; e?: number }>>({});
 
@@ -71,6 +73,7 @@ function GoniometryForm({ patientId, assessmentId, onDone }: { patientId: string
 
   const save = useMutation({
     mutationFn: async () => {
+      if (requireAssessment && !assessmentId) throw new Error("Salve a avaliação antes de registrar goniometria.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_goniometry").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,

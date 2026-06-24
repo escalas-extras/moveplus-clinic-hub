@@ -10,21 +10,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { SCALES, computeScale, RISK_COLORS, type ScaleType } from "@/lib/clinical-scales";
+import { SCALES, computeScale, getScaleCompletion, RISK_COLORS, type ScaleType } from "@/lib/clinical-scales";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { fmtDate } from "@/lib/format";
 
-export function ScalesPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
+export function ScalesPanel({ patientId, assessmentId, requireAssessment = false }: { patientId: string; assessmentId?: string; requireAssessment?: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [activeScale, setActiveScale] = useState<ScaleType>("barthel");
 
   const rows = useQuery({
-    queryKey: ["scales", patientId],
+    queryKey: ["scales", patientId, assessmentId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("assessment_scales").select("*").eq("patient_id", patientId)
-        .order("applied_at", { ascending: false });
+      let q = supabase
+        .from("assessment_scales")
+        .select("*")
+        .eq("patient_id", patientId);
+      if (assessmentId) q = q.eq("assessment_id", assessmentId);
+      const { data, error } = await q.order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -35,7 +38,7 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold flex items-center gap-2"><Activity className="h-4 w-4" /> Escalas Funcionais</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Aplicar escala</Button></DialogTrigger>
+          <DialogTrigger asChild><Button size="sm" disabled={requireAssessment && !assessmentId}><Plus className="h-4 w-4 mr-1" />Aplicar escala</Button></DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Aplicar Escala</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -53,6 +56,7 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
                 scaleType={activeScale}
                 patientId={patientId}
                 assessmentId={assessmentId}
+                requireAssessment={requireAssessment}
                 onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["scales", patientId] }); }}
               />
             </div>
@@ -81,20 +85,25 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
           </div>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">Nenhuma escala aplicada ainda.</p>
+        <p className="text-sm text-muted-foreground">
+          {requireAssessment && !assessmentId ? "Salve a avaliação antes de aplicar escalas." : "Nenhuma escala aplicada ainda."}
+        </p>
       )}
     </Card>
   );
 }
 
-function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: ScaleType; patientId: string; assessmentId?: string; onDone: () => void }) {
+function ScaleForm({ scaleType, patientId, assessmentId, requireAssessment, onDone }: { scaleType: ScaleType; patientId: string; assessmentId?: string; requireAssessment?: boolean; onDone: () => void }) {
   const cfg = SCALES[scaleType];
   const [items, setItems] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
+  const completion = useMemo(() => getScaleCompletion(scaleType, items), [scaleType, items]);
   const result = useMemo(() => computeScale(scaleType, items), [scaleType, items]);
 
   const save = useMutation({
     mutationFn: async () => {
+      if (requireAssessment && !assessmentId) throw new Error("Salve a avaliação antes de aplicar escalas.");
+      if (!completion.complete) throw new Error("Preencha todos os itens da escala antes de registrar.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_scales").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
@@ -150,17 +159,24 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
         <Label>Observações</Label>
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
       </div>
+      <div className="text-xs text-muted-foreground">
+        {completion.answered} de {completion.total} itens respondidos
+      </div>
       <div className="flex items-center justify-between bg-muted p-3 rounded-md">
         <div>
           <div className="text-xs text-muted-foreground">Total</div>
-          <div className="text-2xl font-bold">{result.total} / {result.maxScore}</div>
+          <div className="text-2xl font-bold">{completion.complete ? `${result.total} / ${result.maxScore}` : "—"}</div>
         </div>
         <div className="text-right">
           <div className="text-xs text-muted-foreground">Classificação</div>
-          <span className={`inline-block text-xs px-2 py-1 rounded-full border ${RISK_COLORS[result.risk]}`}>{result.classification}</span>
+          {completion.complete ? (
+            <span className={`inline-block text-xs px-2 py-1 rounded-full border ${RISK_COLORS[result.risk]}`}>{result.classification}</span>
+          ) : (
+            <span className="inline-block text-xs px-2 py-1 rounded-full border bg-muted text-muted-foreground">Preenchimento incompleto</span>
+          )}
         </div>
       </div>
-      <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full">
+      <Button onClick={() => save.mutate()} disabled={save.isPending || !completion.complete} className="w-full">
         {save.isPending ? "Salvando…" : "Registrar aplicação"}
       </Button>
     </div>

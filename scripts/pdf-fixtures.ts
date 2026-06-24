@@ -426,6 +426,48 @@ const CLINIC_EMPTY: ClinicData = {
   rodape_institucional: null,
 };
 
+const longText = Array.from({ length: 90 }, (_, i) =>
+  `Linha clínica longa ${i + 1}: paciente apresenta evolução descritiva extensa, com observações funcionais, plano terapêutico detalhado, respostas ao tratamento, intercorrências monitoradas e orientações domiciliares registradas para testar quebra de página segura.`,
+).join(" ");
+
+const stressPagination: BuildPdfOpts = {
+  title: "Stress de Paginação Clínica",
+  subtitle: "Fixture QA — conteúdo longo",
+  patientName: "Paciente Teste Longo",
+  professional: PROFESSIONAL,
+  validationHash: HASH,
+  blocks: [
+    {
+      title: "Highlight longo",
+      children: [highlight("Resumo executivo", longText)],
+    },
+    {
+      title: "Grid longo",
+      children: [
+        grid([
+          ["Observações extensas", longText],
+          ["Plano terapêutico extenso", longText],
+        ], 1),
+      ],
+    },
+    {
+      title: "Evolução longa",
+      children: [{
+        kind: "evolutions" as const,
+        items: [{
+          data: "24/06/2026",
+          hora: "09:00",
+          index: 1,
+          conduta: longText,
+          resultado: longText,
+          intercorrencias: longText,
+          proximos: longText,
+        }],
+      }],
+    },
+  ],
+};
+
 const fixtures: Array<{ name: string; opts: BuildPdfOpts; clinic: ClinicData }> = [
   { name: "01-contrato-paciente",       opts: contractPaciente,    clinic: CLINIC },
   { name: "02-contrato-responsavel",    opts: contractResponsavel, clinic: CLINIC },
@@ -435,6 +477,7 @@ const fixtures: Array<{ name: string; opts: BuildPdfOpts; clinic: ClinicData }> 
   { name: "06-relatorio-inss",          opts: inss,                clinic: CLINIC },
   { name: "07-tcle-lgpd",               opts: tcleLgpd,            clinic: CLINIC },
   { name: "08-whitelabel-clinic-vazia", opts: relatorioFuncional,  clinic: CLINIC_EMPTY },
+  { name: "09-stress-paginacao",        opts: stressPagination,    clinic: CLINIC },
 ];
 
 async function main() {
@@ -444,7 +487,7 @@ async function main() {
     const file = resolve(OUT, `${f.name}.pdf`);
     writeFileSync(file, Buffer.from(ab));
     // eslint-disable-next-line no-console
-    console.log(`✓ ${file}`);
+    console.log(`[ok] ${file}`);
   }
 }
 
