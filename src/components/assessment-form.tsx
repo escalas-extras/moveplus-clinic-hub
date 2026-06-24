@@ -123,7 +123,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   );
   const [apresentacao, setApresentacao] = useState<string[]>(assessment?.apresentacao ?? []);
   const [inspecaoFlags, setInspecaoFlags] = useState<string[]>(assessment?.inspecao_flags ?? []);
-  const [eva, setEva] = useState<number>(assessment?.eva ?? 0);
+  const [eva, setEva] = useState<number | null>(assessment?.eva ?? null);
 
   // Ficha geriátrica
   const [doencasPrevias, setDoencasPrevias] = useState<Array<{ patologia: string; ativo: boolean; medicacao: string; observacao: string }>>(
@@ -321,6 +321,9 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   if (!tipo) missingFinalize.push("Tipo");
   if (!dataVal) missingFinalize.push("Data");
   if (!queixa?.trim()) missingFinalize.push("Queixa principal");
+  if (!watch("diagnostico_fisio")?.trim()) missingFinalize.push("Diagnóstico fisioterapêutico");
+  if (!watch("objetivos")?.trim()) missingFinalize.push("Objetivos terapêuticos");
+  if (!watch("condutas")?.trim()) missingFinalize.push("Plano de tratamento");
 
   const submit = (finalize: boolean) => {
     if (finalize && missingFinalize.length) {
@@ -481,12 +484,23 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-xs uppercase">3.7 Avaliação da dor (EVA)</Label>
-              <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
+              <span className="text-sm font-medium tabular-nums">{eva == null ? "Não avaliado" : `${eva.toFixed(0)} / 10`}</span>
             </div>
-            <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
-            <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
-              <span>0 sem dor</span><span>5</span><span>10 dor máxima</span>
-            </div>
+            {eva == null ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setEva(0)}>
+                Registrar EVA
+              </Button>
+            ) : (
+              <>
+                <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
+                  <span>0 sem dor</span><span>5</span><span>10 dor máxima</span>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="mt-2 px-0 text-xs" onClick={() => setEva(null)}>
+                  Marcar como não avaliado
+                </Button>
+              </>
+            )}
           </div>
 
           {(() => {

@@ -73,7 +73,7 @@ type WizardPayload = {
   resp_tosse: string;
   resp_dispneia: string;
   // exame físico — geral
-  eva: number;
+  eva: number | null;
   inspecao: string;
   palpacao: string;
   // plano
@@ -113,7 +113,7 @@ const emptyPayload = (): WizardPayload => ({
   resp_ausculta: "",
   resp_tosse: "",
   resp_dispneia: "",
-  eva: 0,
+  eva: null,
   inspecao: "",
   palpacao: "",
   objetivos: "",
@@ -141,7 +141,7 @@ function fromAssessment(a: any): WizardPayload {
     antecedentes_familiares: a.antecedentes_familiares ?? "",
     habitos_vida: a.habitos_vida ?? "",
     medicamentos: a.medicamentos ?? "",
-    eva: a.eva ?? 0,
+    eva: a.eva ?? null,
     inspecao: a.inspecao ?? "",
     palpacao: a.palpacao ?? "",
     objetivos: a.objetivos ?? "",
@@ -447,7 +447,15 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       const v = getValues();
       if (!clinicId) throw new Error("Clínica ativa não identificada");
       if (!v.professional_id) throw new Error("Selecione o profissional");
-      if (finalize && !v.queixa_principal.trim()) throw new Error("Queixa principal obrigatória para finalizar");
+      if (finalize) {
+        const missing = [
+          !v.queixa_principal.trim() ? "Queixa principal" : null,
+          !v.diagnostico_fisio.trim() ? "Diagnóstico fisioterapêutico" : null,
+          !v.objetivos.trim() ? "Objetivos terapêuticos" : null,
+          !v.condutas.trim() ? "Plano de tratamento" : null,
+        ].filter(Boolean);
+        if (missing.length) throw new Error(`Para finalizar, preencha: ${missing.join(", ")}.`);
+      }
 
       const { data: u } = await supabase.auth.getUser();
       const row = toRow(v, patientId, clinicId);
@@ -873,14 +881,25 @@ function StepExame({ register, values, setValue, profiles }: any) {
           <div>
             <div className="flex items-center justify-between">
               <Label className="text-xs uppercase">EVA — Dor (0–10)</Label>
-              <span className="text-sm font-semibold tabular-nums">{values.eva}</span>
+              <span className="text-sm font-semibold tabular-nums">{values.eva == null ? "Não avaliado" : values.eva}</span>
             </div>
-            <Slider
-              value={[values.eva]}
-              max={10}
-              step={1}
-              onValueChange={(v) => setValue("eva", v[0], { shouldDirty: true })}
-            />
+            {values.eva == null ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setValue("eva", 0, { shouldDirty: true })}>
+                Registrar EVA
+              </Button>
+            ) : (
+              <>
+                <Slider
+                  value={[values.eva]}
+                  max={10}
+                  step={1}
+                  onValueChange={(v) => setValue("eva", v[0], { shouldDirty: true })}
+                />
+                <Button type="button" variant="ghost" size="sm" className="mt-2 px-0 text-xs" onClick={() => setValue("eva", null, { shouldDirty: true })}>
+                  Marcar como não avaliado
+                </Button>
+              </>
+            )}
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>

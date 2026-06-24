@@ -102,6 +102,13 @@ function PatientPage() {
 
   const finalize = useMutation({
     mutationFn: async (a: any) => {
+      const missing = [
+        !a.queixa_principal?.trim() ? "Queixa principal" : null,
+        !a.diagnostico_fisio?.trim() ? "Diagnóstico fisioterapêutico" : null,
+        !a.objetivos?.trim() ? "Objetivos terapêuticos" : null,
+        !a.condutas?.trim() ? "Plano de tratamento" : null,
+      ].filter(Boolean);
+      if (missing.length) throw new Error(`Para finalizar, preencha: ${missing.join(", ")}.`);
       const { error } = await supabase
         .from("assessments")
         .update({ status: "finalizada", locked_at: new Date().toISOString() })

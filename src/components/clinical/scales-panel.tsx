@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { SCALES, computeScale, RISK_COLORS, type ScaleType } from "@/lib/clinical-scales";
+import { SCALES, computeScale, getScaleCompletion, RISK_COLORS, type ScaleType } from "@/lib/clinical-scales";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { fmtDate } from "@/lib/format";
 
@@ -97,11 +97,13 @@ function ScaleForm({ scaleType, patientId, assessmentId, requireAssessment, onDo
   const cfg = SCALES[scaleType];
   const [items, setItems] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
+  const completion = useMemo(() => getScaleCompletion(scaleType, items), [scaleType, items]);
   const result = useMemo(() => computeScale(scaleType, items), [scaleType, items]);
 
   const save = useMutation({
     mutationFn: async () => {
       if (requireAssessment && !assessmentId) throw new Error("Salve a avaliação antes de aplicar escalas.");
+      if (!completion.complete) throw new Error("Preencha todos os itens da escala antes de registrar.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_scales").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
@@ -157,17 +159,24 @@ function ScaleForm({ scaleType, patientId, assessmentId, requireAssessment, onDo
         <Label>Observações</Label>
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
       </div>
+      <div className="text-xs text-muted-foreground">
+        {completion.answered} de {completion.total} itens respondidos
+      </div>
       <div className="flex items-center justify-between bg-muted p-3 rounded-md">
         <div>
           <div className="text-xs text-muted-foreground">Total</div>
-          <div className="text-2xl font-bold">{result.total} / {result.maxScore}</div>
+          <div className="text-2xl font-bold">{completion.complete ? `${result.total} / ${result.maxScore}` : "—"}</div>
         </div>
         <div className="text-right">
           <div className="text-xs text-muted-foreground">Classificação</div>
-          <span className={`inline-block text-xs px-2 py-1 rounded-full border ${RISK_COLORS[result.risk]}`}>{result.classification}</span>
+          {completion.complete ? (
+            <span className={`inline-block text-xs px-2 py-1 rounded-full border ${RISK_COLORS[result.risk]}`}>{result.classification}</span>
+          ) : (
+            <span className="inline-block text-xs px-2 py-1 rounded-full border bg-muted text-muted-foreground">Preenchimento incompleto</span>
+          )}
         </div>
       </div>
-      <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full">
+      <Button onClick={() => save.mutate()} disabled={save.isPending || !completion.complete} className="w-full">
         {save.isPending ? "Salvando…" : "Registrar aplicação"}
       </Button>
     </div>

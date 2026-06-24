@@ -473,6 +473,13 @@ export function computeScale(type: ScaleType, items: Record<string, number>) {
   return { total, classification, risk, maxScore: cfg.maxScore };
 }
 
+export function getScaleCompletion(type: ScaleType, items: Record<string, number>) {
+  const cfg = SCALES[type];
+  const answered = cfg.items.filter((it) => typeof items[it.key] === "number" && Number.isFinite(items[it.key])).length;
+  const total = cfg.items.length;
+  return { answered, total, complete: answered === total };
+}
+
 // --- MRC muscle groups ---
 export const MRC_GROUPS = [
   { key: "flexao_ombro", label: "Flexão de ombro" },
