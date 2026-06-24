@@ -23,6 +23,7 @@ import {
   type ClinicalProfile, type DiagnosisCatalogItem,
 } from "@/lib/clinical-profiles";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 
 const STEPS = [
   { key: "identificacao", label: "Identificação", icon: User },
@@ -563,12 +564,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           />
         )}
         {current.key === "escalas" && (
-          <PlaceholderPhase
-            title="Escalas funcionais"
-            phase="Fase 2"
-            description="Barthel, Katz, Berg, Tinetti e Braden com cálculo automático, classificação visual e painel de risco."
-            scales={detection.items.flatMap((d) => d.suggested_scales)}
-          />
+          <ClinicalTabs patientId={patientId} assessmentId={assessment?.id} />
         )}
         {current.key === "plano" && (
           <StepPlano register={register} suggested={detection.items.flatMap((d) => d.suggested_objectives)} />
