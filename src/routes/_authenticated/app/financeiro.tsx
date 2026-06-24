@@ -317,7 +317,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
     queryFn: async () => {
       const { data, error } = await supabase
         .from("receipts")
-        .select("id, numero, data, valor, forma_pagamento, description, status, cancelled_at, cancellation_reason, created_at, patient_id, financial_entry_id, patients(nome_completo, cpf)")
+        .select("id, numero, data, valor, forma_pagamento, description, status, cancelled_at, cancellation_reason, created_at, patient_id, professional_id, financial_entry_id, patients(nome_completo, cpf, responsavel), professionals(nome, profissao, conselho, registro)")
         .eq("clinic_id", clinicId!)
         .order("numero", { ascending: false })
         .limit(200);
@@ -329,7 +329,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   const patients = useQuery({
     queryKey: ["patients-all", clinicId],
     enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("patients").select("id, nome_completo, cpf").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
+    queryFn: async () => (await supabase.from("patients").select("id, nome_completo, cpf, responsavel").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
   });
 
   const create = useMutation({
