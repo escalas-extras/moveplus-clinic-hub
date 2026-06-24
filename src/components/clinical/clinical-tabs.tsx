@@ -6,7 +6,15 @@ import { GoalsPanel } from "./goals-panel";
 import { SignaturePad } from "./signature-pad";
 import { Card } from "@/components/ui/card";
 
-export function ClinicalTabs({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
+export function ClinicalTabs({
+  patientId,
+  assessmentId,
+  requireAssessment = false,
+}: {
+  patientId: string;
+  assessmentId?: string;
+  requireAssessment?: boolean;
+}) {
   return (
     <Tabs defaultValue="escalas">
       <TabsList className="flex flex-wrap">
@@ -16,10 +24,10 @@ export function ClinicalTabs({ patientId, assessmentId }: { patientId: string; a
         <TabsTrigger value="objetivos">Objetivos</TabsTrigger>
         <TabsTrigger value="assinaturas">Assinaturas</TabsTrigger>
       </TabsList>
-      <TabsContent value="escalas"><ScalesPanel patientId={patientId} assessmentId={assessmentId} /></TabsContent>
-      <TabsContent value="forca"><MRCPanel patientId={patientId} assessmentId={assessmentId} /></TabsContent>
-      <TabsContent value="gonio"><GoniometryPanel patientId={patientId} assessmentId={assessmentId} /></TabsContent>
-      <TabsContent value="objetivos"><GoalsPanel patientId={patientId} assessmentId={assessmentId} /></TabsContent>
+      <TabsContent value="escalas"><ScalesPanel patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} /></TabsContent>
+      <TabsContent value="forca"><MRCPanel patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} /></TabsContent>
+      <TabsContent value="gonio"><GoniometryPanel patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} /></TabsContent>
+      <TabsContent value="objetivos"><GoalsPanel patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} /></TabsContent>
       <TabsContent value="assinaturas">
         <Card className="p-4">
           <h3 className="font-semibold mb-3">Assinaturas digitais</h3>

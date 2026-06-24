@@ -227,6 +227,8 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const [savingDraft, setSavingDraft] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [appliedTemplates, setAppliedTemplates] = useState<string[]>([]);
+  const [draftAssessmentId, setDraftAssessmentId] = useState<string | null>(assessment?.id ?? null);
+  const [creatingAssessmentDraft, setCreatingAssessmentDraft] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { register, watch, setValue, getValues, handleSubmit, reset } = useForm<WizardPayload>({
@@ -235,6 +237,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
 
   const formValues = watch();
   const ageYears = patient?.data_nascimento ? calcAge(patient.data_nascimento) : null;
+  const activeAssessmentId = assessment?.id ?? draftAssessmentId ?? undefined;
 
   // Catálogos -----------------------------------------------------------------
   const diagnoses = useQuery({
@@ -264,6 +267,47 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       return data ?? [];
     },
   });
+
+  const ensureAssessmentRecord = async () => {
+    if (activeAssessmentId || creatingAssessmentDraft) return activeAssessmentId ?? null;
+    if (!clinicId) throw new Error("Clínica ativa não identificada");
+    const v = getValues();
+    if (!v.professional_id) {
+      throw new Error("Selecione o profissional antes de registrar instrumentos clínicos.");
+    }
+    setCreatingAssessmentDraft(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const insertRow: any = {
+        ...toRow(v, patientId, clinicId),
+        wizard_step: stepIdx,
+        wizard_completed: false,
+        last_autosaved_at: new Date().toISOString(),
+        created_by: u.user?.id,
+        status: "rascunho",
+        locked_at: null,
+      };
+      const { data, error } = await supabase
+        .from("assessments")
+        .insert(insertRow)
+        .select("id")
+        .single();
+      if (error) throw error;
+      const id = (data as any).id as string;
+      setDraftAssessmentId(id);
+      await supabase.from("assessment_audit_log" as any).insert({
+        assessment_id: id,
+        patient_id: patientId,
+        user_id: u.user?.id,
+        action: "create",
+        step: STEPS[stepIdx].key,
+        details: { source: "assessment-wizard", reason: "ensure-assessment-before-clinical-tabs" },
+      });
+      return id;
+    } finally {
+      setCreatingAssessmentDraft(false);
+    }
+  };
 
   // Carregar rascunho salvo ---------------------------------------------------
   useEffect(() => {
@@ -317,12 +361,13 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
     setSavingDraft(true);
     try {
       const payload = getValues();
-      if (isEdit) {
+      const draftId = assessment?.id ?? draftAssessmentId;
+      if (isEdit || draftId) {
         const { error } = await supabase
           .from("assessment_drafts" as any)
           .upsert(
             {
-              assessment_id: assessment.id,
+              assessment_id: draftId,
               patient_id: patientId,
               user_id: u.user.id,
               payload: payload as any,
@@ -357,7 +402,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       }
       // auditoria
       await supabase.from("assessment_audit_log" as any).insert({
-        assessment_id: assessment?.id ?? null,
+        assessment_id: assessment?.id ?? draftAssessmentId ?? null,
         patient_id: patientId,
         user_id: u.user.id,
         action: "autosave",
@@ -387,6 +432,15 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
     stepIdx,
   ]);
 
+  useEffect(() => {
+    if (STEPS[stepIdx].key !== "escalas" || activeAssessmentId) return;
+    void ensureAssessmentRecord().catch((e: any) => {
+      toast.error(e.message);
+      setStepIdx(0);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIdx, activeAssessmentId]);
+
   // Salvar definitivo / finalizar --------------------------------------------
   const save = useMutation({
     mutationFn: async (finalize: boolean) => {
@@ -403,7 +457,8 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         last_autosaved_at: new Date().toISOString(),
       };
 
-      let id = assessment?.id as string | undefined;
+      let id = activeAssessmentId;
+      const hadAssessmentId = !!id;
       let auditDetails: Record<string, any> = {
         source: "assessment-wizard",
         finalize,
@@ -412,7 +467,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         profiles: v.clinical_profiles,
         diagnoses: v.diagnosis_codes,
       };
-      if (isEdit) {
+      if (id) {
         if (finalize) {
           extras.status = "finalizada";
           extras.locked_at = new Date().toISOString();
@@ -422,7 +477,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           .from("assessments")
           .select("*")
           .eq("clinic_id", clinicId)
-          .eq("id", id!)
+          .eq("id", id)
           .maybeSingle();
         if (loadErr) throw loadErr;
         if (!current) throw new Error("Avaliação não encontrada para atualização.");
@@ -438,7 +493,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           profiles: v.clinical_profiles,
           diagnoses: v.diagnosis_codes,
         };
-        const { error } = await supabase.from("assessments").update(merged as any).eq("clinic_id", clinicId).eq("id", id!);
+        const { error } = await supabase.from("assessments").update(merged as any).eq("clinic_id", clinicId).eq("id", id);
         if (error) throw error;
       } else {
         const insertRow: any = {
@@ -457,7 +512,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         assessment_id: id,
         patient_id: patientId,
         user_id: u.user?.id,
-        action: finalize ? "finalize" : isEdit ? "update" : "create",
+        action: finalize ? "finalize" : hadAssessmentId ? "update" : "create",
         step: STEPS[stepIdx].key,
         details: auditDetails,
       });
@@ -469,7 +524,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           .delete()
           .eq("user_id", u.user.id)
           .eq("patient_id", patientId)
-          .is("assessment_id", null);
+          .or(`assessment_id.is.null,assessment_id.eq.${id}`);
       }
     },
     onSuccess: (_d, finalize) => {

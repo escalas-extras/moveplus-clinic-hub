@@ -26,16 +26,18 @@ const STATUSES = [
   { value: "cancelado", label: "Cancelado" },
 ];
 
-export function GoalsPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
+export function GoalsPanel({ patientId, assessmentId, requireAssessment = false }: { patientId: string; assessmentId?: string; requireAssessment?: boolean }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
   const [open, setOpen] = useState(false);
 
   const rows = useQuery({
-    queryKey: ["goals", patientId],
+    queryKey: ["goals", patientId, assessmentId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("assessment_goals").select("*").eq("patient_id", patientId).order("term").order("created_at", { ascending: false });
+      let q = supabase.from("assessment_goals").select("*").eq("patient_id", patientId);
+      if (assessmentId) q = q.eq("assessment_id", assessmentId);
+      const { data, error } = await q.order("term").order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -63,10 +65,10 @@ export function GoalsPanel({ patientId, assessmentId }: { patientId: string; ass
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold flex items-center gap-2"><Target className="h-4 w-4" /> Objetivos Terapêuticos</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Novo objetivo</Button></DialogTrigger>
+          <DialogTrigger asChild><Button size="sm" disabled={requireAssessment && !assessmentId}><Plus className="h-4 w-4 mr-1" />Novo objetivo</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Novo objetivo</DialogTitle></DialogHeader>
-            <GoalForm patientId={patientId} assessmentId={assessmentId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["goals", patientId] }); }} />
+            <GoalForm patientId={patientId} assessmentId={assessmentId} requireAssessment={requireAssessment} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["goals", patientId] }); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -99,18 +101,19 @@ export function GoalsPanel({ patientId, assessmentId }: { patientId: string; ass
             );
           })}
         </div>
-      ) : <p className="text-sm text-muted-foreground">Nenhum objetivo definido.</p>}
+      ) : <p className="text-sm text-muted-foreground">{requireAssessment && !assessmentId ? "Salve a avaliação antes de definir objetivos." : "Nenhum objetivo definido."}</p>}
     </Card>
   );
 }
 
-function GoalForm({ patientId, assessmentId, onDone }: { patientId: string; assessmentId?: string; onDone: () => void }) {
+function GoalForm({ patientId, assessmentId, requireAssessment, onDone }: { patientId: string; assessmentId?: string; requireAssessment?: boolean; onDone: () => void }) {
   const [term, setTerm] = useState("curto");
   const [description, setDescription] = useState("");
   const [targetDate, setTargetDate] = useState("");
 
   const save = useMutation({
     mutationFn: async () => {
+      if (requireAssessment && !assessmentId) throw new Error("Salve a avaliação antes de criar objetivos.");
       if (!description.trim()) throw new Error("Descrição obrigatória");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_goals").insert({

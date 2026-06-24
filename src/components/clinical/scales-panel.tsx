@@ -14,17 +14,20 @@ import { SCALES, computeScale, RISK_COLORS, type ScaleType } from "@/lib/clinica
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { fmtDate } from "@/lib/format";
 
-export function ScalesPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
+export function ScalesPanel({ patientId, assessmentId, requireAssessment = false }: { patientId: string; assessmentId?: string; requireAssessment?: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [activeScale, setActiveScale] = useState<ScaleType>("barthel");
 
   const rows = useQuery({
-    queryKey: ["scales", patientId],
+    queryKey: ["scales", patientId, assessmentId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("assessment_scales").select("*").eq("patient_id", patientId)
-        .order("applied_at", { ascending: false });
+      let q = supabase
+        .from("assessment_scales")
+        .select("*")
+        .eq("patient_id", patientId);
+      if (assessmentId) q = q.eq("assessment_id", assessmentId);
+      const { data, error } = await q.order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -35,7 +38,7 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold flex items-center gap-2"><Activity className="h-4 w-4" /> Escalas Funcionais</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Aplicar escala</Button></DialogTrigger>
+          <DialogTrigger asChild><Button size="sm" disabled={requireAssessment && !assessmentId}><Plus className="h-4 w-4 mr-1" />Aplicar escala</Button></DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Aplicar Escala</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -53,6 +56,7 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
                 scaleType={activeScale}
                 patientId={patientId}
                 assessmentId={assessmentId}
+                requireAssessment={requireAssessment}
                 onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["scales", patientId] }); }}
               />
             </div>
@@ -81,13 +85,15 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
           </div>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">Nenhuma escala aplicada ainda.</p>
+        <p className="text-sm text-muted-foreground">
+          {requireAssessment && !assessmentId ? "Salve a avaliação antes de aplicar escalas." : "Nenhuma escala aplicada ainda."}
+        </p>
       )}
     </Card>
   );
 }
 
-function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: ScaleType; patientId: string; assessmentId?: string; onDone: () => void }) {
+function ScaleForm({ scaleType, patientId, assessmentId, requireAssessment, onDone }: { scaleType: ScaleType; patientId: string; assessmentId?: string; requireAssessment?: boolean; onDone: () => void }) {
   const cfg = SCALES[scaleType];
   const [items, setItems] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
@@ -95,6 +101,7 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
 
   const save = useMutation({
     mutationFn: async () => {
+      if (requireAssessment && !assessmentId) throw new Error("Salve a avaliação antes de aplicar escalas.");
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("assessment_scales").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
