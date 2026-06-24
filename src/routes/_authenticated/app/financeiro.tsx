@@ -15,7 +15,7 @@ import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye } from "lucide-re
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
-import { downloadPdf, previewPdf, printPdf } from "@/lib/pdf";
+import { downloadReceiptPdf, previewReceiptPdf, printReceiptPdf, type ReceiptPdfData } from "@/lib/receipt-pdf";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
 
