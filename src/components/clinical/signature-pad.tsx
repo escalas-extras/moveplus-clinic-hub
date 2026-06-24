@@ -13,12 +13,28 @@ import { useActiveClinic } from "@/lib/active-clinic";
 
 type Role = "paciente" | "responsavel" | "profissional";
 
-export function SignaturePad({ patientId, documentId, assessmentId }: { patientId: string; documentId?: string; assessmentId?: string }) {
+export function SignaturePad({
+  patientId,
+  documentId,
+  assessmentId,
+  defaultRole,
+  lockRole = false,
+  defaultName = "",
+  onSigned,
+}: {
+  patientId: string;
+  documentId?: string;
+  assessmentId?: string;
+  defaultRole?: Role;
+  lockRole?: boolean;
+  defaultName?: string;
+  onSigned?: () => void;
+}) {
   const qc = useQueryClient();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
-  const [role, setRole] = useState<Role>("profissional");
-  const [name, setName] = useState("");
+  const [role, setRole] = useState<Role>(defaultRole ?? "profissional");
+  const [name, setName] = useState(defaultName);
   const [doc, setDoc] = useState("");
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
@@ -29,6 +45,14 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
     const ctx = c.getContext("2d")!;
     ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#111";
   }, []);
+
+  useEffect(() => {
+    if (defaultRole) setRole(defaultRole);
+  }, [defaultRole]);
+
+  useEffect(() => {
+    setName(defaultName);
+  }, [defaultName]);
 
   const list = useQuery({
     queryKey: ["sigs", clinicId, patientId, documentId, assessmentId],
@@ -76,7 +100,7 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Assinatura registrada"); clear(); setName(""); setDoc(""); qc.invalidateQueries({ queryKey: ["sigs", patientId, documentId, assessmentId] }); },
+    onSuccess: () => { toast.success("Assinatura registrada"); clear(); setName(defaultName); setDoc(""); qc.invalidateQueries({ queryKey: ["sigs", patientId, documentId, assessmentId] }); onSigned?.(); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -90,7 +114,7 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
       <div className="grid sm:grid-cols-3 gap-2">
         <div>
           <Label>Papel</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+          <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={lockRole}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="paciente">Paciente</SelectItem>

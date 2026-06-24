@@ -18,6 +18,7 @@ import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builder
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth } from "@/lib/auth";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
 import { DischargePanel } from "@/components/clinical/discharge-panel";
@@ -78,7 +79,7 @@ function PatientPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("assessments")
-        .select("*, professionals(nome, conselho, registro, profissao), assessment_modules(module_type)")
+        .select("*, professionals(nome, conselho, registro, profissao, situacao, profile_id), assessment_modules(module_type)")
         .eq("clinic_id", clinicId!)
         .eq("patient_id", id)
         .order("data", { ascending: false });
@@ -102,6 +103,8 @@ function PatientPage() {
 
   const finalize = useMutation({
     mutationFn: async (a: any) => {
+      const validation = validateProfessionalForDoc((a.professionals ?? null) as any);
+      if (validation.status !== "ok") throw new Error(validation.message);
       const missing = [
         !a.queixa_principal?.trim() ? "Queixa principal" : null,
         !a.diagnostico_fisio?.trim() ? "Diagnóstico fisioterapêutico" : null,
@@ -109,6 +112,15 @@ function PatientPage() {
         !a.condutas?.trim() ? "Plano de tratamento" : null,
       ].filter(Boolean);
       if (missing.length) throw new Error(`Para finalizar, preencha: ${missing.join(", ")}.`);
+      const { data: sigs, error: sigErr } = await supabase
+        .from("clinical_signatures")
+        .select("id")
+        .eq("patient_id", a.patient_id)
+        .eq("assessment_id", a.id)
+        .eq("signer_role", "profissional")
+        .limit(1);
+      if (sigErr) throw sigErr;
+      if (!sigs?.length) throw new Error("Registre a assinatura do profissional responsável antes de finalizar.");
       const { error } = await supabase
         .from("assessments")
         .update({ status: "finalizada", locked_at: new Date().toISOString() })

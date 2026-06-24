@@ -25,6 +25,8 @@ import {
 import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { buildAssessmentAuditDetails, mergeAssessmentUpdate } from "@/lib/assessment-merge";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
+import { SignaturePad } from "@/components/clinical/signature-pad";
 
 const STEPS = [
   { key: "identificacao", label: "Identificação", icon: User },
@@ -260,10 +262,27 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
     queryFn: async () => {
       const { data } = await supabase
         .from("professionals")
-        .select("id, nome, profissao, conselho, registro")
+        .select("id, nome, profissao, conselho, registro, situacao, profile_id")
         .eq("clinic_id", clinicId!)
         .eq("situacao", "ativo")
         .order("nome");
+      return data ?? [];
+    },
+  });
+
+  const selectedProfessional = profs.data?.find((p) => p.id === formValues.professional_id) ?? null;
+  const signatures = useQuery({
+    queryKey: ["sigs", clinicId, patientId, activeAssessmentId],
+    enabled: !!clinicId && !!patientId && !!activeAssessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clinical_signatures")
+        .select("id, signer_role")
+        .eq("patient_id", patientId)
+        .eq("assessment_id", activeAssessmentId!)
+        .eq("signer_role", "profissional")
+        .limit(1);
+      if (error) throw error;
       return data ?? [];
     },
   });
@@ -448,6 +467,12 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       if (!clinicId) throw new Error("Clínica ativa não identificada");
       if (!v.professional_id) throw new Error("Selecione o profissional");
       if (finalize) {
+        const validation = validateProfessionalForDoc(selectedProfessional as any);
+        if (validation.status !== "ok") throw new Error(validation.message);
+        if (!activeAssessmentId) throw new Error("Salve a avaliação antes de registrar a assinatura profissional.");
+        if (!signatures.data?.some((s) => s.signer_role === "profissional")) {
+          throw new Error("Registre a assinatura do profissional responsável antes de finalizar.");
+        }
         const missing = [
           !v.queixa_principal.trim() ? "Queixa principal" : null,
           !v.diagnostico_fisio.trim() ? "Diagnóstico fisioterapêutico" : null,
@@ -657,17 +682,29 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           />
         )}
         {current.key === "escalas" && (
-          <ClinicalTabs patientId={patientId} assessmentId={assessment?.id} />
+          <ClinicalTabs patientId={patientId} assessmentId={activeAssessmentId} requireAssessment />
         )}
         {current.key === "plano" && (
           <StepPlano register={register} suggested={detection.items.flatMap((d) => d.suggested_objectives)} />
         )}
         {current.key === "assinaturas" && (
-          <PlaceholderPhase
-            title="Assinaturas digitais"
-            phase="Fase 4"
-            description="Captura de assinatura por toque/mouse para fisioterapeuta, paciente e responsável, com selo de data/hora e bloqueio da avaliação ao assinar."
-          />
+          <Card className="p-4 space-y-3">
+            <h4 className="text-sm font-semibold">Assinatura profissional</h4>
+            {activeAssessmentId ? (
+              <SignaturePad
+                patientId={patientId}
+                assessmentId={activeAssessmentId}
+                defaultRole="profissional"
+                lockRole
+                defaultName={selectedProfessional?.nome ?? ""}
+                onSigned={() => signatures.refetch()}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Salve a avaliação antes de registrar a assinatura profissional.
+              </p>
+            )}
+          </Card>
         )}
       </div>
 

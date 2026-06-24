@@ -16,6 +16,8 @@ import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildAssessmentPdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { buildAssessmentAuditDetails, mergeAssessmentUpdate } from "@/lib/assessment-merge";
+import { validateProfessionalForDoc } from "@/lib/professional-resolver";
+import { SignaturePad } from "@/components/clinical/signature-pad";
 
 type ModuleType = "geral" | "traumato_ortopedica" | "neurologica" | "cardiorrespiratoria" | "postural" | "geriatrica" | "pediatrica" | "esportiva" | "rpg" | "pilates" | "dor_cronica" | "funcional" | "personalizada";
 
@@ -118,6 +120,7 @@ type FormInput = {
 export function AssessmentForm({ patientId, patient, assessment, onDone }: { patientId: string; patient?: any; assessment?: any; onDone: () => void }) {
   const isEdit = !!assessment?.id;
   const { clinicId } = useActiveClinic();
+  const [savedAssessmentId, setSavedAssessmentId] = useState<string | null>(assessment?.id ?? null);
   const [modules, setModules] = useState<ModuleType[]>(
     assessment?.assessment_modules?.length ? assessment.assessment_modules.map((m: any) => m.module_type) : ["geral"]
   );
@@ -192,7 +195,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
     queryFn: async () => {
       const { data } = await supabase
         .from("professionals")
-        .select("id, nome, profissao, conselho, registro")
+        .select("id, nome, profissao, conselho, registro, situacao, profile_id")
         .eq("clinic_id", clinicId!)
         .eq("situacao", "ativo")
         .order("nome");
@@ -205,6 +208,17 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
       if (!clinicId) throw new Error("Clínica ativa não identificada");
       const { data: u } = await supabase.auth.getUser();
       const imc = calcImc(v.peso, v.estatura);
+      const prof = profs.data?.find((p) => p.id === v.professional_id) ?? null;
+      if (finalize) {
+        const validation = validateProfessionalForDoc(prof as any);
+        if (validation.status !== "ok") throw new Error(validation.message);
+        if (!savedAssessmentId && !isEdit) {
+          finalize = false;
+          toast.info("Rascunho salvo. Registre a assinatura profissional antes de finalizar.");
+        } else if (!signatures.data?.some((s) => s.signer_role === "profissional")) {
+          throw new Error("Registre a assinatura do profissional responsável antes de finalizar.");
+        }
+      }
       const payload: any = {
         clinic_id: clinicId,
         patient_id: patientId,
@@ -290,6 +304,7 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         const { data, error } = await supabase.from("assessments").insert(payload).select("id").single();
         if (error) throw error;
         assessmentId = (data as any)?.id;
+        if (assessmentId) setSavedAssessmentId(assessmentId);
       }
 
       await supabase.from("assessment_audit_log" as any).insert({
@@ -300,10 +315,11 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
         step: "assessment-form",
         details: auditDetails,
       });
+      return { finalized: finalize };
     },
-    onSuccess: (_d, vars) => {
-      toast.success(isEdit ? "Avaliação atualizada" : vars.finalize ? "Avaliação finalizada" : "Rascunho salvo");
-      onDone();
+    onSuccess: (result) => {
+      toast.success(isEdit ? "Avaliação atualizada" : result.finalized ? "Avaliação finalizada" : "Rascunho salvo");
+      if (result.finalized || isEdit) onDone();
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -315,6 +331,23 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
   const temExames = watch("tem_exames");
   const usaMed = watch("usa_medicamentos");
   const teveCir = watch("teve_cirurgias");
+
+  const selectedProfessional = profs.data?.find((p) => p.id === professional_id) ?? null;
+  const signatures = useQuery({
+    queryKey: ["sigs", clinicId, patientId, savedAssessmentId],
+    enabled: !!clinicId && !!patientId && !!savedAssessmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clinical_signatures")
+        .select("id, signer_role")
+        .eq("patient_id", patientId)
+        .eq("assessment_id", savedAssessmentId!)
+        .eq("signer_role", "profissional")
+        .limit(1);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   const missingFinalize: string[] = [];
   if (!professional_id) missingFinalize.push("Profissional");
@@ -748,6 +781,28 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           <Field label="5.2 Recursos terapêuticos"><Textarea rows={3} {...register("recursos_terapeuticos")} /></Field>
           <Field label="5.3 Plano de tratamento"><Textarea rows={3} {...register("condutas")} /></Field>
         </div>
+      </Section>
+
+      <Section title="6. Assinatura profissional">
+        {savedAssessmentId ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              A assinatura do profissional responsável é obrigatória antes de finalizar a avaliação.
+            </p>
+            <SignaturePad
+              patientId={patientId}
+              assessmentId={savedAssessmentId}
+              defaultRole="profissional"
+              lockRole
+              defaultName={selectedProfessional?.nome ?? ""}
+              onSigned={() => signatures.refetch()}
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Salve a avaliação como rascunho para habilitar a assinatura profissional.
+          </p>
+        )}
       </Section>
 
       {/* MÓDULOS OPCIONAIS */}
