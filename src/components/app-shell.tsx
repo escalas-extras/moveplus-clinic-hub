@@ -18,8 +18,21 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useBranding } from "@/lib/branding";
+import { useBranding, FISIOOS_DEFAULTS } from "@/lib/branding";
 import { ClinicLogo } from "@/components/clinic-logo";
+
+const ADMIN_SAAS_BRAND = {
+  ...FISIOOS_DEFAULTS,
+  appName: "FisioOS",
+  name: "FisioOS",
+  clinicName: "FisioOS",
+  slogan: "Transformando atendimentos em resultados",
+  logo: null,
+  logoUrl: null,
+  hasOwnLogo: false,
+  footer: "FisioOS · Transformando atendimentos em resultados",
+  isLoading: false,
+} as const;
 import { SupportBanner } from "@/components/support-banner";
 import { SupportClickInterceptor } from "@/components/support-click-interceptor";
 import { pcGet, pcSet } from "@/lib/persistent-cache";
