@@ -117,7 +117,7 @@ function PatientPage() {
         patientId: a.patient_id,
         professionalId: a.professional_id,
         referenciaId: a.id,
-        clinicId: clinicId ?? undefined,
+        clinicId: clinicId!,
       });
 
     },
