@@ -110,7 +110,10 @@ export function AppShell({ children, initialUser = null }: { children: ReactNode
     return window.localStorage.getItem(COLLAPSED_KEY) === "1";
   });
   const navigate = useNavigate();
-  const brand = useBranding();
+  const location = useLocation();
+  const isAdminSaasArea = location.pathname.startsWith("/app/admin-saas");
+  const clinicBrand = useBranding();
+  const brand = isAdminSaasArea ? ADMIN_SAAS_BRAND : clinicBrand;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
