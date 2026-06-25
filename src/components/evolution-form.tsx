@@ -201,13 +201,19 @@ export function EvolutionForm({
       {/* AVALIAÇÃO ÁLGICA */}
       <div className="rounded-lg border p-3 space-y-3">
         <Label className="text-xs uppercase">Avaliação álgica</Label>
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <Label className="text-[10px] uppercase">EVA (dor geral)</Label>
-            <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-[10px] uppercase">EVA (dor geral)</Label>
+              <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
+            </div>
+            <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
+            <div className="flex justify-between text-[10px] mt-2 px-1">
+              <span className="font-medium text-blue-500">0–2 Leve</span>
+              <span className="font-medium text-green-600">3–7 Moderada</span>
+              <span className="font-medium text-red-500">8–10 Intensa</span>
+            </div>
           </div>
-          <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
-        </div>
+
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/40">
