@@ -15,6 +15,7 @@ import { Eye } from "lucide-react";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildAssessmentPdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { EvaScale } from "@/components/clinical/eva-scale";
 
 type ModuleType = "geral" | "traumato_ortopedica" | "neurologica" | "cardiorrespiratoria" | "postural" | "geriatrica" | "pediatrica" | "esportiva" | "rpg" | "pilates" | "dor_cronica" | "funcional" | "personalizada";
 
@@ -445,16 +446,11 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
           <Field label="3.6 Testes específicos" wide><Textarea rows={3} {...register("testes_especificos")} /></Field>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs uppercase">3.7 Avaliação da dor (EVA)</Label>
-              <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
-            </div>
-            <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
-            <div className="flex justify-between text-[10px] mt-2 px-1">
-              <span className="font-medium text-blue-500">0–2 Leve</span>
-              <span className="font-medium text-green-600">3–7 Moderada</span>
-              <span className="font-medium text-red-500">8–10 Intensa</span>
-            </div>
+            <EvaScale
+              label="3.7 Avaliação da dor (EVA)"
+              value={eva}
+              onChange={(v) => setEva(v)}
+            />
           </div>
 
 
