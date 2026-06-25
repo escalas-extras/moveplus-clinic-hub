@@ -297,8 +297,9 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
     }
 
     if (ch.kind === "eva") {
-      atoms.push({ kind: "eva", value: ch.value, h: 56, blockId: id });
+      atoms.push({ kind: "eva", value: ch.value, h: 68, blockId: id });
       continue;
+
     }
 
     if (ch.kind === "checks") {
