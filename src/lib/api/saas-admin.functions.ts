@@ -418,7 +418,7 @@ export const provisionClinic = createServerFn({ method: "POST" })
         ownerUserId = found.id;
         ownerExisted = !!(found as any).email_confirmed_at;
       } else {
-        const redirectTo = `${process.env.SITE_URL ?? "https://moveplus-clinic-hub.lovable.app"}/set-password`;
+        const redirectTo = `${process.env.SITE_URL ?? "https://fisioos.app"}/set-password`;
         const { data: invited, error: invErr } =
           await supabaseAdmin.auth.admin.inviteUserByEmail(ownerEmail, {
             redirectTo,
@@ -567,7 +567,7 @@ async function provisionClinicFallback(args: {
 // Owner management (invite-driven)
 // ------------------------------------------------------------
 function getInviteRedirect() {
-  return `${process.env.SITE_URL ?? "https://moveplus-clinic-hub.lovable.app"}/set-password`;
+  return `${process.env.SITE_URL ?? "https://fisioos.app"}/set-password`;
 }
 
 export const resendOwnerInvite = createServerFn({ method: "POST" })
@@ -1179,11 +1179,8 @@ export const softDeleteClinic = createServerFn({ method: "POST" })
       throw new Error(`Confirmação incorreta. Digite exatamente: ${clinic.slug ?? clinic.nome}`);
     }
 
-    // Move+ extra guard
-    const isMovePlus = /move\s*\+?\s*60?\s*\+?/i.test(clinic.nome || "") || clinic.slug === "move-plus";
-    if (isMovePlus && data.confirm_name.trim() !== "EXCLUIR MOVE 60+") {
-      throw new Error('Para excluir a Move+ é necessário digitar exatamente: EXCLUIR MOVE 60+');
-    }
+    // White-label: confirmação genérica baseada no slug/nome da própria clínica
+    // (validada acima). Sem regras hardcoded por tenant.
 
     // Documents emitted require explicit acknowledgement
     const { count: docCount } = await supabaseAdmin
