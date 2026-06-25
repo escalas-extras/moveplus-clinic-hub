@@ -131,11 +131,12 @@ export async function uploadAndRegisterPdf(opts: {
   patientId: string;
   professionalId: string;
   referenciaId: string;
-  clinicId?: string | null;
+  clinicId: string;
 }) {
-  const doc = await buildPdf({ ...opts.pdfOpts, clinicId: opts.clinicId ?? null });
+  if (!opts.clinicId) throw new Error("clinicId é obrigatório para upload de documentos");
+  const doc = await buildPdf({ ...opts.pdfOpts, clinicId: opts.clinicId });
   const blob = doc.output("blob");
-  const path = `${opts.folder}/${opts.referenciaId}-${Date.now()}.pdf`;
+  const path = `${opts.clinicId}/${opts.folder}/${opts.referenciaId}-${Date.now()}.pdf`;
   const { error: upErr } = await supabase.storage.from("documents").upload(path, blob, {
     contentType: "application/pdf",
     upsert: true,
