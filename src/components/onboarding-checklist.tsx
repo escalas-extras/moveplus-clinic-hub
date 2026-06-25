@@ -12,6 +12,8 @@ import { useActiveClinic } from "@/lib/active-clinic";
 type Step = { key: string; label: string; description: string; to: string; done: boolean };
 
 const DISMISS_KEY = "fisioos.onboarding.dismissed";
+// Chave de migração somente-leitura: apaga entradas legadas do localStorage
+// gravadas em versões anteriores. Não usada em escrita nem na UI.
 const LEGACY_DISMISS_KEY = "moveplus.onboarding.dismissed";
 
 export function OnboardingChecklist() {
