@@ -24,6 +24,7 @@ import {
 } from "@/lib/clinical-profiles";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
+import { EvaScale } from "@/components/clinical/eva-scale";
 
 const STEPS = [
   { key: "identificacao", label: "Identificação", icon: User },
@@ -786,21 +787,11 @@ function StepExame({ register, values, setValue, profiles }: any) {
       <SectionAccordion value="geral" title="Avaliação geral">
         <div className="space-y-3">
           <div>
-            <div className="flex items-center justify-between">
-              <Label className="text-xs uppercase">EVA — Dor (0–10)</Label>
-              <span className="text-sm font-semibold tabular-nums">{values.eva}</span>
-            </div>
-            <Slider
-              value={[values.eva]}
-              max={10}
-              step={1}
-              onValueChange={(v) => setValue("eva", v[0], { shouldDirty: true })}
+            <EvaScale
+              label="EVA — Dor"
+              value={values.eva ?? 0}
+              onChange={(v) => setValue("eva", v, { shouldDirty: true })}
             />
-            <div className="flex justify-between text-[10px] mt-2 px-1">
-              <span className="font-medium text-blue-500">0–2 Leve</span>
-              <span className="font-medium text-green-600">3–7 Moderada</span>
-              <span className="font-medium text-red-500">8–10 Intensa</span>
-            </div>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">
