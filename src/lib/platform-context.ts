@@ -42,5 +42,8 @@ export function usePlatformContext(): PlatformContext {
 
 export async function resolvePostLoginRedirect(userId: string): Promise<string> {
   const ctx = await fetchContext(userId);
-  return ctx.isPlatformAdmin ? "/app/admin-saas" : "/app";
+  // Super admins (SaaS) sempre entram no painel administrativo,
+  // mesmo quando também são membros/owners de uma clínica.
+  // Usuários comuns/owners de clínica seguem para a clínica ativa.
+  return ctx.isSuperAdmin ? "/app/admin-saas" : "/app";
 }
