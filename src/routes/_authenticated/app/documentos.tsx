@@ -253,6 +253,8 @@ function DocumentosPage() {
     patientName: patient?.nome_completo,
     professional: professional ?? null,
     sections: renderedSections,
+    // White-label seguro: branding do PDF vem da clínica dona do paciente.
+    clinicId: ((patient as any)?.clinic_id ?? activeClinicId ?? null) as string | null,
     contratante: isContractTemplate
       ? { nome: effectiveContratante?.nome ?? null, cpf: effectiveContratante?.cpf ?? null, vinculo: effectiveContratante?.vinculo ?? null }
       : null,
