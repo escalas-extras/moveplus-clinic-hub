@@ -54,13 +54,17 @@ export function LogoUploader({
     }
     setBusy(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-      const path = `${clinicId}/logo-${Date.now()}.${ext}`;
+      const safeName = file.name
+        .toLowerCase()
+        .replace(/[^a-z0-9.\-_]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      const path = `${clinicId}/branding/logo-${Date.now()}-${safeName}`;
       invalidateSignedClinicLogoUrl(path);
       const objectUrl = URL.createObjectURL(file);
       setLocalPreviewUrl(objectUrl);
       const { error } = await supabase.storage
-        .from("clinic-logos")
+        .from("documents")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (error) throw error;
       onChange(path);
