@@ -88,9 +88,9 @@ const C = {
   hairline: [201, 210, 194] as [number, number, number],
   hairlineSoft: [228, 232, 222] as [number, number, number],
   highlightBg: [240, 244, 238] as [number, number, number],
-  evaGreen: [120, 180, 110] as [number, number, number],
-  evaYellow: [240, 200, 80] as [number, number, number],
-  evaRed: [210, 80, 70] as [number, number, number],
+  evaLeve: [59, 130, 246] as [number, number, number],     // 0-2 azul
+  evaModerada: [34, 197, 94] as [number, number, number], // 3-7 verde
+  evaIntensa: [239, 68, 68] as [number, number, number],  // 8-10 vermelho
 } as const;
 
 function hexToRgb(hex?: string | null): [number, number, number] | null {
@@ -297,8 +297,9 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
     }
 
     if (ch.kind === "eva") {
-      atoms.push({ kind: "eva", value: ch.value, h: 56, blockId: id });
+      atoms.push({ kind: "eva", value: ch.value, h: 68, blockId: id });
       continue;
+
     }
 
     if (ch.kind === "checks") {
@@ -822,32 +823,68 @@ function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: numb
 }
 
 function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: number) {
-  const barX = x + 20;
-  const barW = w - 40;
-  const barY = y + 26;
-  const barH = 8;
-  doc.setFillColor(...C.hairlineSoft);
-  doc.rect(barX, barY, barW, barH, "F");
-  if (value != null) {
-    const t = Math.max(0, Math.min(10, value)) / 10;
-    const fillW = barW * t;
-    const color = value <= 3 ? C.evaGreen : value <= 6 ? C.evaYellow : C.evaRed;
-    doc.setFillColor(...color);
-    doc.rect(barX, barY, fillW, barH, "F");
+  const barX = x;
+  const barY = y + 22;
+  const barH = 14;
+  const barW = w;
+  const segW = barW / 10;
+
+  const zones = [
+    { range: [0, 2], label: "LEVE", color: C.evaLeve },
+    { range: [3, 7], label: "MODERADA", color: C.evaModerada },
+    { range: [8, 10], label: "INTENSA", color: C.evaIntensa },
+  ] as const;
+
+  // zones background
+  for (const z of zones) {
+    const startX = barX + z.range[0] * segW;
+    const width = (z.range[1] - z.range[0] + 1) * segW;
+    doc.setFillColor(...z.color);
+    doc.rect(startX, barY, width, barH, "F");
   }
+
+  // tick marks + numbers
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.4);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  for (let i = 0; i <= 10; i++) {
+    const tx = barX + i * segW;
+    doc.line(tx, barY, tx, barY + barH);
+    const numX = i === 0 ? tx + 2 : i === 10 ? tx - 2 : tx;
+    doc.text(String(i), numX, barY + barH - 3, { align: i === 0 ? "left" : i === 10 ? "right" : "center" });
+  }
+
+  // zone labels above the bar
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...C.ink);
+  for (const z of zones) {
+    const midX = barX + ((z.range[0] + z.range[1]) / 2 + 0.5) * segW;
+    doc.text(z.label, midX, barY - 4, { align: "center" });
+  }
+
+  // current value marker
+  if (value != null) {
+    const t = Math.max(0, Math.min(10, value));
+    const mx = barX + t * segW;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(1.5);
+    doc.line(mx, barY - 2, mx, barY + barH + 2);
+    doc.setFillColor(0, 0, 0);
+    doc.circle(mx, barY - 6, 2.5, "F");
+  }
+
+  // title and value
   doc.setFont("helvetica", "bold");
   doc.setFontSize(T.label);
   doc.setTextColor(...C.meta);
-  doc.text("EVA", x, y + 14);
+  doc.text("ESCALA VISUAL ANALÓGICA - EVA", x, y + 8);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(T.body);
   doc.setTextColor(...C.ink);
-  doc.text(value != null ? `${value}/10` : "—", x + w, y + 14, { align: "right" });
-  // Scale labels
-  doc.setFontSize(7);
-  doc.setTextColor(...C.meta);
-  doc.text("0", barX, barY + barH + 9);
-  doc.text("10", barX + barW, barY + barH + 9, { align: "right" });
+  doc.text(value != null ? `${value}/10` : "—", x + w, y + 8, { align: "right" });
 }
 
 // ---------- Signature ----------

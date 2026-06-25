@@ -796,7 +796,13 @@ function StepExame({ register, values, setValue, profiles }: any) {
               step={1}
               onValueChange={(v) => setValue("eva", v[0], { shouldDirty: true })}
             />
+            <div className="flex justify-between text-[10px] mt-2 px-1">
+              <span className="font-medium text-blue-500">0–2 Leve</span>
+              <span className="font-medium text-green-600">3–7 Moderada</span>
+              <span className="font-medium text-red-500">8–10 Intensa</span>
+            </div>
           </div>
+
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs uppercase">Inspeção</Label>
