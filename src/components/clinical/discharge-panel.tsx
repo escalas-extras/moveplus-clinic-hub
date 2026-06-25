@@ -101,6 +101,8 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
       patientName: patient?.nome_completo,
       professional: d.professionals,
       validationHash: d.validation_hash,
+      // White-label seguro: branding vem da clínica dona da alta/paciente.
+      clinicId: (d?.clinic_id ?? patient?.clinic_id ?? null) as string | null,
       blocks: [
         {
           title: "1. Identificação",

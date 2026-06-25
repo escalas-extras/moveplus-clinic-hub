@@ -156,6 +156,9 @@ export function buildAssessmentPdfOpts(a: any, p: any, allEvolutions: any[] = []
     subtitle: `Emitida em ${fmtDate(a.data)}`,
     patientName: p?.nome_completo,
     professional: a.professionals,
+    // White-label seguro: branding deve vir da clínica DONA do registro
+    // (avaliação/paciente), nunca da clínica logada/ativa.
+    clinicId: (a?.clinic_id ?? p?.clinic_id ?? null) as string | null,
     blocks: [
       {
         title: "1. Identificação",
@@ -292,6 +295,8 @@ export function buildEvolutionPdfOpts(e: any, p: any) {
     subtitle: `${fmtDate(e.data)}${e.hora ? ` às ${String(e.hora).slice(0, 5)}` : ""}`,
     patientName: p.nome_completo,
     professional: e.professionals,
+    // White-label seguro: branding sempre vem da clínica dona da evolução.
+    clinicId: (e?.clinic_id ?? p?.clinic_id ?? null) as string | null,
     blocks: [
       {
         title: "Identificação",
