@@ -201,8 +201,8 @@ function BibliotecaPage() {
                       const url = URL.createObjectURL(blob);
                       // Apenas download direto via <a download>. Não usamos
                       // window.open() porque ele é frequentemente bloqueado
-                      // por bloqueadores de popup (causa raiz reportada na
-                      // clínica Move+: PDF "não gerava" — era o popup bloqueado).
+                      // por bloqueadores de popup (causa raiz reportada em
+                      // produção: PDF "não gerava" — era o popup bloqueado).
                       const a = document.createElement("a");
                       a.href = url;
                       a.download = filename;
