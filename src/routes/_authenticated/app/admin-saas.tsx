@@ -763,9 +763,7 @@ function DeleteClinicDialog({
 
   if (!clinic) return null;
   const expected = clinic.slug || clinic.nome;
-  const isMovePlus =
-    /move\s*\+?\s*60?\s*\+?/i.test(clinic.nome || "") || clinic.slug === "move-plus";
-  const requiredText = isMovePlus ? "EXCLUIR MOVE 60+" : expected;
+  const requiredText = expected;
   const counts = info?.counts;
   const hasDocs = (counts?.documents ?? 0) > 0;
   const canDelete =
