@@ -29,7 +29,7 @@ export type ProfessionalValidation = {
 
 /**
  * Regras de elegibilidade do profissional responsável por um documento clínico.
- * Igual para Move+, Grasiela, clínica teste ou qualquer clínica futura.
+ * Aplicáveis a qualquer clínica do FisioOS (white-label).
  */
 export function validateProfessionalForDoc(prof: ProfessionalLite | null): ProfessionalValidation {
   if (!prof) {
