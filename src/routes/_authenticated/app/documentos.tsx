@@ -279,7 +279,8 @@ function DocumentosPage() {
       const opts = { ...buildPdfOpts(), validationHash: validation_hash };
       const doc = await buildPdf(opts);
       const blob = doc.output("blob");
-      const path = `clinical/${patient.id}/${template.doc_type}-${Date.now()}.pdf`;
+      if (!activeClinicId) throw new Error("Clínica ativa não selecionada");
+      const path = `${activeClinicId}/clinical/${patient.id}/${template.doc_type}-${Date.now()}.pdf`;
       const { error: upErr } = await supabase.storage.from("documents").upload(path, blob, { contentType: "application/pdf", upsert: true });
       if (upErr) throw upErr;
 
