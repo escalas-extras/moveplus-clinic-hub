@@ -88,9 +88,9 @@ const C = {
   hairline: [201, 210, 194] as [number, number, number],
   hairlineSoft: [228, 232, 222] as [number, number, number],
   highlightBg: [240, 244, 238] as [number, number, number],
-  evaGreen: [120, 180, 110] as [number, number, number],
-  evaYellow: [240, 200, 80] as [number, number, number],
-  evaRed: [210, 80, 70] as [number, number, number],
+  evaLeve: [59, 130, 246] as [number, number, number],     // 0-2 azul
+  evaModerada: [34, 197, 94] as [number, number, number], // 3-7 verde
+  evaIntensa: [239, 68, 68] as [number, number, number],  // 8-10 vermelho
 } as const;
 
 function hexToRgb(hex?: string | null): [number, number, number] | null {
