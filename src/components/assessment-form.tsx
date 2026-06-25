@@ -450,10 +450,13 @@ export function AssessmentForm({ patientId, patient, assessment, onDone }: { pat
               <span className="text-sm font-medium tabular-nums">{eva.toFixed(0)} / 10</span>
             </div>
             <Slider value={[eva]} min={0} max={10} step={1} onValueChange={(v) => setEva(v[0] ?? 0)} />
-            <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
-              <span>0 sem dor</span><span>5</span><span>10 dor máxima</span>
+            <div className="flex justify-between text-[10px] mt-2 px-1">
+              <span className="font-medium text-blue-500">0–2 Leve</span>
+              <span className="font-medium text-green-600">3–7 Moderada</span>
+              <span className="font-medium text-red-500">8–10 Intensa</span>
             </div>
           </div>
+
 
           {(() => {
             const pesoStr = String(watch("peso") ?? "").replace(",", ".");
