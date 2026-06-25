@@ -63,7 +63,7 @@ export async function resolveClinicLogoUrl(raw: string | null | undefined): Prom
   } else if (/^https?:\/\//i.test(value)) {
     resolved = value;
   } else {
-    resolved = (await signedFrom("clinic-logos", value)) ?? (await signedFrom("documents", value));
+    resolved = (await signedFrom("documents", value)) ?? (await signedFrom("clinic-logos", value));
   }
 
   if (resolved) pcSet(persistKey(value), resolved, SIGNED_LOGO_TTL_MS);
