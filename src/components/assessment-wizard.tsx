@@ -229,7 +229,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const [appliedTemplates, setAppliedTemplates] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { register, watch, setValue, getValues, handleSubmit, reset } = useForm<WizardPayload>({
+  const { register, watch, setValue, getValues, handleSubmit, reset, control } = useForm<WizardPayload>({
     defaultValues: fromAssessment(assessment),
   });
 
