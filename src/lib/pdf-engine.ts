@@ -914,8 +914,8 @@ function drawHeaderV2(
   opts: BuildPdfOpts,
 ) {
   const M = S.M;
-  const logoSize = 64;
-  const logoY = 24;
+  const logoSize = 52;
+  const logoY = 28;
 
   if (logo) {
     try {
