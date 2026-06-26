@@ -18,6 +18,7 @@ import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf
 import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth } from "@/lib/auth";
+import { safeDeletePatient } from "@/lib/patient-delete";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
