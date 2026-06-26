@@ -674,9 +674,15 @@ function renderPageContent(
 
   const closeSegment = (endY: number) => {
     if (segOpenBlockId == null) return;
-    doc.setDrawColor(...C.hairline);
-    doc.setLineWidth(0.3);
-    doc.rect(M, segStartY, contentW, endY - segStartY, "S");
+    if (isMatrixV2) {
+      doc.setDrawColor(...C.hairlineSoft);
+      doc.setLineWidth(0.5);
+      (doc as any).roundedRect(M, segStartY, contentW, endY - segStartY, 6, 6, "S");
+    } else {
+      doc.setDrawColor(...C.hairline);
+      doc.setLineWidth(0.3);
+      doc.rect(M, segStartY, contentW, endY - segStartY, "S");
+    }
     segOpenBlockId = null;
   };
 
@@ -688,7 +694,11 @@ function renderPageContent(
       if (segOpenBlockId != null) closeSegment(y);
       segStartY = y;
       segOpenBlockId = a.blockId;
-      drawBlockTitle(doc, a.label, M, y, contentW);
+      if (isMatrixV2) {
+        drawBlockTitleV2(doc, a.label, M, y, contentW, a.blockId + 1, !!a.continuation);
+      } else {
+        drawBlockTitle(doc, a.label, M, y, contentW);
+      }
       y += S.BAR_H;
       y += S.BAR_GAP;
       continue;
