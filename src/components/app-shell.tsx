@@ -120,6 +120,16 @@ export function AppShell({ children, initialUser = null }: { children: ReactNode
     window.localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
+  // Isolamento Admin SaaS: super_admin fora do Modo Suporte só pode navegar
+  // dentro de /app/admin-saas. Qualquer tentativa de acessar área clínica é
+  // redirecionada de volta ao painel SaaS.
+  useEffect(() => {
+    if (!isPlatformAdmin) return;
+    if (location.pathname.startsWith("/app") && !location.pathname.startsWith("/app/admin-saas")) {
+      navigate({ to: "/app/admin-saas", replace: true });
+    }
+  }, [isPlatformAdmin, location.pathname, navigate]);
+
   const qc = useQueryClient();
   async function logout() {
     await qc.cancelQueries();
