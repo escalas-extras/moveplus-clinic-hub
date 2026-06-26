@@ -154,11 +154,15 @@ function PatientPage() {
 
   const deletePatient = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("patients").delete().eq("clinic_id", clinicId!).eq("id", id);
-      if (error) throw error;
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
+      return safeDeletePatient({ clinicId, patientId: id });
     },
-    onSuccess: () => {
-      toast.success("Paciente excluído");
+    onSuccess: (res) => {
+      toast.success(
+        res.action === "deleted"
+          ? "Paciente excluído"
+          : "Paciente inativado (histórico clínico preservado)",
+      );
       qc.invalidateQueries({ queryKey: ["patients", clinicId] });
       navigate({ to: "/app/pacientes" });
     },
