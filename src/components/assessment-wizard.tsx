@@ -561,6 +561,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
             register={register}
             values={formValues}
             setValue={setValue}
+            control={control}
             profiles={profiles}
           />
         )}
