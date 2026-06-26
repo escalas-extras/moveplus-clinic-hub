@@ -41,7 +41,12 @@ function PacientesPage() {
     queryKey: ["patients", activeClinicId, q],
     enabled: !!activeClinicId,
     queryFn: async () => {
-      let query = supabase.from("patients").select("*").eq("clinic_id", activeClinicId!).order("nome_completo");
+      let query = supabase
+        .from("patients")
+        .select("*")
+        .eq("clinic_id", activeClinicId!)
+        .eq("situacao", "ativo")
+        .order("nome_completo");
       if (q) query = query.ilike("nome_completo", `%${q}%`);
       const { data, error } = await query;
       if (error) throw error;
@@ -66,11 +71,15 @@ function PacientesPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("patients").delete().eq("id", id);
-      if (error) throw error;
+      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
+      return safeDeletePatient({ clinicId: activeClinicId, patientId: id });
     },
-    onSuccess: () => {
-      toast.success("Paciente excluído");
+    onSuccess: (res) => {
+      toast.success(
+        res.action === "deleted"
+          ? "Paciente excluído"
+          : "Paciente inativado (histórico clínico preservado)",
+      );
       qc.invalidateQueries({ queryKey: ["patients"] });
     },
     onError: (e: any) => toast.error(e.message),
