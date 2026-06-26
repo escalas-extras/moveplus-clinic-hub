@@ -2,7 +2,7 @@
 // Engine puro: src/lib/pdf-engine.ts (sem supabase, usado por fixtures).
 
 import { supabase } from "@/integrations/supabase/client";
-import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import { invalidateSignedClinicLogoUrl } from "@/lib/clinic-logo";
 import { validateProfessionalForDoc } from "@/lib/professional-resolver";
 import {
   renderPdf,
@@ -24,8 +24,52 @@ function isLikelyImageUrl(url: string): boolean {
   return true;
 }
 
+function storageRefFromUrl(raw: string): { bucket: string; path: string } | null {
+  try {
+    const url = new URL(raw);
+    const marker = "/storage/v1/object/";
+    const idx = url.pathname.indexOf(marker);
+    if (idx === -1) return null;
+    const tail = url.pathname.slice(idx + marker.length).split("/");
+    const mode = tail.shift();
+    if (mode !== "sign" && mode !== "public") return null;
+    const bucket = decodeURIComponent(tail.shift() ?? "");
+    const path = decodeURIComponent(tail.join("/"));
+    if (!bucket || !path) return null;
+    return { bucket, path };
+  } catch {
+    return null;
+  }
+}
+
+async function signFresh(bucket: string, path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
+/**
+ * Sempre resolve a logo a partir do valor atual em clinic_settings.logo_url,
+ * sem consultar o cache persistente — garante que alterações de identidade
+ * visual da clínica reflitam imediatamente no PDF.
+ */
 async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | null> {
-  const resolved = await resolveClinicLogoUrl(clinicLogoUrl);
+  const value = clinicLogoUrl?.trim();
+  if (!value) return null;
+
+  // Invalida cache de qualquer resolução anterior deste mesmo path.
+  invalidateSignedClinicLogoUrl(value);
+
+  let resolved: string | null = null;
+  const embedded = /^https?:\/\//i.test(value) ? storageRefFromUrl(value) : null;
+  if (embedded) {
+    resolved = (await signFresh(embedded.bucket, embedded.path)) ?? value;
+  } else if (/^https?:\/\//i.test(value)) {
+    resolved = value;
+  } else {
+    resolved = (await signFresh("documents", value)) ?? (await signFresh("clinic-logos", value));
+  }
+
   if (!resolved || !isLikelyImageUrl(resolved)) return null;
   return await urlToDataUrl(resolved);
 }
