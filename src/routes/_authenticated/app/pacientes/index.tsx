@@ -188,13 +188,13 @@ function PacientesPage() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Esta ação remove permanentemente o paciente e todos os seus dados clínicos (avaliações, evoluções, anexos, agendamentos). Não pode ser desfeita.
+                              Se o paciente possuir histórico clínico, financeiro ou de agenda, ele será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => remove.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Excluir definitivamente
+                              Confirmar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
