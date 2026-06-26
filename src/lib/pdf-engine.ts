@@ -211,7 +211,9 @@ export async function urlToDataUrl(url: string): Promise<string | null> {
       const dw = iw * scale;
       const dh = ih * scale;
       cx.drawImage(img, (target - dw) / 2, (target - dh) / 2, dw, dh);
-      return canvas.toDataURL("image/jpeg", 0.92);
+      // PNG sem alpha (canvas já totalmente opaco em branco) — evita
+      // artefatos de borda escura do JPEG ao redor de logos arredondadas.
+      return canvas.toDataURL("image/png");
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
@@ -916,6 +918,11 @@ function drawHeaderV2(
   const M = S.M;
   const logoSize = 52;
   const logoY = 28;
+
+  // Limpa a área da logo com branco antes do desenho — protege contra
+  // qualquer fundo herdado (preto/cinza) e garante respiro ao redor.
+  doc.setFillColor(255, 255, 255);
+  doc.rect(M - 2, logoY - 2, logoSize + 4, logoSize + 4, "F");
 
   if (logo) {
     try {
