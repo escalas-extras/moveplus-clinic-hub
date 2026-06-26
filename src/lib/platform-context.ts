@@ -19,8 +19,10 @@ async function fetchContext(userId: string) {
   const isSuperAdmin = roles.includes("super_admin");
   const hasClinic = (membersRes.data ?? []).length > 0;
   const inSupport = !!supportRes.data;
-  // Em modo suporte, super_admin opera com a experiência da clínica (não é mais "platform admin").
-  return { isSuperAdmin, hasClinic, isPlatformAdmin: isSuperAdmin && !hasClinic && !inSupport };
+  // Admin SaaS (super_admin) é SEMPRE platform admin fora do modo suporte,
+  // mesmo quando também é membro/owner de uma clínica. Isolamento total dos
+  // dados clínicos: só vê dados de clínica via Modo Suporte explícito.
+  return { isSuperAdmin, hasClinic, isPlatformAdmin: isSuperAdmin && !inSupport };
 }
 
 export function usePlatformContext(): PlatformContext {
