@@ -179,17 +179,42 @@ export async function urlToDataUrl(url: string): Promise<string | null> {
     if (!ct.startsWith("image/")) return null;
     const buf = await res.arrayBuffer();
     if (buf.byteLength === 0) return null;
-    // Node + browser: convert to base64
+    // Node (fixtures/scripts): retorna como veio.
     if (typeof window === "undefined") {
       const b64 = Buffer.from(buf).toString("base64");
       return `data:${ct};base64,${b64}`;
     }
-    return await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onloadend = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(new Blob([buf], { type: ct }));
-    });
+    // Browser: achata transparência sobre branco e normaliza para quadrado
+    // preservando proporção (padding branco). Resolve o "fundo preto" que
+    // o jsPDF aplica a PNG/WebP com alpha e garante que a logo apareça
+    // proporcional dentro do espaço do cabeçalho.
+    const blob = new Blob([buf], { type: ct });
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const img: HTMLImageElement = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = objectUrl;
+      });
+      const iw = img.naturalWidth || img.width || 1;
+      const ih = img.naturalHeight || img.height || 1;
+      const target = Math.max(256, Math.max(iw, ih));
+      const canvas = document.createElement("canvas");
+      canvas.width = target;
+      canvas.height = target;
+      const cx = canvas.getContext("2d");
+      if (!cx) return null;
+      cx.fillStyle = "#ffffff";
+      cx.fillRect(0, 0, target, target);
+      const scale = Math.min(target / iw, target / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      cx.drawImage(img, (target - dw) / 2, (target - dh) / 2, dw, dh);
+      return canvas.toDataURL("image/jpeg", 0.92);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   } catch {
     return null;
   }
