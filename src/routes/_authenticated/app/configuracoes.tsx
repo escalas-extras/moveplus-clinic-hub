@@ -124,20 +124,12 @@ function ConfigPage() {
         secondary_color: v.secondary_color || "#c75c3a",
         crefito_default: v.crefito_default || null,
       };
-      if (settings.data?.id) {
-        const { error } = await supabase
-          .from("clinic_settings")
-          .update(payload)
-          .eq("id", settings.data.id);
-        if (error) throw error;
-      } else {
-        const cid = await resolveActiveClinicId();
-        if (!cid) throw new Error("Nenhuma clínica ativa para o usuário atual.");
-        const { error } = await supabase
-          .from("clinic_settings")
-          .insert({ ...payload, clinic_id: cid });
-        if (error) throw error;
-      }
+      const cid = settings.data?.clinic_id ?? (await resolveActiveClinicId());
+      if (!cid) throw new Error("Nenhuma clínica ativa para o usuário atual.");
+      const { error } = await supabase
+        .from("clinic_settings")
+        .upsert({ ...payload, clinic_id: cid }, { onConflict: "clinic_id" });
+      if (error) throw error;
       return { resolvedLogo: await signedLogoUrl(payload.logo_url) };
     },
     onSuccess: (data, v) => {
