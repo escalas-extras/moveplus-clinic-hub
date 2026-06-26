@@ -46,13 +46,13 @@ export function ClinicLogo({ brand, isLoading = false, compact = false }: Props)
       <div
         className={cn(
           size,
-          "rounded-xl flex items-center justify-center overflow-hidden bg-white/80 shadow-soft p-1",
+          "rounded-xl overflow-hidden bg-white shadow-soft ring-1 ring-black/5",
         )}
       >
         <img
           src={rawLogo!}
           alt={brand.clinicName}
-          className="max-h-full max-w-full object-contain"
+          className="h-full w-full object-cover"
           referrerPolicy="no-referrer"
           loading="eager"
           decoding="async"
