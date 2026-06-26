@@ -919,6 +919,11 @@ function drawHeaderV2(
   const logoSize = 52;
   const logoY = 28;
 
+  // Limpa a área da logo com branco antes do desenho — protege contra
+  // qualquer fundo herdado (preto/cinza) e garante respiro ao redor.
+  doc.setFillColor(255, 255, 255);
+  doc.rect(M - 2, logoY - 2, logoSize + 4, logoSize + 4, "F");
+
   if (logo) {
     try {
       doc.addImage(logo, dataUrlImageFormat(logo) ?? "PNG", M, logoY, logoSize, logoSize);
