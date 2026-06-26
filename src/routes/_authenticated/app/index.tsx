@@ -16,15 +16,14 @@ export const Route = createFileRoute("/_authenticated/app/")({
   beforeLoad: async () => {
     const { data: sess } = await supabase.auth.getUser();
     if (!sess.user) return;
-    const [rolesRes, membersRes, supportRes] = await Promise.all([
+    const [rolesRes, supportRes] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
-      supabase.from("clinic_members").select("id").eq("user_id", sess.user.id).eq("active", true).limit(1),
       supabase.rpc("current_support_session_clinic"),
     ]);
     const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
-    const hasClinic = (membersRes.data ?? []).length > 0;
     const inSupport = !!supportRes.data;
-    if (isSuperAdmin && !hasClinic && !inSupport) throw redirect({ to: "/app/admin-saas" });
+    // Admin SaaS sempre vai ao painel SaaS, exceto quando em Modo Suporte (atuando como clínica).
+    if (isSuperAdmin && !inSupport) throw redirect({ to: "/app/admin-saas" });
   },
   component: PainelClinico,
 });
