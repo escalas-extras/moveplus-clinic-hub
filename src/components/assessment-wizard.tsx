@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -229,7 +229,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const [appliedTemplates, setAppliedTemplates] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { register, watch, setValue, getValues, handleSubmit, reset } = useForm<WizardPayload>({
+  const { register, watch, setValue, getValues, handleSubmit, reset, control } = useForm<WizardPayload>({
     defaultValues: fromAssessment(assessment),
   });
 
@@ -561,6 +561,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
             register={register}
             values={formValues}
             setValue={setValue}
+            control={control}
             profiles={profiles}
           />
         )}
@@ -780,23 +781,23 @@ function StepAnamnese({ register }: any) {
   );
 }
 
-function StepExame({ register, values, setValue, profiles }: any) {
+function StepExame({ register, values, setValue, control, profiles }: any) {
   const show = (p: ClinicalProfile) => profiles?.includes(p);
   return (
     <Accordion type="multiple" defaultValue={["geral", ...profiles]} className="space-y-2">
       <SectionAccordion value="geral" title="Avaliação geral">
         <div className="space-y-3">
           <div>
-            <EvaScale
-              label="EVA — Dor"
-              value={Number(values.eva ?? 0)}
-              onChange={(v) =>
-                setValue("eva", Number(v) || 0, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                  shouldValidate: false,
-                })
-              }
+            <Controller
+              control={control}
+              name="eva"
+              render={({ field }) => (
+                <EvaScale
+                  label="EVA — Dor"
+                  value={Number(field.value ?? 0)}
+                  onChange={(v) => field.onChange(Number.isFinite(Number(v)) ? Number(v) : 0)}
+                />
+              )}
             />
           </div>
 
