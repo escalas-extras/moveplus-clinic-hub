@@ -1262,20 +1262,50 @@ function drawSigCol(
 
 // ---------- Footer + QR ----------
 
-function drawFooter(doc: jsPDF, c: ClinicData, W: number, H: number, M: number, page: number, pageCount: number) {
+function drawFooter(
+  doc: jsPDF,
+  c: ClinicData,
+  W: number,
+  H: number,
+  M: number,
+  page: number,
+  pageCount: number,
+  isMatrixV2: boolean = false,
+) {
   const fy = H - S.FOOTER_H + 4;
-  doc.setDrawColor(...C.hairline);
+  doc.setDrawColor(...(isMatrixV2 ? C.hairlineSoft : C.hairline));
   doc.setLineWidth(0.3);
   doc.line(M, fy, W - M, fy);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...C.meta);
-  const issued = `Emitido em ${nowLabel()}`;
+
+  let textX = M;
+  if (isMatrixV2) {
+    // Ícone de cadeado / segurança discreto à esquerda
+    const ix = M;
+    const iy = fy + 8;
+    doc.setDrawColor(...C.brand);
+    doc.setLineWidth(0.6);
+    (doc as any).roundedRect(ix, iy, 10, 12, 1.5, 1.5, "S");
+    doc.line(ix + 2, iy, ix + 2, iy - 3);
+    doc.line(ix + 8, iy, ix + 8, iy - 3);
+    (doc as any).roundedRect(ix + 2, iy - 5, 6, 5, 2, 2, "S");
+    textX = M + 16;
+  }
+
+  const issued = isMatrixV2
+    ? `Documento emitido eletronicamente em ${nowLabel()}`
+    : `Emitido em ${nowLabel()}`;
   const name = cleanText(c.nome_fantasia ?? "") || "FisioOS";
   const cityState = [cleanText(c.cidade ?? ""), cleanText(c.estado ?? "")].filter(Boolean).join("/");
   const footerName = cleanText(c.rodape_institucional ?? "") || [name, cityState].filter(Boolean).join(" · ");
-  doc.text(issued, M, fy + 10);
-  doc.text(footerName, M, fy + 20);
+  doc.text(issued, textX, fy + 10);
+  if (isMatrixV2) {
+    doc.text("Informações clínicas confidenciais. Uso restrito ao paciente, responsáveis e equipe assistencial.", textX, fy + 20);
+  } else {
+    doc.text(footerName, textX, fy + 20);
+  }
   doc.text(`Página ${page} de ${pageCount}`, W - M, fy + 10, { align: "right" });
 }
 
