@@ -18,15 +18,20 @@ export const Route = createFileRoute("/auth")({
 
 // Branding institucional fixo na tela de login — nunca usar branding de clínica
 // pois ainda não há sessão/clinic_id resolvidos.
-const INSTITUTIONAL_BRAND = {
+const INSTITUTIONAL_BRAND: Branding = {
   appName: "FisioOS",
+  name: "FisioOS",
   clinicName: "FisioOS",
   slogan: "Transformando atendimentos em resultados",
-  logoUrl: null as string | null,
+  logo: null,
+  logoUrl: null,
   hasOwnLogo: false,
   primaryColor: "#0F4C5C",
   secondaryColor: "#2BB673",
+  footer: "FisioOS · Transformando atendimentos em resultados",
+  crefitoDefault: null,
 };
+
 
 function AuthPage() {
   const navigate = useNavigate();
