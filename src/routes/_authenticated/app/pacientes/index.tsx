@@ -13,6 +13,7 @@ import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
 import { useAuth, useRoles } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { safeDeletePatient } from "@/lib/patient-delete";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/")({
   component: PacientesPage,
