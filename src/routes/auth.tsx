@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useBranding } from "@/lib/branding";
 import { Stethoscope } from "lucide-react";
+import type { Branding } from "@/lib/branding";
+
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
