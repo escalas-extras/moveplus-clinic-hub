@@ -18,6 +18,7 @@ import { buildPdf, downloadPdf, printPdf, uploadAndRegisterPdf } from "@/lib/pdf
 import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth } from "@/lib/auth";
+import { safeDeletePatient } from "@/lib/patient-delete";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
@@ -154,11 +155,15 @@ function PatientPage() {
 
   const deletePatient = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("patients").delete().eq("clinic_id", clinicId!).eq("id", id);
-      if (error) throw error;
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
+      return safeDeletePatient({ clinicId, patientId: id });
     },
-    onSuccess: () => {
-      toast.success("Paciente excluído");
+    onSuccess: (res) => {
+      toast.success(
+        res.action === "deleted"
+          ? "Paciente excluído"
+          : "Paciente inativado (histórico clínico preservado)",
+      );
       qc.invalidateQueries({ queryKey: ["patients", clinicId] });
       navigate({ to: "/app/pacientes" });
     },
@@ -200,13 +205,13 @@ function PatientPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Remove permanentemente o paciente e todos os dados clínicos vinculados (avaliações, evoluções, anexos, agendamentos). Ação irreversível.
+                    Se houver histórico clínico, financeiro ou agenda vinculado, o paciente será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Excluir definitivamente
+                    Confirmar
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

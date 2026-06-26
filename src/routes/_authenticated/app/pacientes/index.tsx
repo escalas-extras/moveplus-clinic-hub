@@ -13,6 +13,7 @@ import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
 import { useAuth, useRoles } from "@/lib/auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { safeDeletePatient } from "@/lib/patient-delete";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/")({
   component: PacientesPage,
@@ -41,7 +42,12 @@ function PacientesPage() {
     queryKey: ["patients", activeClinicId, q],
     enabled: !!activeClinicId,
     queryFn: async () => {
-      let query = supabase.from("patients").select("*").eq("clinic_id", activeClinicId!).order("nome_completo");
+      let query = supabase
+        .from("patients")
+        .select("*")
+        .eq("clinic_id", activeClinicId!)
+        .eq("situacao", "ativo")
+        .order("nome_completo");
       if (q) query = query.ilike("nome_completo", `%${q}%`);
       const { data, error } = await query;
       if (error) throw error;
@@ -66,11 +72,15 @@ function PacientesPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("patients").delete().eq("id", id);
-      if (error) throw error;
+      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
+      return safeDeletePatient({ clinicId: activeClinicId, patientId: id });
     },
-    onSuccess: () => {
-      toast.success("Paciente excluído");
+    onSuccess: (res) => {
+      toast.success(
+        res.action === "deleted"
+          ? "Paciente excluído"
+          : "Paciente inativado (histórico clínico preservado)",
+      );
       qc.invalidateQueries({ queryKey: ["patients"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -178,13 +188,13 @@ function PacientesPage() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Esta ação remove permanentemente o paciente e todos os seus dados clínicos (avaliações, evoluções, anexos, agendamentos). Não pode ser desfeita.
+                              Se o paciente possuir histórico clínico, financeiro ou de agenda, ele será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => remove.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Excluir definitivamente
+                              Confirmar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
