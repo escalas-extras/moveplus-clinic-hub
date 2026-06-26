@@ -479,6 +479,10 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const c = ctx.clinic;
   applyClinicPalette(c);
   const isContract = /contrato/i.test(opts.title || "");
+  // Matriz visual V2 — padrão "Avaliação Fisioterapêutica premium" (faixa
+  // lateral verde, header com card de título, blocos com badge em vez de
+  // faixa chapada). Aplicado APENAS ao contrato neste momento.
+  const isMatrixV2 = isContract;
 
   // ----- Normalize blocks -----
   const blocks: PdfBlock[] = opts.blocks
@@ -492,15 +496,14 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const groups: BlockGroup[] = blocks.map((b, i) => measureBlock(doc, b, i, contentW, isContract));
 
   // ----- Compose with progressive compaction -----
-  const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYFirst = isMatrixV2
+    ? S.HEADER_H + 20
+    : S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
   const topYRest = S.M + 28;
   const bottomY = H - S.FOOTER_H - 16;
   const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
   const usableHRest = bottomY - topYRest;
 
-  // Reserva igual ao tamanho real do bloco de assinatura + folga p/ QR.
-  // Compaction varia APENAS o gap entre blocos — assim a reserva nunca é
-  // inferior ao espaço efetivamente desenhado (sem sobreposição com QR/rodapé).
   const qrReserve = isContract ? 64 : 0;
   const sigReserve = opts.hideSignature ? 0 : sigDraw + qrReserve;
   const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
@@ -514,67 +517,63 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
     }
   }
 
+  // ----- Draw header -----
+  if (isMatrixV2) {
+    drawHeaderV2(doc, c, ctx.logo, W, opts);
+  } else {
+    drawHeader(doc, c, ctx.logo, W);
 
-
-  // ----- Draw -----
-  drawHeader(doc, c, ctx.logo, W);
-
-  // Document title strip
-  let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
-  doc.setTextColor(...C.ink);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(T.docTitle + 1);
-  doc.text(opts.title, M, titleY);
-  if (opts.subtitle) {
-    titleY += 12;
+    let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
+    doc.setTextColor(...C.ink);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(T.docSubtitle);
-    doc.setTextColor(...C.meta);
-    doc.text(opts.subtitle, M, titleY);
+    doc.setFontSize(T.docTitle + 1);
+    doc.text(opts.title, M, titleY);
+    if (opts.subtitle) {
+      titleY += 12;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.docSubtitle);
+      doc.setTextColor(...C.meta);
+      doc.text(opts.subtitle, M, titleY);
+    }
+    if (opts.patientName) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.docSubtitle);
+      doc.setTextColor(...C.meta);
+      doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
+    }
+    const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
+    doc.setDrawColor(...C.brand);
+    doc.setLineWidth(0.8);
+    doc.line(M, dividerY, W - M, dividerY);
+    doc.setDrawColor(...C.hairline);
+    doc.setLineWidth(0.3);
+    doc.line(M, dividerY + 2.5, W - M, dividerY + 2.5);
   }
-  // Patient pill (right side)
-  if (opts.patientName) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(T.docSubtitle);
-    doc.setTextColor(...C.meta);
-    doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
-  }
-  // Divider (double hairline)
-  const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
-  doc.setDrawColor(...C.brand);
-  doc.setLineWidth(0.8);
-  doc.line(M, dividerY, W - M, dividerY);
-  doc.setDrawColor(...C.hairline);
-  doc.setLineWidth(0.3);
-  doc.line(M, dividerY + 2.5, W - M, dividerY + 2.5);
 
   // Pages
   for (let pi = 0; pi < pages.length; pi++) {
     if (pi > 0) {
       doc.addPage();
-      // (header não se repete; rodapé sim — será desenhado depois para cada página)
     }
-    renderPageContent(doc, pages[pi], pages[pi].topY, W, contentW, M);
+    renderPageContent(doc, pages[pi], pages[pi].topY, W, contentW, M, isMatrixV2);
   }
 
-  // Signature on last page
   const lastPageIdx = pages.length;
   const lastPage = pages[pages.length - 1];
   let lastContentY = lastPage.topY;
   for (const a of lastPage.atoms) lastContentY += a.h;
   lastContentY = Math.min(lastContentY, bottomY - sigDraw);
 
-
   doc.setPage(lastPageIdx);
   if (!opts.hideSignature) {
     drawSignatureArea(doc, opts, c, W, H, M, lastContentY, sigDraw, isContract);
   }
 
-  // Footers + QR
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    drawFooter(doc, c, W, H, M, i, pageCount);
+    if (isMatrixV2) drawLeftBand(doc, H);
+    drawFooter(doc, c, W, H, M, i, pageCount, isMatrixV2);
     if (i === pageCount && opts.validationHash) {
       await drawQR(doc, opts.validationHash, opts.validationUrlBase, W, H, M, isContract);
     }
