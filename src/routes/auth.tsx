@@ -160,7 +160,7 @@ function AuthPage() {
   );
 }
 
-function LogoMark({ brand }: { brand: ReturnType<typeof useBranding> }) {
+function LogoMark({ brand }: { brand: Branding }) {
   const [broken, setBroken] = useState(false);
   if (brand.hasOwnLogo && brand.logoUrl && !broken) {
     return <img src={brand.logoUrl} alt={brand.clinicName} className="h-[72px] w-auto object-contain" onError={() => setBroken(true)} />;
