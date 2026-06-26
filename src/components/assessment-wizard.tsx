@@ -781,23 +781,23 @@ function StepAnamnese({ register }: any) {
   );
 }
 
-function StepExame({ register, values, setValue, profiles }: any) {
+function StepExame({ register, values, setValue, control, profiles }: any) {
   const show = (p: ClinicalProfile) => profiles?.includes(p);
   return (
     <Accordion type="multiple" defaultValue={["geral", ...profiles]} className="space-y-2">
       <SectionAccordion value="geral" title="Avaliação geral">
         <div className="space-y-3">
           <div>
-            <EvaScale
-              label="EVA — Dor"
-              value={Number(values.eva ?? 0)}
-              onChange={(v) =>
-                setValue("eva", Number(v) || 0, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                  shouldValidate: false,
-                })
-              }
+            <Controller
+              control={control}
+              name="eva"
+              render={({ field }) => (
+                <EvaScale
+                  label="EVA — Dor"
+                  value={Number(field.value ?? 0)}
+                  onChange={(v) => field.onChange(Number.isFinite(Number(v)) ? Number(v) : 0)}
+                />
+              )}
             />
           </div>
 
