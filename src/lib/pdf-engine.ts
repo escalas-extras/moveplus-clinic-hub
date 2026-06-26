@@ -211,7 +211,9 @@ export async function urlToDataUrl(url: string): Promise<string | null> {
       const dw = iw * scale;
       const dh = ih * scale;
       cx.drawImage(img, (target - dw) / 2, (target - dh) / 2, dw, dh);
-      return canvas.toDataURL("image/jpeg", 0.92);
+      // PNG sem alpha (canvas já totalmente opaco em branco) — evita
+      // artefatos de borda escura do JPEG ao redor de logos arredondadas.
+      return canvas.toDataURL("image/png");
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
