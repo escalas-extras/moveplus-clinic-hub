@@ -789,8 +789,14 @@ function StepExame({ register, values, setValue, profiles }: any) {
           <div>
             <EvaScale
               label="EVA — Dor"
-              value={values.eva ?? 0}
-              onChange={(v) => setValue("eva", v, { shouldDirty: true })}
+              value={Number(values.eva ?? 0)}
+              onChange={(v) =>
+                setValue("eva", Number(v) || 0, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: false,
+                })
+              }
             />
           </div>
 
