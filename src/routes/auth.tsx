@@ -8,15 +8,35 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useBranding } from "@/lib/branding";
 import { Stethoscope } from "lucide-react";
+import type { Branding } from "@/lib/branding";
+
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   component: AuthPage,
 });
 
+// Branding institucional fixo na tela de login — nunca usar branding de clínica
+// pois ainda não há sessão/clinic_id resolvidos.
+const INSTITUTIONAL_BRAND: Branding = {
+  appName: "FisioOS",
+  name: "FisioOS",
+  clinicName: "FisioOS",
+  slogan: "Transformando atendimentos em resultados",
+  logo: null,
+  logoUrl: null,
+  hasOwnLogo: false,
+  primaryColor: "#0F4C5C",
+  secondaryColor: "#2BB673",
+  footer: "FisioOS · Transformando atendimentos em resultados",
+  crefitoDefault: null,
+};
+
+
 function AuthPage() {
   const navigate = useNavigate();
-  const brand = useBranding();
+  const brand = INSTITUTIONAL_BRAND;
+
   const [mode, setMode] = useState<"signin" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -140,7 +160,7 @@ function AuthPage() {
   );
 }
 
-function LogoMark({ brand }: { brand: ReturnType<typeof useBranding> }) {
+function LogoMark({ brand }: { brand: Branding }) {
   const [broken, setBroken] = useState(false);
   if (brand.hasOwnLogo && brand.logoUrl && !broken) {
     return <img src={brand.logoUrl} alt={brand.clinicName} className="h-[72px] w-auto object-contain" onError={() => setBroken(true)} />;
