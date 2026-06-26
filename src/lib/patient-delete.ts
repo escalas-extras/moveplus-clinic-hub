@@ -12,14 +12,35 @@ const HISTORY_TABLES = [
   "patient_attachments",
   "exercise_programs",
   "patient_discharges",
+  "assessment_drafts",
+  "assessment_scales",
+  "assessment_mrc",
+  "assessment_goniometry",
+  "assessment_goals",
+  "clinical_signatures",
+  "reassessment_schedule",
 ] as const;
 
 export type SafeDeleteResult = { action: "deleted" | "deactivated" };
 
+async function deactivate(clinicId: string, patientId: string): Promise<SafeDeleteResult> {
+  const { data, error } = await supabase
+    .from("patients")
+    .update({ situacao: "inativo" } as any)
+    .eq("clinic_id", clinicId)
+    .eq("id", patientId)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("Sem permissão para inativar este paciente.");
+  }
+  return { action: "deactivated" };
+}
+
 /**
  * Exclusão segura de paciente:
- * - Se houver QUALQUER vínculo clínico/financeiro/agenda, inativa (situacao='inativo').
- * - Caso contrário, exclui definitivamente.
+ * - Se houver vínculo clínico/financeiro/agenda, inativa (situacao='inativo').
+ * - Caso contrário, tenta excluir. Se o banco rejeitar por FK ou RLS, inativa.
  */
 export async function safeDeletePatient(params: {
   clinicId: string;
@@ -33,7 +54,6 @@ export async function safeDeletePatient(params: {
       .from(table as any)
       .select("id", { count: "exact", head: true })
       .eq("patient_id", patientId);
-    // ignorar tabelas inexistentes/sem permissão (não bloquear o fluxo)
     if (error) continue;
     if ((count ?? 0) > 0) {
       hasHistory = true;
@@ -42,20 +62,30 @@ export async function safeDeletePatient(params: {
   }
 
   if (hasHistory) {
-    const { error } = await supabase
-      .from("patients")
-      .update({ situacao: "inativo" } as any)
-      .eq("clinic_id", clinicId)
-      .eq("id", patientId);
-    if (error) throw error;
-    return { action: "deactivated" };
+    return deactivate(clinicId, patientId);
   }
 
-  const { error } = await supabase
+  // Tenta exclusão definitiva
+  const { data, error } = await supabase
     .from("patients")
     .delete()
     .eq("clinic_id", clinicId)
-    .eq("id", patientId);
-  if (error) throw error;
+    .eq("id", patientId)
+    .select("id");
+
+  // FK violation (23503) ou similar → cair para inativação
+  if (error) {
+    const code = (error as any).code as string | undefined;
+    if (code === "23503" || code === "23P01") {
+      return deactivate(clinicId, patientId);
+    }
+    throw error;
+  }
+
+  // RLS pode silenciar o DELETE (0 linhas) → inativa como fallback
+  if (!data || data.length === 0) {
+    return deactivate(clinicId, patientId);
+  }
+
   return { action: "deleted" };
 }
