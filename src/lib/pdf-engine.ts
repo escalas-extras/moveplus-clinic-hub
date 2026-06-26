@@ -660,6 +660,7 @@ function renderPageContent(
   W: number,
   contentW: number,
   M: number,
+  isMatrixV2: boolean = false,
 ) {
   let y = topY;
   // Group atoms by segment to draw block frames
