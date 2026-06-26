@@ -827,7 +827,10 @@ function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: numb
   const barY = y + 22;
   const barH = 14;
   const barW = w;
-  const segW = barW / 10;
+  // A escala 0-10 possui 11 pontos; cada ponto ocupa uma célula de cor.
+  // Usar 11 células garante que as zonas (3+5+3) preencham exatamente a
+  // largura disponível sem estourar a margem direita.
+  const cellW = barW / 11;
 
   const zones = [
     { range: [0, 2], label: "LEVE", color: C.evaLeve },
@@ -837,8 +840,8 @@ function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: numb
 
   // zones background
   for (const z of zones) {
-    const startX = barX + z.range[0] * segW;
-    const width = (z.range[1] - z.range[0] + 1) * segW;
+    const startX = barX + z.range[0] * cellW;
+    const width = (z.range[1] - z.range[0] + 1) * cellW;
     doc.setFillColor(...z.color);
     doc.rect(startX, barY, width, barH, "F");
   }
@@ -850,7 +853,7 @@ function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: numb
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   for (let i = 0; i <= 10; i++) {
-    const tx = barX + i * segW;
+    const tx = barX + (i / 10) * barW;
     doc.line(tx, barY, tx, barY + barH);
     const numX = i === 0 ? tx + 2 : i === 10 ? tx - 2 : tx;
     doc.text(String(i), numX, barY + barH - 3, { align: i === 0 ? "left" : i === 10 ? "right" : "center" });
@@ -861,14 +864,14 @@ function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: numb
   doc.setFontSize(8);
   doc.setTextColor(...C.ink);
   for (const z of zones) {
-    const midX = barX + ((z.range[0] + z.range[1]) / 2 + 0.5) * segW;
+    const midX = barX + ((z.range[0] + z.range[1]) / 2 + 0.5) * cellW;
     doc.text(z.label, midX, barY - 4, { align: "center" });
   }
 
   // current value marker
   if (value != null) {
     const t = Math.max(0, Math.min(10, value));
-    const mx = barX + t * segW;
+    const mx = barX + (t / 10) * barW;
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(1.5);
     doc.line(mx, barY - 2, mx, barY + barH + 2);
