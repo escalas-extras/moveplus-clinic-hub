@@ -832,6 +832,159 @@ function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: numb
   doc.text(label.toUpperCase(), x + 10, y + 9.5, { charSpace: 1.2 });
 }
 
+// Matriz V2 — título de seção com badge verde discreto + texto verde
+// + hairline divisória logo abaixo. Sem faixa chapada.
+function drawBlockTitleV2(
+  doc: jsPDF,
+  label: string,
+  x: number,
+  y: number,
+  w: number,
+  index: number,
+  continuation: boolean,
+) {
+  const padX = S.PAD_X;
+  const badge = 11;
+  const by = y + (S.BAR_H - badge) / 2;
+  doc.setFillColor(...C.brand);
+  (doc as any).roundedRect(x + padX, by, badge, badge, 2, 2, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text(String(index), x + padX + badge / 2, by + badge - 3, { align: "center" });
+
+  doc.setTextColor(...C.brand);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.blockTitle + 0.5);
+  doc.text(label.toUpperCase(), x + padX + badge + 8, y + 10, { charSpace: 0.6 });
+
+  if (continuation) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...C.meta);
+    doc.text("(continuação)", x + w - padX, y + 10, { align: "right" });
+  }
+
+  // hairline divisória abaixo do título
+  const lineY = y + S.BAR_H + 4;
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setLineWidth(0.4);
+  doc.line(x + padX, lineY, x + w - padX, lineY);
+}
+
+// Faixa lateral verde — assinatura visual da matriz V2
+function drawLeftBand(doc: jsPDF, H: number) {
+  doc.setFillColor(...C.brand);
+  doc.rect(0, 0, 6, H, "F");
+}
+
+// Header V2 — fundo branco; logo à esquerda sem retângulo preto; bloco com
+// nome da clínica + CNPJ + contatos + endereço; card à direita com título
+// do documento e meta (paciente / datas).
+function drawHeaderV2(
+  doc: jsPDF,
+  c: ClinicData,
+  logo: string | null,
+  W: number,
+  opts: BuildPdfOpts,
+) {
+  const M = S.M;
+  const logoSize = 64;
+  const logoY = 24;
+
+  if (logo) {
+    try {
+      doc.addImage(logo, dataUrlImageFormat(logo) ?? "PNG", M, logoY, logoSize, logoSize);
+    } catch {
+      drawMonogram(doc, c, M, logoY, logoSize);
+    }
+  } else {
+    drawMonogram(doc, c, M, logoY, logoSize);
+  }
+
+  // Bloco de identificação da clínica ao lado da logo
+  const tx = M + logoSize + 14;
+  const name = cleanText(c.nome_fantasia) || "FisioOS";
+  doc.setTextColor(...C.brand);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.headerName);
+  doc.text(name, tx, logoY + 14);
+
+  const razao = cleanText(c.razao_social);
+  const cnpj = cleanText(c.cnpj);
+  const tels = Array.isArray(c.telefones) ? c.telefones.filter(Boolean).join(" · ") : "";
+  const emails = Array.isArray(c.emails) ? c.emails.filter(Boolean).join(" · ") : "";
+  const endereco = cleanText(c.endereco);
+  const cityState = [cleanText(c.cidade), cleanText(c.estado)].filter(Boolean).join("/");
+  const addrLine = [endereco, cityState].filter(Boolean).join(" · ");
+  const metaLines: string[] = [];
+  if (razao) metaLines.push(razao);
+  if (cnpj) metaLines.push(`CNPJ ${cnpj}`);
+  if (tels) metaLines.push(tels);
+  if (emails) metaLines.push(emails);
+  if (addrLine) metaLines.push(addrLine);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.headerMeta);
+  doc.setTextColor(...C.meta);
+  const cardX = W / 2 + 10;
+  const maxMetaW = cardX - tx - 14;
+  let my = logoY + 28;
+  for (const ln of metaLines) {
+    const wrapped: string[] = doc.splitTextToSize(ln, maxMetaW);
+    for (const w of wrapped) {
+      doc.text(w, tx, my);
+      my += 10;
+    }
+  }
+
+  // Card à direita com o título do documento + meta principal
+  const cardY = logoY - 4;
+  const cardW = W - M - cardX;
+  const cardH = 78;
+  doc.setFillColor(250, 251, 252);
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setLineWidth(0.5);
+  (doc as any).roundedRect(cardX, cardY, cardW, cardH, 6, 6, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.docTitle);
+  doc.setTextColor(...C.ink);
+  const titleLines: string[] = doc.splitTextToSize(opts.title || "Documento", cardW - 20);
+  let ty = cardY + 18;
+  for (const ln of titleLines.slice(0, 2)) {
+    doc.text(ln, cardX + 12, ty);
+    ty += 14;
+  }
+
+  // meta: paciente + emissão
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.label);
+  doc.setTextColor(...C.meta);
+  const metaY = cardY + cardH - 22;
+  const halfW = (cardW - 24) / 2;
+  if (opts.patientName) {
+    doc.text("PACIENTE", cardX + 12, metaY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.docSubtitle + 1);
+    doc.setTextColor(...C.ink);
+    const pn: string[] = doc.splitTextToSize(opts.patientName, halfW);
+    doc.text(pn[0] || "", cardX + 12, metaY + 11);
+  }
+  if (opts.subtitle) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.label);
+    doc.setTextColor(...C.meta);
+    doc.text("EMISSÃO", cardX + 12 + halfW + 8, metaY);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.docSubtitle + 1);
+    doc.setTextColor(...C.ink);
+    const sb: string[] = doc.splitTextToSize(opts.subtitle.replace(/^Emitido em\s*/i, ""), halfW);
+    doc.text(sb[0] || "", cardX + 12 + halfW + 8, metaY + 11);
+  }
+}
+
+
 function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: number) {
   const barX = x;
   const barY = y + 22;
