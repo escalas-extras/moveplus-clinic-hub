@@ -188,7 +188,7 @@ function toRow(v: WizardPayload, patientId: string, clinicId: string) {
     medicamentos: v.medicamentos || null,
     inspecao: v.inspecao || null,
     palpacao: v.palpacao || null,
-    eva: v.eva,
+    eva: v.eva == null || Number.isNaN(Number(v.eva)) ? 0 : Number(v.eva),
     objetivos: v.objetivos || null,
     condutas: v.condutas || null,
     recursos_terapeuticos: v.recursos_terapeuticos || null,
