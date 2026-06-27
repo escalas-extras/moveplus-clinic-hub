@@ -4,10 +4,16 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Search, Trash2, Eye, Users } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { ClipboardList, Plus, Search, Trash2, Eye, Users } from "lucide-react";
+import {
+  AppShell,
+  EmptyState,
+  InfoCard,
+  PageHeader,
+  PageSection,
+  StatusBadge,
+} from "@/components/layout";
 import { toast } from "sonner";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
@@ -87,33 +93,47 @@ function PacientesPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl">Pacientes</h1>
-          <p className="text-sm text-muted-foreground">Cadastros e prontuários</p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" />Novo paciente</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Novo paciente</DialogTitle></DialogHeader>
-            <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
-          </DialogContent>
-        </Dialog>
-      </div>
+    <AppShell>
+      <PageHeader
+        icon={Users}
+        eyebrow="Gestão clínica"
+        title="Pacientes"
+        description="Cadastros ativos, dados de contato e acesso rápido aos prontuários."
+        actions={
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-soft hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo paciente
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+              <DialogHeader><DialogTitle>Novo paciente</DialogTitle></DialogHeader>
+              <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-      <Card className="p-4">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome…" className="pl-9" />
+      <InfoCard
+        icon={Search}
+        title="Busca de pacientes"
+        description="Filtre por nome para encontrar rapidamente o cadastro correto."
+      >
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome..." className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9" />
         </div>
-      </Card>
+      </InfoCard>
 
-      <Card className="overflow-hidden">
+      <PageSection
+        icon={ClipboardList}
+        title="Lista de pacientes"
+        description="Pacientes ativos cadastrados na clínica."
+        contentClassName="p-0"
+      >
         {list.isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Carregando…</div>
+          <div className="p-6 text-sm text-muted-foreground">Carregando...</div>
         ) : !list.data?.length ? (
           <EmptyState
             icon={Users}
@@ -127,40 +147,41 @@ function PacientesPage() {
           />
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-muted/60">
+            <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
               <tr className="text-left">
-                <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">CPF</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Idade</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Telefone</th>
-                <th className="px-4 py-3 font-medium">Situação</th>
-                <th className="px-4 py-3 font-medium w-10 text-center">Abrir</th>
-                {isAdmin && <th className="px-4 py-3 font-medium w-10"></th>}
+                <th className="px-5 py-3 font-bold">Nome</th>
+                <th className="hidden px-5 py-3 font-bold md:table-cell">CPF</th>
+                <th className="hidden px-5 py-3 font-bold lg:table-cell">Idade</th>
+                <th className="hidden px-5 py-3 font-bold lg:table-cell">Telefone</th>
+                <th className="px-5 py-3 font-bold">Situação</th>
+                <th className="w-10 px-5 py-3 text-center font-bold">Abrir</th>
+                {isAdmin && <th className="w-10 px-5 py-3 font-bold"></th>}
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-slate-100">
               {list.data.map((p) => (
                 <tr
                   key={p.id}
-                  className="hover:bg-muted/40 cursor-pointer"
+                  className="cursor-pointer transition-colors hover:bg-emerald-50/40"
                   onClick={() => navigate({ to: "/app/pacientes/$id", params: { id: p.id } })}
                 >
-                  <td className="px-4 py-3">
-                    <span className="font-medium">{p.nome_completo}</span>
+                  <td className="px-5 py-4">
+                    <span className="font-semibold text-slate-950">{p.nome_completo}</span>
                     <div className="text-xs text-muted-foreground md:hidden">{p.cpf ?? "Sem CPF"}</div>
                   </td>
-                  <td className="px-4 py-3 hidden md:table-cell tabular-nums">{p.cpf ?? "—"}</td>
-                  <td className="px-4 py-3 hidden lg:table-cell">{calcAge(p.data_nascimento) ?? "—"}</td>
-                  <td className="px-4 py-3 hidden lg:table-cell">{p.telefone ?? p.whatsapp ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={"inline-flex items-center rounded-full px-2 py-0.5 text-xs " + (p.situacao === "ativo" ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground")}>
+                  <td className="hidden px-5 py-4 tabular-nums md:table-cell">{p.cpf ?? "-"}</td>
+                  <td className="hidden px-5 py-4 lg:table-cell">{calcAge(p.data_nascimento) ?? "-"}</td>
+                  <td className="hidden px-5 py-4 lg:table-cell">{p.telefone ?? p.whatsapp ?? "-"}</td>
+                  <td className="px-5 py-4">
+                    <StatusBadge variant={p.situacao === "ativo" ? "success" : "neutral"}>
                       {p.situacao}
-                    </span>
+                    </StatusBadge>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-5 py-4 text-center">
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="rounded-xl"
                       title="Abrir prontuário"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -171,13 +192,13 @@ function PacientesPage() {
                     </Button>
                   </td>
                   {isAdmin && (
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-4 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-destructive hover:text-destructive"
+                            className="rounded-xl text-destructive hover:text-destructive"
                             title="Excluir paciente"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -206,8 +227,8 @@ function PacientesPage() {
             </tbody>
           </table>
         )}
-      </Card>
-    </div>
+      </PageSection>
+    </AppShell>
   );
 }
 

@@ -104,21 +104,21 @@ function PainelClinico() {
   const isNewClinic = !!s && s.pacientesAtivos === 0 && s.atendMes === 0 && s.docsMes === 0;
 
   return (
-    <div className="space-y-8">
+    <div className="dashboard-premium space-y-10">
       {/* Cabeçalho */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground mb-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#E8ECEF] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground mb-3">
             <Sparkles className="h-3.5 w-3.5" style={{ color: brand.primaryColor }} /> {brand.clinicName}
           </div>
           <h1 className="text-[2rem] leading-tight font-semibold tracking-tight">Painel Clínico</h1>
-          <p className="mt-1.5 text-[16px] text-muted-foreground">Resumo operacional da clínica em tempo real.</p>
+          <p className="mt-2 text-[15px] text-muted-foreground">Resumo operacional da clínica em tempo real.</p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/app/pacientes" className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-soft" style={{ background: brand.primaryColor }}>
+        <div className="flex gap-2.5">
+          <Link to="/app/pacientes" className="dash-btn-primary inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white" style={{ background: brand.primaryColor }}>
             <Plus className="h-4 w-4" /> Novo paciente
           </Link>
-          <Link to="/app/agenda" className="inline-flex items-center gap-2 rounded-xl bg-white/75 px-4 py-2 text-sm font-medium shadow-soft hover:bg-white">
+          <Link to="/app/agenda" className="dash-btn-ghost inline-flex items-center gap-2 rounded-lg border border-[#E8ECEF] bg-white px-4 py-2.5 text-sm font-medium text-foreground">
             <CalendarDays className="h-4 w-4" /> Agendar
           </Link>
         </div>
@@ -147,7 +147,7 @@ function PainelClinico() {
       )}
 
       {/* KPIs */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
         <KpiCard
           icon={Users}
           label="Pacientes ativos"
@@ -188,44 +188,44 @@ function PainelClinico() {
       </section>
 
       {/* Agenda + Atividades */}
-      <div className="grid lg:grid-cols-[1.7fr_1fr] gap-5">
+      <div className="grid lg:grid-cols-[1.7fr_1fr] gap-6">
         {/* Agenda de hoje */}
-        <Card className="p-6 lg:p-7 h-full">
-          <div className="flex items-center justify-between mb-5">
+        <Card className="p-6 lg:p-8 h-full">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Hoje</div>
-              <h2 className="text-[24px] font-semibold tracking-tight">Agenda do dia</h2>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1.5">Hoje</div>
+              <h2 className="text-[18px] font-semibold tracking-tight">Agenda do dia</h2>
             </div>
-            <Link to="/app/agenda" className="text-xs font-medium text-primary hover:underline">Ver semana →</Link>
+            <Link to="/app/agenda" className="text-xs font-semibold text-primary hover:underline">Ver semana →</Link>
           </div>
 
           {!s?.hoje.length ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              <CalendarDays className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+            <div className="text-center py-14 text-sm text-muted-foreground">
+              <CalendarDays className="h-9 w-9 mx-auto mb-3 text-muted-foreground/40" />
               Nenhum atendimento agendado para hoje.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border/60">
+            <div className="overflow-hidden rounded-xl border border-[#E8ECEF]">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <thead className="bg-[#F8FAFB] text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                   <tr>
-                    <th className="text-left px-4 py-2.5 font-semibold">Horário</th>
-                    <th className="text-left px-4 py-2.5 font-semibold">Paciente</th>
-                    <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell">Atendimento</th>
-                    <th className="text-right px-4 py-2.5 font-semibold">Status</th>
+                    <th className="text-left px-4 py-3 font-semibold">Horário</th>
+                    <th className="text-left px-4 py-3 font-semibold">Paciente</th>
+                    <th className="text-left px-4 py-3 font-semibold hidden sm:table-cell">Atendimento</th>
+                    <th className="text-right px-4 py-3 font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/50">
+                <tbody className="divide-y divide-[#EEF1F4]">
                   {s.hoje.map((a: any) => {
                     const meta = STATUS_META[a.status as string] ?? { label: a.status ?? "—", cls: "bg-muted text-muted-foreground" };
                     return (
-                      <tr key={a.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: brand.primaryColor }}>{String(a.horario).slice(0, 5)}</td>
-                        <td className="px-4 py-3 font-medium truncate">{a.patients?.nome_completo ?? "—"}</td>
-                        <td className="px-4 py-3 text-muted-foreground truncate hidden sm:table-cell">
+                      <tr key={a.id} className="hover:bg-[#F8FAFB] transition-colors">
+                        <td className="px-4 py-3.5 tabular-nums font-semibold" style={{ color: brand.primaryColor }}>{String(a.horario).slice(0, 5)}</td>
+                        <td className="px-4 py-3.5 font-medium truncate">{a.patients?.nome_completo ?? "—"}</td>
+                        <td className="px-4 py-3.5 text-muted-foreground truncate hidden sm:table-cell">
                           {a.observacao || a.professionals?.nome || "Consulta"}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3.5 text-right">
                           <span className={cn("inline-flex items-center text-[11px] font-semibold rounded-full px-2.5 py-0.5", meta.cls)}>{meta.label}</span>
                         </td>
                       </tr>
@@ -238,12 +238,12 @@ function PainelClinico() {
         </Card>
 
         {/* Atividades Importantes */}
-        <Card className="p-6 lg:p-7 h-full">
-          <div className="mb-5">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1">Pendências</div>
-            <h2 className="text-[24px] font-semibold tracking-tight">Atividades importantes</h2>
+        <Card className="p-6 lg:p-8 h-full">
+          <div className="mb-6">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold mb-1.5">Pendências</div>
+            <h2 className="text-[18px] font-semibold tracking-tight">Atividades importantes</h2>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <ActivityRow
               icon={ClipboardList}
               label="Documentos pendentes"
@@ -313,18 +313,18 @@ function KpiCard({
       : "text-muted-foreground bg-muted ring-border";
 
   const inner = (
-    <Card className={cn("p-5 lg:p-6 h-full lift relative overflow-hidden", to && "lift-hover cursor-pointer")}>
+    <Card className={cn("p-6 lg:p-7 h-full lift relative overflow-hidden", to && "lift-hover cursor-pointer")}>
       <div
         aria-hidden
-        className="absolute -top-10 -right-10 h-28 w-28 rounded-full opacity-25 blur-2xl pointer-events-none"
+        className="absolute -top-12 -right-12 h-24 w-24 rounded-full opacity-[0.07] blur-2xl pointer-events-none"
         style={{ background: accent }}
       />
       <div className="relative flex items-start justify-between">
         <div
-          className="rounded-xl p-2.5 flex items-center justify-center"
-          style={{ background: `${accent}1A`, color: accent }}
+          className="rounded-lg p-2 flex items-center justify-center"
+          style={{ background: `${accent}14`, color: accent }}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
         </div>
         {!hideDelta && (
           <span className={cn("inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5 ring-1", deltaCls)}>
@@ -336,11 +336,11 @@ function KpiCard({
           <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 ring-1 ring-amber-200 border-0 text-[10px] uppercase tracking-wider">Atenção</Badge>
         )}
       </div>
-      <div className="mt-5 num-hero text-[2.5rem] sm:text-[3rem] font-semibold" style={{ color: tone === "warning" ? "var(--warning-foreground)" : undefined }}>
+      <div className="mt-6 num-hero text-[2.5rem] sm:text-[2.75rem] font-semibold" style={{ color: tone === "warning" ? "var(--warning-foreground)" : undefined }}>
         {value}
       </div>
-      <div className="mt-2 text-[14px] font-medium text-foreground truncate">{label}</div>
-      <div className="text-[12px] text-muted-foreground mt-0.5">
+      <div className="mt-2.5 text-[13px] font-semibold text-foreground truncate">{label}</div>
+      <div className="text-[12px] text-muted-foreground mt-1">
         {subtitle ?? (hasPrev ? `${previous} ${period ?? ""}`.trim() : period ?? "Período inicial")}
       </div>
     </Card>
@@ -365,15 +365,15 @@ function ActivityRow({
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/70 transition-colors group border border-transparent hover:border-border/60"
+      className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-[#F8FAFB] transition-colors group border border-transparent hover:border-[#E8ECEF]"
     >
-      <div className={cn("rounded-lg p-2 ring-1", cls)}>
-        <Icon className="h-4 w-4" />
+      <div className={cn("rounded-lg p-1.5 ring-1", cls)}>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[14px] font-medium truncate">{label}</div>
+        <div className="text-[13.5px] font-medium truncate">{label}</div>
       </div>
-      <div className="text-[20px] font-semibold tabular-nums" style={{ color: count > 0 ? undefined : "var(--muted-foreground)" }}>{count}</div>
+      <div className="text-[19px] font-semibold tabular-nums" style={{ color: count > 0 ? undefined : "var(--muted-foreground)" }}>{count}</div>
       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
     </Link>
   );

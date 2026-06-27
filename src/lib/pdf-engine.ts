@@ -81,16 +81,22 @@ export type PdfRenderCtx = {
 // ---------- Design tokens ----------
 
 const C = {
-  brand: [60, 80, 60] as [number, number, number],
-  brandSoft: [248, 250, 246] as [number, number, number],
-  ink: [26, 26, 26] as [number, number, number],
-  meta: [107, 107, 107] as [number, number, number],
-  hairline: [201, 210, 194] as [number, number, number],
-  hairlineSoft: [228, 232, 222] as [number, number, number],
-  highlightBg: [240, 244, 238] as [number, number, number],
-  evaLeve: [59, 130, 246] as [number, number, number],     // 0-2 azul
-  evaModerada: [34, 197, 94] as [number, number, number], // 3-7 verde
-  evaIntensa: [239, 68, 68] as [number, number, number],  // 8-10 vermelho
+  brand: [35, 150, 104] as [number, number, number],
+  brandSoft: [247, 250, 248] as [number, number, number],
+  blue: [35, 94, 154] as [number, number, number],
+  ink: [31, 41, 55] as [number, number, number],
+  meta: [107, 114, 128] as [number, number, number],
+  muted: [148, 163, 184] as [number, number, number],
+  paper: [255, 255, 255] as [number, number, number],
+  surface: [249, 250, 251] as [number, number, number],
+  hairline: [218, 226, 221] as [number, number, number],
+  hairlineSoft: [236, 241, 238] as [number, number, number],
+  highlightBg: [242, 250, 246] as [number, number, number],
+  evaBlue: [29, 93, 169] as [number, number, number],
+  evaGreen: [12, 166, 107] as [number, number, number],
+  evaYellow: [225, 194, 0] as [number, number, number],
+  evaOrange: [249, 115, 22] as [number, number, number],
+  evaRed: [220, 38, 38] as [number, number, number],
 } as const;
 
 function hexToRgb(hex?: string | null): [number, number, number] | null {
@@ -104,16 +110,16 @@ function mixRgb(a: [number, number, number], b: [number, number, number], weight
 }
 
 function applyClinicPalette(c: ClinicData) {
-  const primary = hexToRgb(c.primary_color) ?? [60, 80, 60] as [number, number, number];
+  const primary = hexToRgb(c.primary_color) ?? [35, 150, 104] as [number, number, number];
   const secondary = hexToRgb(c.secondary_color) ?? primary;
-  const soft = mixRgb(primary, [255, 255, 255], 0.08);
-  const highlight = mixRgb(secondary, [255, 255, 255], 0.10);
-  const line = mixRgb(primary, [255, 255, 255], 0.28);
+  const soft = mixRgb(primary, [255, 255, 255], 0.06);
+  const highlight = mixRgb(secondary, [255, 255, 255], 0.08);
+  const line = mixRgb(primary, [255, 255, 255], 0.22);
   (C as any).brand = primary;
   (C as any).brandSoft = soft;
   (C as any).highlightBg = highlight;
   (C as any).hairline = line;
-  (C as any).hairlineSoft = mixRgb(primary, [255, 255, 255], 0.16);
+  (C as any).hairlineSoft = mixRgb(primary, [255, 255, 255], 0.11);
 }
 
 function dataUrlImageFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" | undefined {
@@ -123,19 +129,29 @@ function dataUrlImageFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" | undefine
   return undefined;
 }
 
+function fitRect(srcW: number, srcH: number, boxX: number, boxY: number, boxW: number, boxH: number) {
+  const safeW = Math.max(1, srcW);
+  const safeH = Math.max(1, srcH);
+  const scale = Math.min(boxW / safeW, boxH / safeH);
+  const w = safeW * scale;
+  const h = safeH * scale;
+  return { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, w, h };
+}
+
 const S = {
   M: 40,
-  HEADER_H: 115,
-  FOOTER_H: 32,
-  BAR_H: 14,
-  BAR_GAP: 10,
+  HEADER_H: 164,
+  FOOTER_H: 42,
+  BAR_H: 34,
+  BAR_GAP: 8,
   BLOCK_GAP: 18,
   BLOCK_GAP_COMPACT: 12,
   BLOCK_GAP_TIGHT: 8,
-  PAD_X: 14,
-  PAD_Y: 11,
-  LINE_H: 16,
-  LABEL_H: 13,
+  BLOCK_GAP_CONTRACT: 24,
+  PAD_X: 20,
+  PAD_Y: 14,
+  LINE_H: 17,
+  LABEL_H: 16,
   SIG_CONTRACT_H: 200,
   SIG_DEFAULT_H: 90,
   TOP_AFTER_HEADER: 22,
@@ -145,16 +161,16 @@ const S = {
 };
 
 const T = {
-  docTitle: 15,
+  docTitle: 18,
   docSubtitle: 8.5,
-  blockTitle: 9.5,
+  blockTitle: 10.5,
   body: 10,
   meta: 7.5,
-  label: 7,
+  label: 7.5,
   sigName: 10,
   sigRole: 9,
   sigMeta: 8,
-  headerName: 16,
+  headerName: 17,
   headerMeta: 8.5,
 };
 
@@ -184,42 +200,117 @@ export async function urlToDataUrl(url: string): Promise<string | null> {
       const b64 = Buffer.from(buf).toString("base64");
       return `data:${ct};base64,${b64}`;
     }
-    // Browser: achata transparência sobre branco e normaliza para quadrado
-    // preservando proporção (padding branco). Resolve o "fundo preto" que
-    // o jsPDF aplica a PNG/WebP com alpha e garante que a logo apareça
-    // proporcional dentro do espaço do cabeçalho.
-    const blob = new Blob([buf], { type: ct });
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const img: HTMLImageElement = await new Promise((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = reject;
-        el.src = objectUrl;
-      });
-      const iw = img.naturalWidth || img.width || 1;
-      const ih = img.naturalHeight || img.height || 1;
-      const target = Math.max(256, Math.max(iw, ih));
-      const canvas = document.createElement("canvas");
-      canvas.width = target;
-      canvas.height = target;
-      const cx = canvas.getContext("2d");
-      if (!cx) return null;
-      cx.fillStyle = "#ffffff";
-      cx.fillRect(0, 0, target, target);
-      const scale = Math.min(target / iw, target / ih);
-      const dw = iw * scale;
-      const dh = ih * scale;
-      cx.drawImage(img, (target - dw) / 2, (target - dh) / 2, dw, dh);
-      // PNG sem alpha (canvas já totalmente opaco em branco) — evita
-      // artefatos de borda escura do JPEG ao redor de logos arredondadas.
-      return canvas.toDataURL("image/png");
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
+    return await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(new Blob([buf], { type: ct }));
+    });
   } catch {
     return null;
   }
+}
+
+async function cleanLogoDataUrl(dataUrl: string): Promise<string> {
+  if (typeof window === "undefined" || typeof Image === "undefined") return dataUrl;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = dataUrl;
+    });
+    const width = Math.max(1, img.naturalWidth || img.width);
+    const height = Math.max(1, img.naturalHeight || img.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    removeBlackMatte(ctx, width, height);
+    removeDarkEdgeMatte(ctx, width, height);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
+}
+
+function removeBlackMatte(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const image = ctx.getImageData(0, 0, width, height);
+  const data = image.data;
+  const corners = [
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1],
+  ];
+  const darkCorners = corners.filter(([x, y]) => {
+    const i = (y * width + x) * 4;
+    return data[i + 3] > 245 && data[i] < 24 && data[i + 1] < 24 && data[i + 2] < 24;
+  }).length;
+  if (darkCorners < 3) return;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] > 245 && data[i] < 30 && data[i + 1] < 30 && data[i + 2] < 30) {
+      data[i + 3] = 0;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
+function removeDarkEdgeMatte(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const image = ctx.getImageData(0, 0, width, height);
+  const data = image.data;
+  const isDarkEdgePixel = (x: number, y: number) => {
+    const i = (y * width + x) * 4;
+    const alpha = data[i + 3];
+    if (alpha < 230) return false;
+    return data[i] < 42 && data[i + 1] < 42 && data[i + 2] < 42;
+  };
+
+  let darkEdge = 0;
+  let edge = 0;
+  for (let x = 0; x < width; x++) {
+    edge += 2;
+    if (isDarkEdgePixel(x, 0)) darkEdge++;
+    if (isDarkEdgePixel(x, height - 1)) darkEdge++;
+  }
+  for (let y = 1; y < height - 1; y++) {
+    edge += 2;
+    if (isDarkEdgePixel(0, y)) darkEdge++;
+    if (isDarkEdgePixel(width - 1, y)) darkEdge++;
+  }
+  if (edge === 0 || darkEdge / edge < 0.18) return;
+
+  const seen = new Uint8Array(width * height);
+  const queue: Array<[number, number]> = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const idx = y * width + x;
+    if (seen[idx] || !isDarkEdgePixel(x, y)) return;
+    seen[idx] = 1;
+    queue.push([x, y]);
+  };
+  for (let x = 0; x < width; x++) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    push(0, y);
+    push(width - 1, y);
+  }
+
+  for (let qi = 0; qi < queue.length; qi++) {
+    const [x, y] = queue[qi];
+    const i = (y * width + x) * 4;
+    data[i + 3] = 0;
+    push(x + 1, y);
+    push(x - 1, y);
+    push(x, y + 1);
+    push(x, y - 1);
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 // ---------- Sanitização contrato (somente cláusula final / Foro) ----------
@@ -324,7 +415,7 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
     }
 
     if (ch.kind === "eva") {
-      atoms.push({ kind: "eva", value: ch.value, h: 68, blockId: id });
+      atoms.push({ kind: "eva", value: ch.value, h: 92, blockId: id });
       continue;
 
     }
@@ -523,17 +614,19 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const groups: BlockGroup[] = blocks.map((b, i) => measureBlock(doc, b, i, contentW, isContract));
 
   // ----- Compose with progressive compaction -----
-  const topYFirst = isMatrixV2
-    ? S.HEADER_H + 20
-    : S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
   const topYRest = S.M + 28;
   const bottomY = H - S.FOOTER_H - 16;
   const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
   const usableHRest = bottomY - topYRest;
 
   const qrReserve = isContract ? 64 : 0;
-  const sigReserve = opts.hideSignature ? 0 : sigDraw + qrReserve;
-  const gapTiers: number[] = [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
+  const sigReserve = opts.hideSignature ? 0 : isContract ? sigDraw + qrReserve : 0;
+  // Contratos ganham mais respiro entre cláusulas (estética documental premium),
+  // sem alterar a paginação segura — os gaps apenas antecipam quebras de página.
+  const gapTiers: number[] = isContract
+    ? [S.BLOCK_GAP_CONTRACT, S.BLOCK_GAP, S.BLOCK_GAP_COMPACT]
+    : [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
   let pages = compose(groups, topYFirst, topYRest, bottomY, sigReserve, gapTiers[0]);
   for (let t = 1; t < gapTiers.length; t++) {
     const fill = lastPageFill(pages, usableHRest, sigReserve);
@@ -544,45 +637,47 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
     }
   }
 
-  // ----- Draw header -----
-  if (isMatrixV2) {
-    drawHeaderV2(doc, c, ctx.logo, W, opts);
-  } else {
-    drawHeader(doc, c, ctx.logo, W);
 
-    let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
-    doc.setTextColor(...C.ink);
+
+  // ----- Draw -----
+  drawHeader(doc, c, ctx.logo, W);
+
+  // Document title strip
+  let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
+  doc.setTextColor(...C.ink);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.docTitle + 1);
+  doc.text(opts.title, M, titleY);
+  if (opts.subtitle) {
+    titleY += 12;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(T.docTitle + 1);
-    doc.text(opts.title, M, titleY);
-    if (opts.subtitle) {
-      titleY += 12;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.docSubtitle);
-      doc.setTextColor(...C.meta);
-      doc.text(opts.subtitle, M, titleY);
-    }
-    if (opts.patientName) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.docSubtitle);
-      doc.setTextColor(...C.meta);
-      doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
-    }
-    const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
-    doc.setDrawColor(...C.brand);
-    doc.setLineWidth(0.8);
-    doc.line(M, dividerY, W - M, dividerY);
-    doc.setDrawColor(...C.hairline);
-    doc.setLineWidth(0.3);
-    doc.line(M, dividerY + 2.5, W - M, dividerY + 2.5);
+    doc.setFontSize(T.docSubtitle);
+    doc.setTextColor(...C.meta);
+    doc.text(opts.subtitle, M, titleY);
   }
+  // Patient pill (right side)
+  if (opts.patientName) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.docSubtitle);
+    doc.setTextColor(...C.meta);
+    doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
+  }
+  // Divider (double hairline)
+  const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
+  doc.setDrawColor(...C.brand);
+  doc.setLineWidth(0.8);
+  doc.line(M, dividerY, W - M, dividerY);
+  doc.setDrawColor(...C.hairline);
+  doc.setLineWidth(0.3);
+  doc.line(M, dividerY + 2.5, W - M, dividerY + 2.5);
 
   // Pages
   for (let pi = 0; pi < pages.length; pi++) {
     if (pi > 0) {
       doc.addPage();
+      // (header não se repete; rodapé sim — será desenhado depois para cada página)
     }
-    renderPageContent(doc, pages[pi], pages[pi].topY, W, contentW, M, isMatrixV2);
+    renderPageContent(doc, pages[pi], pages[pi].topY, W, contentW, M);
   }
 
   const lastPageIdx = pages.length;
@@ -611,58 +706,203 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
 
 // ---------- Header ----------
 
-function drawHeader(doc: jsPDF, c: ClinicData, logo: string | null, W: number) {
-  // Subtle background tint
-  doc.setFillColor(...C.brandSoft);
-  doc.rect(0, 0, W, S.HEADER_H, "F");
-
+function drawHeader(doc: jsPDF, c: ClinicData, logo: string | null, W: number, opts: BuildPdfOpts, isContract = false) {
   const M = S.M;
-  const logoSize = 78;
-  const logoY = (S.HEADER_H - logoSize) / 2;
+  const cardX = M;
+  const cardY = 20;
+  const cardW = W - 2 * M;
+  const cardH = S.HEADER_H - 32;
+  const logoBoxW = 86;
+  const logoBoxH = 78;
+  const logoX = cardX + 14;
+  const logoY = cardY + 18;
+
+  doc.setFillColor(...C.paper);
+  doc.rect(0, 0, W, S.HEADER_H, "F");
 
   if (logo) {
     try {
-      doc.addImage(logo, dataUrlImageFormat(logo) ?? "PNG", M, logoY, logoSize, logoSize);
+      drawContainedImage(doc, logo, logoX, logoY, logoBoxW, logoBoxH);
     } catch {
-      drawMonogram(doc, c, M, logoY, logoSize);
+      drawMonogram(doc, c, logoX, logoY, Math.min(logoBoxW, logoBoxH));
     }
   } else {
-    drawMonogram(doc, c, M, logoY, logoSize);
+    drawMonogram(doc, c, logoX, logoY, Math.min(logoBoxW, logoBoxH));
   }
 
-  // Text block (vertically centered)
-  const tx = M + logoSize + 14;
-  const lines: string[] = [];
-  const razao = cleanText(c.razao_social);
+  const dividerX = logoX + logoBoxW + 12;
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setLineWidth(0.6);
+  doc.line(dividerX, cardY + 12, dividerX, cardY + cardH - 12);
+
+  const clinicName = cleanText(c.nome_fantasia) || cleanText(c.razao_social) || "FisioOS";
+  const specialty = cleanText(c.razao_social) || "Fisioterapia";
   const cnpj = cleanText(c.cnpj);
-  if (razao || cnpj) {
-    lines.push([razao, cnpj ? `CNPJ ${cnpj}` : ""].filter(Boolean).join("  ·  "));
-  }
   const tels = Array.isArray(c.telefones) ? c.telefones.filter(Boolean).join(" · ") : "";
   const emails = Array.isArray(c.emails) ? c.emails.filter(Boolean).join(" · ") : "";
-  const contactLine = [tels, emails].filter(Boolean).join("  ·  ");
-  if (contactLine) lines.push(contactLine);
-  const endereco = cleanText(c.endereco);
   const cityState = [cleanText(c.cidade), cleanText(c.estado)].filter(Boolean).join("/");
-  const addrLine = [endereco, cityState].filter(Boolean).join(" · ");
-  if (addrLine) lines.push(addrLine);
+  const addr = [cleanText(c.endereco), cityState].filter(Boolean).join(" · ");
+  const legal = cleanText(c.rodape_institucional);
 
-  const nameSize = T.headerName;
-  const metaSize = T.headerMeta;
-  const lineH = 11;
-  const totalH = nameSize + 4 + lines.length * lineH;
-  const startY = (S.HEADER_H - totalH) / 2 + nameSize;
-
-  doc.setTextColor(...C.brand);
+  const clinicX = dividerX + 16;
+  const docX = W - M - 205;
+  const clinicTextW = Math.max(150, docX - clinicX - 24);
+  let cy = cardY + 26;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(nameSize);
-  const name = cleanText(c.nome_fantasia) || "FisioOS";
-  doc.text(name, tx, startY);
-
+  doc.setFontSize(T.headerName);
+  doc.setTextColor(...C.brand);
+  doc.text(doc.splitTextToSize(clinicName, clinicTextW)[0] ?? clinicName, clinicX, cy);
+  cy += 13;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(metaSize);
+  doc.setFontSize(T.headerMeta);
+  doc.setTextColor(...C.ink);
+  doc.text(doc.splitTextToSize(specialty, clinicTextW)[0] ?? specialty, clinicX, cy);
+  cy += 13;
+  if (cnpj) {
+    doc.setFillColor(...C.brandSoft);
+    doc.roundedRect(clinicX, cy - 8, Math.min(128, clinicTextW), 13, 4, 4, "F");
+    doc.setFontSize(6.8);
+    doc.setTextColor(...C.brand);
+    doc.text(`CNPJ ${cnpj}`, clinicX + 6, cy + 1);
+    cy += 15;
+  }
+
+  const contactLines = [
+    tels && { icon: "phone" as const, text: tels },
+    emails && { icon: "mail" as const, text: emails },
+    addr && { icon: "pin" as const, text: addr },
+  ].filter(Boolean) as Array<{ icon: IconKind; text: string }>;
+  for (const line of contactLines.slice(0, 3)) {
+    drawMiniIcon(doc, line.icon, clinicX, cy - 7, 7, C.brand);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.meta);
+    doc.text(doc.splitTextToSize(line.text, clinicTextW - 12)[0] ?? line.text, clinicX + 12, cy);
+    cy += 11;
+  }
+
+  if (legal) {
+    const legalY = cardY + cardH - 16;
+    doc.setDrawColor(...C.hairlineSoft);
+    doc.setLineWidth(0.3);
+    doc.line(clinicX, legalY - 10, docX - 20, legalY - 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...C.brand);
+    doc.text(doc.splitTextToSize(legal, clinicTextW)[0] ?? legal, clinicX, legalY);
+  }
+
+  const docY = cardY + 10;
+  const docW = 205;
+  const docH = cardH - 18;
+  doc.setFillColor(...C.surface);
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(docX, docY, docW, docH, 8, 8, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.docTitle);
+  doc.setTextColor(...C.ink);
+  const titleLines = doc.splitTextToSize(opts.title, docW - 32).slice(0, 2);
+  doc.text(titleLines, docX + 16, docY + 22);
+
+  const subtitle = cleanText(opts.subtitle);
+  const subtitleIsEmission = /^Emitid[ao] em\s+/i.test(subtitle);
+  if (subtitle && !subtitleIsEmission) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.docSubtitle);
+    doc.setTextColor(...C.meta);
+    doc.text(doc.splitTextToSize(subtitle, docW - 32).slice(0, 1), docX + 16, docY + 45);
+  }
+
+  const issued = new Date().toLocaleDateString("pt-BR");
+  const metaY = docY + 24 + titleLines.length * 14 + (subtitle && !subtitleIsEmission ? 18 : 8);
+  drawHeaderMeta(doc, "calendar", "Data de emissão", issued, docX + 16, metaY, 80);
+  drawHeaderMeta(doc, "user", "Paciente", opts.patientName || "—", docX + 16, metaY + 24, 75);
+  if (isContract) {
+    drawHeaderMeta(doc, "file", "Documento", "Contrato", docX + 108, metaY + 24, 68);
+  } else {
+    const assessmentDate = subtitle.replace(/^Emitida em\s+/i, "") || "—";
+    drawHeaderMeta(doc, "calendar", "Data da avaliação", assessmentDate, docX + 108, metaY + 24, 68);
+  }
+}
+
+function drawPageChrome(doc: jsPDF, W: number, H: number, isContract: boolean) {
+  if (!isContract) return;
+  doc.setFillColor(...C.brand);
+  doc.rect(0, 0, 7, H, "F");
+  doc.setFillColor(...C.brandSoft);
+  doc.rect(7, 0, 1.2, H, "F");
+}
+
+function drawContainedImage(doc: jsPDF, image: string, x: number, y: number, boxW: number, boxH: number) {
+  const props = (doc as any).getImageProperties?.(image);
+  const naturalW = Number(props?.width) || boxW;
+  const naturalH = Number(props?.height) || boxH;
+  const fit = fitRect(naturalW, naturalH, x, y, boxW, boxH);
+  const format = dataUrlImageFormat(image);
+  if (format === "WEBP") throw new Error("Unsupported logo format for transparent PDF rendering");
+  doc.addImage(image, format ?? "PNG", fit.x, fit.y, fit.w, fit.h);
+}
+
+type IconKind = "calendar" | "file" | "heart" | "mail" | "phone" | "pin" | "shield" | "stethoscope" | "target" | "user";
+
+function drawHeaderMeta(doc: jsPDF, icon: IconKind, label: string, value: string, x: number, y: number, maxW: number) {
+  drawMiniIcon(doc, icon, x, y - 8, 7, C.brand);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
   doc.setTextColor(...C.meta);
-  lines.forEach((ln, i) => doc.text(ln, tx, startY + 6 + (i + 1) * lineH - lineH + 4));
+  doc.text(label, x + 11, y - 2);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.2);
+  doc.setTextColor(...C.ink);
+  doc.text(doc.splitTextToSize(value, maxW)[0] ?? value, x + 11, y + 8);
+}
+
+function drawMiniIcon(doc: jsPDF, kind: IconKind, x: number, y: number, size: number, color: readonly [number, number, number] = C.brand) {
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+  doc.setDrawColor(...color);
+  doc.setFillColor(...color);
+  doc.setLineWidth(0.75);
+  if (kind === "user") {
+    doc.circle(cx, y + size * 0.34, size * 0.18, "S");
+    doc.roundedRect(x + size * 0.22, y + size * 0.58, size * 0.56, size * 0.28, 2, 2, "S");
+  } else if (kind === "phone") {
+    doc.roundedRect(x + size * 0.28, y + size * 0.1, size * 0.44, size * 0.8, 2, 2, "S");
+    doc.circle(cx, y + size * 0.78, 0.8, "F");
+  } else if (kind === "mail") {
+    doc.roundedRect(x + size * 0.1, y + size * 0.22, size * 0.8, size * 0.58, 1.5, 1.5, "S");
+    doc.line(x + size * 0.12, y + size * 0.26, cx, cy + size * 0.12);
+    doc.line(x + size * 0.88, y + size * 0.26, cx, cy + size * 0.12);
+  } else if (kind === "pin") {
+    doc.circle(cx, y + size * 0.38, size * 0.22, "S");
+    doc.line(cx, y + size * 0.6, cx, y + size * 0.9);
+  } else if (kind === "calendar") {
+    doc.roundedRect(x + size * 0.12, y + size * 0.18, size * 0.76, size * 0.68, 1.5, 1.5, "S");
+    doc.line(x + size * 0.12, y + size * 0.38, x + size * 0.88, y + size * 0.38);
+  } else if (kind === "heart") {
+    doc.circle(x + size * 0.36, y + size * 0.36, size * 0.18, "S");
+    doc.circle(x + size * 0.64, y + size * 0.36, size * 0.18, "S");
+    doc.line(x + size * 0.2, y + size * 0.46, cx, y + size * 0.82);
+    doc.line(x + size * 0.8, y + size * 0.46, cx, y + size * 0.82);
+  } else if (kind === "target") {
+    doc.circle(cx, cy, size * 0.36, "S");
+    doc.circle(cx, cy, size * 0.16, "S");
+  } else if (kind === "shield") {
+    doc.roundedRect(x + size * 0.22, y + size * 0.12, size * 0.56, size * 0.7, 2, 2, "S");
+    doc.line(cx, y + size * 0.82, x + size * 0.22, y + size * 0.5);
+    doc.line(cx, y + size * 0.82, x + size * 0.78, y + size * 0.5);
+  } else if (kind === "stethoscope") {
+    doc.circle(x + size * 0.74, y + size * 0.68, size * 0.14, "S");
+    doc.line(x + size * 0.34, y + size * 0.18, x + size * 0.34, y + size * 0.48);
+    doc.line(x + size * 0.34, y + size * 0.48, x + size * 0.62, y + size * 0.48);
+    doc.line(x + size * 0.62, y + size * 0.48, x + size * 0.62, y + size * 0.22);
+  } else {
+    doc.roundedRect(x + size * 0.2, y + size * 0.12, size * 0.6, size * 0.76, 1.5, 1.5, "S");
+    doc.line(x + size * 0.32, y + size * 0.36, x + size * 0.68, y + size * 0.36);
+    doc.line(x + size * 0.32, y + size * 0.52, x + size * 0.68, y + size * 0.52);
+  }
 }
 
 function drawMonogram(doc: jsPDF, c: ClinicData, x: number, y: number, size: number) {
@@ -687,7 +927,6 @@ function renderPageContent(
   W: number,
   contentW: number,
   M: number,
-  isMatrixV2: boolean = false,
 ) {
   let y = topY;
   // Group atoms by segment to draw block frames
@@ -701,15 +940,9 @@ function renderPageContent(
 
   const closeSegment = (endY: number) => {
     if (segOpenBlockId == null) return;
-    if (isMatrixV2) {
-      doc.setDrawColor(...C.hairlineSoft);
-      doc.setLineWidth(0.5);
-      (doc as any).roundedRect(M, segStartY, contentW, endY - segStartY, 6, 6, "S");
-    } else {
-      doc.setDrawColor(...C.hairline);
-      doc.setLineWidth(0.3);
-      doc.rect(M, segStartY, contentW, endY - segStartY, "S");
-    }
+    doc.setDrawColor(...C.hairline);
+    doc.setLineWidth(0.3);
+    doc.rect(M, segStartY, contentW, endY - segStartY, "S");
     segOpenBlockId = null;
   };
 
@@ -721,11 +954,7 @@ function renderPageContent(
       if (segOpenBlockId != null) closeSegment(y);
       segStartY = y;
       segOpenBlockId = a.blockId;
-      if (isMatrixV2) {
-        drawBlockTitleV2(doc, a.label, M, y, contentW, a.blockId + 1, !!a.continuation);
-      } else {
-        drawBlockTitle(doc, a.label, M, y, contentW);
-      }
+      drawBlockTitle(doc, a.label, M, y, contentW);
       y += S.BAR_H;
       y += S.BAR_GAP;
       continue;
@@ -734,8 +963,8 @@ function renderPageContent(
     if (a.kind === "label") {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(T.label);
-      doc.setTextColor(...C.meta);
-      doc.text(a.text.toUpperCase(), M + S.PAD_X, y + 8);
+      doc.setTextColor(...C.brand);
+      doc.text(a.text.toUpperCase(), M + S.PAD_X, y + 10);
       y += S.LABEL_H;
       continue;
     }
@@ -754,15 +983,16 @@ function renderPageContent(
       const colW = innerW / a.cols;
       a.cells.forEach(([label, value], ci) => {
         const x = M + S.PAD_X + ci * colW;
+        drawMiniIcon(doc, fieldIconFor(label), x, y + 1, 8, C.brand);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(T.label);
         doc.setTextColor(...C.meta);
-        doc.text(label.toUpperCase(), x, y + 8);
+        doc.text(label, x + 12, y + 8);
         if (value) {
-          doc.setFont("helvetica", "normal");
+          doc.setFont("helvetica", "bold");
           doc.setFontSize(T.body);
           doc.setTextColor(...C.ink);
-          const lines = doc.splitTextToSize(value, colW - 8);
+          const lines = doc.splitTextToSize(value, colW - 12);
           doc.text(lines, x, y + S.LABEL_H + 8);
         }
       });
@@ -772,13 +1002,11 @@ function renderPageContent(
 
     if (a.kind === "highlight") {
       doc.setFillColor(...C.highlightBg);
-      doc.rect(M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.h, "F");
-      doc.setFillColor(...C.brand);
-      doc.rect(M + S.PAD_X, y, 3, a.h, "F");
+      doc.roundedRect(M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.h, 6, 6, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(T.label);
       doc.setTextColor(...C.brand);
-      doc.text(a.label.toUpperCase(), M + S.PAD_X + 10, y + 11);
+      doc.text(a.label.toUpperCase(), M + S.PAD_X + 10, y + 12);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(T.body);
       doc.setTextColor(...C.ink);
@@ -798,14 +1026,12 @@ function renderPageContent(
       const colW = innerW / a.items.length;
       a.items.forEach((it, ci) => {
         const x = M + S.PAD_X + ci * colW;
-        doc.setDrawColor(...C.hairline);
+        doc.setDrawColor(...C.hairlineSoft);
         doc.setLineWidth(0.5);
         doc.rect(x, y + 2, 10, 10, "S");
         if (it.checked) {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(...C.brand);
-          doc.text("✓", x + 1.6, y + 10.4);
+          doc.setFillColor(...C.brand);
+          doc.rect(x + 2, y + 4, 6, 6, "F");
         }
         doc.setFont("helvetica", "normal");
         doc.setFontSize(T.body);
@@ -849,14 +1075,50 @@ function renderPageContent(
   closeSegment(y);
 }
 
-function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: number) {
+function sectionNumber(label: string): string | null {
+  return label.match(/^\s*(\d+)/)?.[1] ?? null;
+}
+
+function fieldIconFor(label: string): IconKind {
+  if (/nome|paciente|profissional/i.test(label)) return "user";
+  if (/telefone/i.test(label)) return "phone";
+  if (/data|nascimento/i.test(label)) return "calendar";
+  if (/sexo|civil/i.test(label)) return "heart";
+  if (/profiss/i.test(label)) return "file";
+  if (/natural|endere|cidade/i.test(label)) return "pin";
+  return "file";
+}
+
+function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: number, isContract = false) {
+  const n = sectionNumber(label);
+  const title = label.replace(/^\s*\d+[\.\s-]*/, "");
+  doc.setFillColor(...C.paper);
+  doc.roundedRect(x, y, w, S.BAR_H, 8, 8, "F");
   doc.setFillColor(...C.brand);
-  doc.rect(x, y, w, S.BAR_H, "F");
-  doc.setTextColor(255, 255, 255);
+  doc.roundedRect(x + 10, y + 7, 16, 16, 3, 3, "F");
+  if (n != null) {
+    // Documentos com seções numeradas (ex.: Avaliação) mantêm o número.
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(n, x + 18, y + 18, { align: "center" });
+  } else if (isContract) {
+    // Cláusulas (sem número) recebem um ícone discreto em vez de
+    // um quadrado verde vazio — alinhando ao padrão premium da Avaliação.
+    drawMiniIcon(doc, "file", x + 13.5, y + 10.5, 9, [255, 255, 255] as [number, number, number]);
+  }
+  doc.setTextColor(...C.brand);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(T.blockTitle);
-  // Tracked uppercase: emulate letter-spacing by inserting hair spaces
-  doc.text(label.toUpperCase(), x + 10, y + 9.5, { charSpace: 1.2 });
+  doc.text(title.toUpperCase(), x + 34, y + 18);
+
+  if (isContract) {
+    // Linha-guia sutil sob o cabeçalho da cláusula (respiro documental),
+    // desenhada dentro do espaço já reservado (BAR_GAP), sem afetar layout.
+    doc.setDrawColor(...C.hairlineSoft);
+    doc.setLineWidth(0.4);
+    doc.line(x + S.PAD_X, y + S.BAR_H + 2, x + w - S.PAD_X, y + S.BAR_H + 2);
+  }
 }
 
 // Matriz V2 — título de seção com badge verde discreto + texto verde
@@ -1018,71 +1280,109 @@ function drawHeaderV2(
 
 
 function drawEva(doc: jsPDF, value: number | null, x: number, y: number, w: number) {
-  const barX = x;
-  const barY = y + 22;
-  const barH = 14;
-  const barW = w;
-  // A escala 0-10 possui 11 pontos; cada ponto ocupa uma célula de cor.
-  // Usar 11 células garante que as zonas (3+5+3) preencham exatamente a
-  // largura disponível sem estourar a margem direita.
-  const cellW = barW / 11;
+  const safeValue = value == null ? null : Math.max(0, Math.min(10, Math.round(value)));
+  const zone = evaZoneFor(safeValue);
+  const panelX = x;
+  const panelY = y + 2;
+  const panelW = w;
+  const panelH = 78;
+  const barX = panelX + 12;
+  const barY = panelY + 40;
+  const barW = panelW - 24;
+  const barH = 12;
 
-  const zones = [
-    { range: [0, 2], label: "LEVE", color: C.evaLeve },
-    { range: [3, 7], label: "MODERADA", color: C.evaModerada },
-    { range: [8, 10], label: "INTENSA", color: C.evaIntensa },
-  ] as const;
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setFillColor(...C.paper);
+  doc.roundedRect(panelX, panelY, panelW, panelH, 8, 8, "FD");
 
-  // zones background
-  for (const z of zones) {
-    const startX = barX + z.range[0] * cellW;
-    const width = (z.range[1] - z.range[0] + 1) * cellW;
-    doc.setFillColor(...z.color);
-    doc.rect(startX, barY, width, barH, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.meta);
+  doc.text("ESCALA VISUAL ANALÓGICA - EVA", panelX + 14, panelY + 16);
+  doc.setFontSize(14);
+  doc.setTextColor(...(zone?.color ?? C.blue));
+  doc.text(safeValue != null ? `EVA  ${safeValue}/10` : "EVA  —/10", panelX + panelW - 14, panelY + 22, { align: "right" });
+  if (zone) {
+    doc.setFontSize(7.2);
+    doc.text(zone.label.toUpperCase(), panelX + panelW - 14, panelY + 34, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.2);
+    doc.setTextColor(...C.meta);
+    doc.text(zone.description, panelX + panelW - 14, panelY + 44, { align: "right" });
   }
 
-  // tick marks + numbers
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.4);
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
+  drawSegmentedEvaGradient(doc, barX, barY, barW, barH);
   for (let i = 0; i <= 10; i++) {
     const tx = barX + (i / 10) * barW;
-    doc.line(tx, barY, tx, barY + barH);
-    const numX = i === 0 ? tx + 2 : i === 10 ? tx - 2 : tx;
-    doc.text(String(i), numX, barY + barH - 3, { align: i === 0 ? "left" : i === 10 ? "right" : "center" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.8);
+    doc.setTextColor(...(evaZoneFor(i)?.color ?? C.meta));
+    doc.text(String(i), tx, barY + barH + 14, { align: "center" });
+  }
+  if (safeValue != null) {
+    const mx = barX + (safeValue / 10) * barW;
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(2);
+    doc.circle(mx, barY + barH / 2, 8.5, "S");
+    doc.setDrawColor(...C.blue);
+    doc.setLineWidth(1.3);
+    doc.circle(mx, barY + barH / 2, 7, "S");
   }
 
-  // zone labels above the bar
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(...C.ink);
-  for (const z of zones) {
-    const midX = barX + ((z.range[0] + z.range[1]) / 2 + 0.5) * cellW;
-    doc.text(z.label, midX, barY - 4, { align: "center" });
+  const legend = [
+    { label: "0", desc: "Sem dor", color: C.evaBlue, x: 0.02 },
+    { label: "1-3", desc: "Dor leve", color: C.evaGreen, x: 0.20 },
+    { label: "4-6", desc: "Dor moderada", color: [104, 173, 71] as [number, number, number], x: 0.38 },
+    { label: "7-8", desc: "Dor intensa", color: C.evaOrange, x: 0.60 },
+    { label: "9-10", desc: "Dor extrema", color: C.evaRed, x: 0.80 },
+  ];
+  for (const item of legend) {
+    const lx = barX + item.x * barW;
+    doc.setFillColor(...item.color);
+    doc.circle(lx, panelY + 67, 3, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...C.ink);
+    doc.text(item.label, lx + 10, panelY + 65);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...C.meta);
+    doc.text(item.desc, lx + 10, panelY + 73);
   }
+}
 
-  // current value marker
-  if (value != null) {
-    const t = Math.max(0, Math.min(10, value));
-    const mx = barX + (t / 10) * barW;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(1.5);
-    doc.line(mx, barY - 2, mx, barY + barH + 2);
-    doc.setFillColor(0, 0, 0);
-    doc.circle(mx, barY - 6, 2.5, "F");
+function drawSegmentedEvaGradient(doc: jsPDF, x: number, y: number, w: number, h: number) {
+  const segments = 90;
+  const anchors = [
+    { at: 0, color: C.evaBlue },
+    { at: 0.3, color: C.evaGreen },
+    { at: 0.6, color: C.evaYellow },
+    { at: 0.8, color: C.evaOrange },
+    { at: 1, color: C.evaRed },
+  ] as const;
+  for (let i = 0; i < segments; i++) {
+    const t = i / (segments - 1);
+    const color = gradientColorAt(t, anchors);
+    doc.setFillColor(...color);
+    doc.rect(x + (i / segments) * w, y, w / segments + 0.5, h, "F");
   }
+}
 
-  // title and value
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(T.label);
-  doc.setTextColor(...C.meta);
-  doc.text("ESCALA VISUAL ANALÓGICA - EVA", x, y + 8);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(T.body);
-  doc.setTextColor(...C.ink);
-  doc.text(value != null ? `${value}/10` : "—", x + w, y + 8, { align: "right" });
+function gradientColorAt(t: number, anchors: ReadonlyArray<{ at: number; color: readonly [number, number, number] }>): [number, number, number] {
+  const nextIndex = anchors.findIndex((a) => a.at >= t);
+  if (nextIndex <= 0) return [...anchors[0].color] as [number, number, number];
+  const start = anchors[nextIndex - 1];
+  const end = anchors[nextIndex];
+  const localT = (t - start.at) / Math.max(0.001, end.at - start.at);
+  return start.color.map((v, i) => Math.round(v + (end.color[i] - v) * localT)) as [number, number, number];
+}
+
+function evaZoneFor(value: number | null): { label: string; description: string; color: [number, number, number] } | null {
+  if (value == null) return null;
+  if (value === 0) return { label: "Sem dor", description: "Sem limitação dolorosa no momento.", color: C.evaBlue };
+  if (value <= 3) return { label: "Dor leve", description: "Desconforto presente.", color: C.evaGreen };
+  if (value <= 6) return { label: "Dor moderada", description: "Interfere nas atividades.", color: [104, 173, 71] };
+  if (value <= 8) return { label: "Dor intensa", description: "Limitação funcional importante.", color: C.evaOrange };
+  return { label: "Dor extrema", description: "Alto impacto funcional.", color: C.evaRed };
 }
 
 // ---------- Signature ----------
@@ -1102,7 +1402,8 @@ function drawSignatureArea(
   // o QR (somente contratos). compose reserva exatamente esse espaço,
   // evitando colisão com conteúdo, QR ou rodapé.
   const qrReserve = isContract ? 64 : 0;
-  const top = H - S.FOOTER_H - 16 - sigH - qrReserve;
+  const maxTop = H - S.FOOTER_H - 16 - sigH - qrReserve;
+  const top = isContract ? maxTop : Math.min(contentEndY + 8, maxTop);
 
   // Local + data discreet, right aligned
   const dataStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
@@ -1121,7 +1422,7 @@ function drawSignatureArea(
   if (isContract) {
     drawContractSignatures(doc, opts, c, W, M, top + 18, profNome, profRole, profRegistry);
   } else {
-    drawProfessionalSignature(doc, c, W, M, top + 16, profNome, profRole, profRegistry);
+    drawProfessionalSignature(doc, W, M, top + 16, profNome, profRole, profRegistry);
   }
 }
 
@@ -1220,7 +1521,6 @@ function drawContractSignatures(
 
 function drawProfessionalSignature(
   doc: jsPDF,
-  c: ClinicData,
   W: number,
   M: number,
   startY: number,
@@ -1231,31 +1531,12 @@ function drawProfessionalSignature(
   const cx = W / 2;
   const sigY = startY + 38;
   drawSigCol(doc, cx, sigY, 280, 0, {
-    label: profRole.toUpperCase(),
+    label: "Profissional Responsável",
     lines: [
       profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
       ...(profRegistry ? [{ text: profRegistry, bold: true, size: T.sigMeta } as const] : []),
     ],
   });
-  // Identidade clínica discreta
-  const sepY = sigY + 40;
-  doc.setDrawColor(...C.hairline);
-  doc.setLineWidth(0.3);
-  doc.line(cx - 50, sepY, cx + 50, sepY);
-  const name = cleanText(c.nome_fantasia ?? "") || cleanText(c.razao_social ?? "");
-  if (name) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.setTextColor(...C.brand);
-    doc.text(name, cx, sepY + 12, { align: "center" });
-  }
-  const cnpj = cleanText(c.cnpj ?? "");
-  if (cnpj) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...C.meta);
-    doc.text(`CNPJ ${cnpj}`, cx, sepY + 22, { align: "center" });
-  }
 }
 
 type SigLine = { text: string; bold?: boolean; muted?: boolean; italic?: boolean; size: number };
@@ -1278,7 +1559,7 @@ function drawSigCol(
   doc.setFontSize(7.5);
   doc.setTextColor(107, 107, 107);
   // Título (abaixo da linha) — uppercase normal, sem letter-spacing exagerado.
-  doc.text(opts.label.toUpperCase(), cx, lineY + 10, { align: "center" });
+  doc.text(opts.label, cx, lineY + 10, { align: "center" });
 
   // Conteúdo
   let ly = lineY + 22;
@@ -1305,39 +1586,18 @@ function drawFooter(
   isMatrixV2: boolean = false,
 ) {
   const fy = H - S.FOOTER_H + 4;
-  doc.setDrawColor(...(isMatrixV2 ? C.hairlineSoft : C.hairline));
+  doc.setDrawColor(...C.hairline);
   doc.setLineWidth(0.3);
   doc.line(M, fy, W - M, fy);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(6.6);
   doc.setTextColor(...C.meta);
-
-  let textX = M;
-  if (isMatrixV2) {
-    // Ícone de cadeado / segurança discreto à esquerda
-    const ix = M;
-    const iy = fy + 8;
-    doc.setDrawColor(...C.brand);
-    doc.setLineWidth(0.6);
-    (doc as any).roundedRect(ix, iy, 10, 12, 1.5, 1.5, "S");
-    doc.line(ix + 2, iy, ix + 2, iy - 3);
-    doc.line(ix + 8, iy, ix + 8, iy - 3);
-    (doc as any).roundedRect(ix + 2, iy - 5, 6, 5, 2, 2, "S");
-    textX = M + 16;
-  }
-
-  const issued = isMatrixV2
-    ? `Documento emitido eletronicamente em ${nowLabel()}`
-    : `Emitido em ${nowLabel()}`;
+  const issued = `Emitido em ${nowLabel()}`;
   const name = cleanText(c.nome_fantasia ?? "") || "FisioOS";
   const cityState = [cleanText(c.cidade ?? ""), cleanText(c.estado ?? "")].filter(Boolean).join("/");
   const footerName = cleanText(c.rodape_institucional ?? "") || [name, cityState].filter(Boolean).join(" · ");
-  doc.text(issued, textX, fy + 10);
-  if (isMatrixV2) {
-    doc.text("Informações clínicas confidenciais. Uso restrito ao paciente, responsáveis e equipe assistencial.", textX, fy + 20);
-  } else {
-    doc.text(footerName, textX, fy + 20);
-  }
+  doc.text(issued, M, fy + 10);
+  doc.text(footerName, M, fy + 20);
   doc.text(`Página ${page} de ${pageCount}`, W - M, fy + 10, { align: "right" });
 }
 
@@ -1359,16 +1619,14 @@ async function drawQR(
     const url = `${origin}/validar/${hash}`;
     const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: 200 });
     const size = 44;
-    // QR no canto inferior direito; assinatura reserva 64pt abaixo, garantindo
-    // afastamento mínimo de ~20pt da área das testemunhas.
-    const x = W - M - size;
+    const x = W / 2 - size / 2;
     const y = H - S.FOOTER_H - size - 8;
     doc.addImage(dataUrl, "PNG", x, y, size, size);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
     doc.setTextColor(...C.meta);
-    doc.text("Validação digital", x + size / 2, y - 4, { align: "center" });
-    doc.text(`${hash.slice(0, 12)}…`, x + size / 2, y + size + 7, { align: "center" });
+    doc.text("Verifique a autenticidade", x + size + 10, y + 14);
+    doc.text("deste documento", x + size + 10, y + 24);
   } catch { /* ignore */ }
 }
 

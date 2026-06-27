@@ -18,6 +18,7 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppUsuariosRouteImport } from './routes/_authenticated/app/usuarios'
 import { Route as AuthenticatedAppTemplatesRouteImport } from './routes/_authenticated/app/templates'
 import { Route as AuthenticatedAppRelatoriosRouteImport } from './routes/_authenticated/app/relatorios'
+import { Route as AuthenticatedAppRecibosRouteImport } from './routes/_authenticated/app/recibos'
 import { Route as AuthenticatedAppReavaliacoesRouteImport } from './routes/_authenticated/app/reavaliacoes'
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
 import { Route as AuthenticatedAppMarketingRouteImport } from './routes/_authenticated/app/marketing'
@@ -82,6 +83,11 @@ const AuthenticatedAppRelatoriosRoute =
     path: '/app/relatorios',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppRecibosRoute = AuthenticatedAppRecibosRouteImport.update({
+  id: '/app/recibos',
+  path: '/app/recibos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppReavaliacoesRoute =
   AuthenticatedAppReavaliacoesRouteImport.update({
     id: '/app/reavaliacoes',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
+  '/app/recibos': typeof AuthenticatedAppRecibosRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
@@ -223,6 +230,7 @@ export interface FileRoutesByTo {
   '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
+  '/app/recibos': typeof AuthenticatedAppRecibosRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/_authenticated/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
   '/_authenticated/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
+  '/_authenticated/app/recibos': typeof AuthenticatedAppRecibosRoute
   '/_authenticated/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
   '/_authenticated/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/_authenticated/app/usuarios': typeof AuthenticatedAppUsuariosRoute
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/app/marketing'
     | '/app/profissionais'
     | '/app/reavaliacoes'
+    | '/app/recibos'
     | '/app/relatorios'
     | '/app/templates'
     | '/app/usuarios'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/app/marketing'
     | '/app/profissionais'
     | '/app/reavaliacoes'
+    | '/app/recibos'
     | '/app/relatorios'
     | '/app/templates'
     | '/app/usuarios'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/marketing'
     | '/_authenticated/app/profissionais'
     | '/_authenticated/app/reavaliacoes'
+    | '/_authenticated/app/recibos'
     | '/_authenticated/app/relatorios'
     | '/_authenticated/app/templates'
     | '/_authenticated/app/usuarios'
@@ -411,6 +423,13 @@ declare module '@tanstack/react-router' {
       path: '/app/relatorios'
       fullPath: '/app/relatorios'
       preLoaderRoute: typeof AuthenticatedAppRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/recibos': {
+      id: '/_authenticated/app/recibos'
+      path: '/app/recibos'
+      fullPath: '/app/recibos'
+      preLoaderRoute: typeof AuthenticatedAppRecibosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/reavaliacoes': {
@@ -543,6 +562,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppMarketingRoute: typeof AuthenticatedAppMarketingRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
   AuthenticatedAppReavaliacoesRoute: typeof AuthenticatedAppReavaliacoesRoute
+  AuthenticatedAppRecibosRoute: typeof AuthenticatedAppRecibosRoute
   AuthenticatedAppRelatoriosRoute: typeof AuthenticatedAppRelatoriosRoute
   AuthenticatedAppTemplatesRoute: typeof AuthenticatedAppTemplatesRoute
   AuthenticatedAppUsuariosRoute: typeof AuthenticatedAppUsuariosRoute
@@ -566,6 +586,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppMarketingRoute: AuthenticatedAppMarketingRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
   AuthenticatedAppReavaliacoesRoute: AuthenticatedAppReavaliacoesRoute,
+  AuthenticatedAppRecibosRoute: AuthenticatedAppRecibosRoute,
   AuthenticatedAppRelatoriosRoute: AuthenticatedAppRelatoriosRoute,
   AuthenticatedAppTemplatesRoute: AuthenticatedAppTemplatesRoute,
   AuthenticatedAppUsuariosRoute: AuthenticatedAppUsuariosRoute,
