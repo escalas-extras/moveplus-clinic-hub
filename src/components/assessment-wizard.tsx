@@ -795,7 +795,16 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
                 <EvaScale
                   label="EVA — Dor"
                   value={Number(field.value ?? 0)}
-                  onChange={(v) => field.onChange(Number.isFinite(Number(v)) ? Number(v) : 0)}
+                  onChange={(v) => {
+                    const n = Number(v);
+                    const normalizedValue = Number.isFinite(n) ? Math.min(10, Math.max(0, Math.round(n))) : 0;
+                    field.onChange(normalizedValue);
+                    setValue("eva", normalizedValue, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: false,
+                    });
+                  }}
                 />
               )}
             />
