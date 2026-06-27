@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,16 +9,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import {
   ArrowLeft, ArrowRight, CheckCircle2, Loader2, Sparkles, FileText, Stethoscope,
-  ClipboardList, Activity, Target, Pen, User, Save, AlertCircle,
+  ClipboardList, Activity, Target, Pen, User, Save, AlertCircle, History, Cloud,
+  CloudOff, Circle,
 } from "lucide-react";
-import { calcAge } from "@/lib/format";
+import type { LucideIcon } from "lucide-react";
+import { EmptyState, InfoCard, StatusBadge } from "@/components/layout";
+import { calcAge, fmtDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import {
   detectDiagnoses, PROFILE_COLOR, PROFILE_LABEL,
   type ClinicalProfile, type DiagnosisCatalogItem,
@@ -483,123 +487,151 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const current = STEPS[stepIdx];
   const profiles = formValues.clinical_profiles ?? [];
 
+  const profName = useMemo(
+    () => (profs.data ?? []).find((p) => p.id === formValues.professional_id)?.nome ?? "—",
+    [profs.data, formValues.professional_id],
+  );
+
+  const assessmentStatus = assessment?.locked_at
+    ? "finalizada"
+    : (assessment?.status ?? "rascunho");
+
+  const stepStates = useMemo(
+    () => STEPS.map((s) => getStepFillState(s.key, formValues)),
+    [formValues],
+  );
+
+  const bootLoading = diagnoses.isLoading || profs.isLoading;
+
+  if (bootLoading) {
+    return <WizardSkeleton />;
+  }
+
   return (
-    <div className="space-y-4 pb-4">
-      {/* HEADER */}
-      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-background/90 backdrop-blur border-b">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Etapa {stepIdx + 1}/{STEPS.length}</span>
-              {savingDraft ? (
-                <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />salvando…</span>
-              ) : lastSavedAt ? (
-                <span className="inline-flex items-center gap-1"><Save className="h-3 w-3" />salvo {lastSavedAt.toLocaleTimeString().slice(0, 5)}</span>
-              ) : null}
-            </div>
-            <h3 className="text-lg font-semibold flex items-center gap-2 mt-0.5">
-              <current.icon className="h-5 w-5 text-primary" />
-              {current.label}
-            </h3>
+    <div className="dashboard-premium space-y-4 pb-4">
+      <AssessmentPremiumHeader
+        patient={patient}
+        ageYears={ageYears}
+        diagnosis={formValues.diagnostico_clinico || formValues.diagnostico_fisio}
+        date={formValues.data}
+        professional={profName}
+        status={assessmentStatus}
+        tipo={formValues.tipo}
+        profiles={profiles}
+      />
+
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+            <current.icon className="h-4 w-4 text-primary" />
+            {current.label}
+            <span className="text-xs font-normal text-muted-foreground">
+              · Etapa {stepIdx + 1} de {STEPS.length}
+            </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {profiles.map((p) => (
-              <Badge key={p} variant="outline" className={PROFILE_COLOR[p]}>{PROFILE_LABEL[p]}</Badge>
-            ))}
-            {profiles.length === 0 && (
-              <span className="text-xs text-muted-foreground">Nenhum perfil detectado</span>
-            )}
-          </div>
+          <AutosaveIndicator saving={savingDraft} lastSavedAt={lastSavedAt} />
         </div>
-        <Progress value={progress} className="h-1.5 mt-2" />
-        <div className="hidden sm:flex gap-1 mt-2 overflow-x-auto">
-          {STEPS.map((s, i) => (
-            <button
-              key={s.key}
-              onClick={() => setStepIdx(i)}
-              className={`text-xs px-2 py-1 rounded-full whitespace-nowrap border transition ${
-                i === stepIdx
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : i < stepIdx
-                  ? "bg-primary/10 text-primary border-primary/30"
-                  : "bg-muted text-muted-foreground border-transparent"
-              }`}
-            >
-              {i + 1}. {s.label}
-            </button>
-          ))}
-        </div>
+        <Progress value={progress} className="h-2" />
+        <p className="mt-1.5 text-xs text-muted-foreground">{Math.round(progress)}% concluído</p>
       </div>
 
-      {/* CONTEÚDO */}
-      <div className="space-y-4">
-        {current.key === "identificacao" && (
-          <StepIdentificacao
-            values={formValues}
-            setValue={setValue}
-            register={register}
-            profs={profs.data ?? []}
-            patient={patient}
-            ageYears={ageYears}
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_260px]">
+        <WizardStepNav
+          steps={STEPS}
+          currentIdx={stepIdx}
+          stepStates={stepStates}
+          onSelect={setStepIdx}
+          className="hidden lg:block"
+        />
+
+        <div className="space-y-4 min-w-0">
+          <WizardStepNav
+            steps={STEPS}
+            currentIdx={stepIdx}
+            stepStates={stepStates}
+            onSelect={setStepIdx}
+            className="lg:hidden"
+            compact
           />
-        )}
-        {current.key === "diagnostico" && (
-          <StepDiagnostico
-            values={formValues}
-            register={register}
-            detection={detection}
-            catalog={diagnoses.data ?? []}
-            applyTemplate={applyTemplate}
-            applied={appliedTemplates}
-          />
-        )}
-        {current.key === "anamnese" && (
-          <StepAnamnese register={register} />
-        )}
-        {current.key === "exame" && (
-          <StepExame
-            register={register}
-            values={formValues}
-            setValue={setValue}
-            control={control}
-            profiles={profiles}
-          />
-        )}
-        {current.key === "escalas" && (
-          <ClinicalTabs patientId={patientId} assessmentId={assessment?.id} />
-        )}
-        {current.key === "plano" && (
-          <StepPlano register={register} suggested={detection.items.flatMap((d) => d.suggested_objectives)} />
-        )}
-        {current.key === "assinaturas" && (
-          <PlaceholderPhase
-            title="Assinaturas digitais"
-            phase="Fase 4"
-            description="Captura de assinatura por toque/mouse para fisioterapeuta, paciente e responsável, com selo de data/hora e bloqueio da avaliação ao assinar."
-          />
-        )}
+
+          {current.key === "identificacao" && (
+            <StepIdentificacao
+              values={formValues}
+              setValue={setValue}
+              register={register}
+              profs={profs.data ?? []}
+              patient={patient}
+              ageYears={ageYears}
+            />
+          )}
+          {current.key === "diagnostico" && (
+            <StepDiagnostico
+              values={formValues}
+              register={register}
+              detection={detection}
+              catalog={diagnoses.data ?? []}
+              applyTemplate={applyTemplate}
+              applied={appliedTemplates}
+            />
+          )}
+          {current.key === "anamnese" && <StepAnamnese register={register} values={formValues} />}
+          {current.key === "exame" && (
+            <StepExame
+              register={register}
+              values={formValues}
+              setValue={setValue}
+              control={control}
+              profiles={profiles}
+            />
+          )}
+          {current.key === "escalas" && (
+            <InfoCard icon={ClipboardList} title="Escalas clínicas" description="Instrumentos de mensuração vinculados ao paciente.">
+              <ClinicalTabs patientId={patientId} assessmentId={assessment?.id} />
+            </InfoCard>
+          )}
+          {current.key === "plano" && (
+            <StepPlano register={register} suggested={detection.items.flatMap((d) => d.suggested_objectives)} />
+          )}
+          {current.key === "assinaturas" && (
+            <PlaceholderPhase
+              title="Assinaturas digitais"
+              phase="Fase 4"
+              description="Captura de assinatura por toque/mouse para fisioterapeuta, paciente e responsável, com selo de data/hora e bloqueio da avaliação ao assinar."
+            />
+          )}
+        </div>
+
+        <PreviousAssessmentsPanel
+          patientId={patientId}
+          currentId={assessment?.id}
+          className="hidden xl:block"
+        />
       </div>
 
-      {/* NAVEGAÇÃO */}
-      <div className="flex items-center justify-between gap-2 pt-4 border-t sticky bottom-0 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 py-3">
-        <Button variant="outline" onClick={goPrev} disabled={stepIdx === 0}>
-          <ArrowLeft className="h-4 w-4 mr-1" />Anterior
+      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.15)] backdrop-blur sm:px-5">
+        <Button variant="outline" onClick={goPrev} disabled={stepIdx === 0} className="rounded-xl">
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Anterior
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => persistDraft(false)} disabled={savingDraft}>
-            <Save className="h-4 w-4 mr-1" />Salvar rascunho
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => persistDraft(false)} disabled={savingDraft} className="rounded-xl">
+            <Save className="mr-1 h-4 w-4" />
+            Salvar rascunho
           </Button>
           {stepIdx < STEPS.length - 1 ? (
-            <Button onClick={goNext}>
-              Próximo<ArrowRight className="h-4 w-4 ml-1" />
+            <Button onClick={goNext} className="rounded-xl">
+              Próximo
+              <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>
-                {save.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}Salvar
+              <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending} className="rounded-xl">
+                {save.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                Salvar
               </Button>
-              <Button onClick={() => save.mutate(true)} disabled={save.isPending}>
-                <CheckCircle2 className="h-4 w-4 mr-1" />Finalizar
+              <Button onClick={() => save.mutate(true)} disabled={save.isPending} className="rounded-xl">
+                <CheckCircle2 className="mr-1 h-4 w-4" />
+                Finalizar
               </Button>
             </>
           )}
@@ -610,49 +642,388 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
 }
 
 // ============================================================================
+// PREMIUM SHELL
+// ============================================================================
+
+type StepFillState = "empty" | "partial" | "complete";
+
+function getStepFillState(key: StepKey, v: WizardPayload): StepFillState {
+  switch (key) {
+    case "identificacao":
+      return v.professional_id ? "complete" : "empty";
+    case "diagnostico":
+      return v.diagnostico_clinico?.trim() || v.diagnostico_fisio?.trim() ? "complete" : "empty";
+    case "anamnese":
+      if (v.queixa_principal?.trim()) return "complete";
+      if (v.hma?.trim() || v.hmp?.trim()) return "partial";
+      return "empty";
+    case "exame":
+      if (v.eva > 0 || v.inspecao?.trim() || v.palpacao?.trim()) return "partial";
+      if (v.neuro_consciencia?.trim() || v.orto_dor_movimento?.trim() || v.resp_fr?.trim())
+        return "partial";
+      return "empty";
+    case "escalas":
+      return "partial";
+    case "plano":
+      return v.objetivos?.trim() || v.condutas?.trim() ? "complete" : "empty";
+    case "assinaturas":
+      return "empty";
+    default:
+      return "empty";
+  }
+}
+
+function WizardSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-28 rounded-2xl" />
+      <Skeleton className="h-16 rounded-2xl" />
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <Skeleton className="hidden h-96 rounded-2xl lg:block" />
+        <Skeleton className="h-96 rounded-2xl" />
+      </div>
+    </div>
+  );
+}
+
+function AutosaveIndicator({ saving, lastSavedAt }: { saving: boolean; lastSavedAt: Date | null }) {
+  if (saving) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Salvando…
+      </span>
+    );
+  }
+  if (lastSavedAt) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+        <Cloud className="h-3 w-3" />
+        Salvo às {lastSavedAt.toLocaleTimeString().slice(0, 5)}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted-foreground ring-1 ring-slate-200">
+      <CloudOff className="h-3 w-3" />
+      Aguardando alterações
+    </span>
+  );
+}
+
+function AssessmentPremiumHeader({
+  patient,
+  ageYears,
+  diagnosis,
+  date,
+  professional,
+  status,
+  tipo,
+  profiles,
+}: {
+  patient?: any;
+  ageYears: number | null;
+  diagnosis?: string;
+  date: string;
+  professional: string;
+  status: string;
+  tipo: string;
+  profiles: ClinicalProfile[];
+}) {
+  const statusVariant =
+    status === "finalizada" ? "success" : status === "rascunho" ? "warning" : "info";
+
+  return (
+    <InfoCard icon={Stethoscope} title="Prontuário de avaliação" description="Registro clínico premium para uso diário.">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <HeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
+        <HeaderField label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
+        <HeaderField label="Diagnóstico" value={diagnosis?.trim() || "—"} className="sm:col-span-2 lg:col-span-1 xl:col-span-2" />
+        <HeaderField label="Data" value={fmtDate(date)} />
+        <HeaderField label="Profissional" value={professional} />
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Status</div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <StatusBadge variant={statusVariant}>{status}</StatusBadge>
+            <Badge variant="outline" className="text-[10px] uppercase">
+              {tipo}
+            </Badge>
+          </div>
+        </div>
+      </div>
+      {profiles.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-4">
+          {profiles.map((p) => (
+            <Badge key={p} variant="outline" className={PROFILE_COLOR[p]}>
+              {PROFILE_LABEL[p]}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </InfoCard>
+  );
+}
+
+function HeaderField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-950 truncate">{value}</div>
+    </div>
+  );
+}
+
+function WizardStepNav({
+  steps,
+  currentIdx,
+  stepStates,
+  onSelect,
+  className,
+  compact,
+}: {
+  steps: typeof STEPS;
+  currentIdx: number;
+  stepStates: StepFillState[];
+  onSelect: (idx: number) => void;
+  className?: string;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <div className={cn("flex gap-1 overflow-x-auto pb-1", className)}>
+        {steps.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => onSelect(i)}
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition",
+                i === currentIdx
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : stepStates[i] === "complete"
+                    ? "border-primary/30 bg-primary/5 text-primary"
+                    : "border-slate-200 bg-white text-muted-foreground",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <nav className={cn("space-y-1", className)} aria-label="Etapas da avaliação">
+      {steps.map((s, i) => {
+        const Icon = s.icon;
+        const state = stepStates[i];
+        return (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => onSelect(i)}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition",
+              i === currentIdx
+                ? "border-primary bg-primary/5 font-semibold text-primary"
+                : "border-transparent hover:border-slate-200 hover:bg-slate-50",
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                i === currentIdx ? "bg-primary text-primary-foreground" : "bg-slate-100 text-muted-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{s.label}</span>
+            {state === "complete" ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            ) : state === "partial" ? (
+              <Circle className="h-4 w-4 shrink-0 text-amber-500" />
+            ) : (
+              <Circle className="h-4 w-4 shrink-0 text-slate-300" />
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function PreviousAssessmentsPanel({
+  patientId,
+  currentId,
+  className,
+}: {
+  patientId: string;
+  currentId?: string;
+  className?: string;
+}) {
+  const { clinicId } = useActiveClinic();
+  const history = useQuery({
+    queryKey: ["assessment-history", clinicId, patientId, currentId],
+    enabled: !!clinicId && !!patientId,
+    queryFn: async () => {
+      let q = supabase
+        .from("assessments")
+        .select("id, data, tipo, status, locked_at, diagnostico_clinico, professionals(nome)")
+        .eq("clinic_id", clinicId!)
+        .eq("patient_id", patientId)
+        .order("data", { ascending: false })
+        .limit(6);
+      if (currentId) q = q.neq("id", currentId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  return (
+    <aside className={className}>
+      <InfoCard icon={History} title="Avaliações anteriores" description="Histórico resumido do paciente.">
+        {history.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 rounded-lg" />
+            ))}
+          </div>
+        ) : !history.data?.length ? (
+          <EmptyState
+            icon={History}
+            title="Primeira avaliação"
+            description="Não há avaliações anteriores registradas para este paciente."
+            className="py-6"
+          />
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {(history.data as any[]).map((a) => (
+              <li key={a.id} className="py-3 first:pt-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold tabular-nums text-primary">{fmtDate(a.data)}</div>
+                    <div className="mt-0.5 truncate text-sm font-medium capitalize">{a.tipo ?? "avaliação"}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {a.diagnostico_clinico?.slice(0, 60) || a.professionals?.nome || "—"}
+                    </div>
+                  </div>
+                  <StatusBadge variant={a.locked_at ? "success" : "warning"}>
+                    {a.locked_at ? "Finalizada" : "Rascunho"}
+                  </StatusBadge>
+                </div>
+                <Link
+                  to="/app/pacientes/$id"
+                  params={{ id: patientId }}
+                  className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+                >
+                  Ver no prontuário →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </InfoCard>
+    </aside>
+  );
+}
+
+function RequiredLabel({
+  children,
+  required,
+  filled,
+}: {
+  children: ReactNode;
+  required?: boolean;
+  filled?: boolean;
+}) {
+  return (
+    <Label
+      className={cn(
+        "text-xs font-semibold uppercase tracking-wider",
+        required && !filled && "text-destructive",
+      )}
+    >
+      {children}
+      {required && <span className="ml-0.5 text-destructive">*</span>}
+    </Label>
+  );
+}
+
+// ============================================================================
 // STEPS
 // ============================================================================
 
 function StepIdentificacao({ values, setValue, register, profs, patient, ageYears }: any) {
   return (
-    <Card className="p-4 space-y-4">
-      <div className="grid sm:grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs uppercase">Profissional *</Label>
-          <Select value={values.professional_id} onValueChange={(v) => setValue("professional_id", v, { shouldDirty: true })}>
-            <SelectTrigger className={!values.professional_id ? "border-destructive" : ""}>
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              {profs.map((p: any) => (
-                <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="space-y-4">
+      <InfoCard icon={User} title="Identificação" description="Profissional responsável e dados da sessão.">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <RequiredLabel required filled={!!values.professional_id}>
+              Profissional
+            </RequiredLabel>
+            <Select
+              value={values.professional_id}
+              onValueChange={(v) => setValue("professional_id", v, { shouldDirty: true })}
+            >
+              <SelectTrigger className={cn("rounded-xl mt-1.5", !values.professional_id && "border-destructive ring-1 ring-destructive/30")}>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {profs.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!values.professional_id && (
+              <p className="mt-1 text-[11px] text-destructive">Campo obrigatório</p>
+            )}
+          </div>
+          <div>
+            <RequiredLabel>Tipo</RequiredLabel>
+            <Select value={values.tipo} onValueChange={(v) => setValue("tipo", v, { shouldDirty: true })}>
+              <SelectTrigger className="rounded-xl mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="avaliacao">Avaliação</SelectItem>
+                <SelectItem value="reavaliacao">Reavaliação</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <RequiredLabel required filled={!!values.data}>
+              Data
+            </RequiredLabel>
+            <Input type="date" className="rounded-xl mt-1.5" {...register("data")} />
+          </div>
         </div>
-        <div>
-          <Label className="text-xs uppercase">Tipo</Label>
-          <Select value={values.tipo} onValueChange={(v) => setValue("tipo", v, { shouldDirty: true })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="avaliacao">Avaliação</SelectItem>
-              <SelectItem value="reavaliacao">Reavaliação</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-xs uppercase">Data</Label>
-          <Input type="date" {...register("data")} />
-        </div>
-      </div>
+      </InfoCard>
       {patient && (
-        <div className="rounded-lg border bg-muted/30 p-3 grid sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
-          <Info label="Paciente" value={patient.nome_completo} />
-          <Info label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
-          <Info label="Sexo" value={patient.sexo ?? "—"} />
-        </div>
+        <InfoCard icon={User} title="Dados do paciente" description="Referência rápida do cadastro.">
+          <div className="grid gap-3 sm:grid-cols-3 text-sm">
+            <Info label="Paciente" value={patient.nome_completo} />
+            <Info label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
+            <Info label="Sexo" value={patient.sexo ?? "—"} />
+          </div>
+        </InfoCard>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -660,172 +1031,183 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
   const suggestions: DiagnosisCatalogItem[] = detection.items;
   return (
     <div className="space-y-4">
-      <Card className="p-4 space-y-3">
-        <div>
-          <Label className="text-xs uppercase">Diagnóstico clínico (CID / descrição)</Label>
-          <Textarea
-            rows={3}
-            placeholder="Ex.: AVC isquêmico em território de ACM esquerda, com hemiparesia direita"
-            {...register("diagnostico_clinico")}
-          />
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Conforme você digita, o sistema detecta o perfil clínico e sugere modelos clínicos.
-          </p>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
+      <InfoCard icon={Stethoscope} title="Diagnóstico clínico" description="CID, descrição e diagnóstico fisioterapêutico.">
+        <div className="space-y-3">
           <div>
-            <Label className="text-xs uppercase">Médico responsável</Label>
-            <Input placeholder="Nome / CRM" {...register("medico_responsavel")} />
+            <RequiredLabel filled={!!values.diagnostico_clinico?.trim()}>Diagnóstico clínico (CID / descrição)</RequiredLabel>
+            <Textarea
+              rows={3}
+              className="mt-1.5 rounded-xl"
+              placeholder="Ex.: AVC isquêmico em território de ACM esquerda, com hemiparesia direita"
+              {...register("diagnostico_clinico")}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Conforme você digita, o sistema detecta o perfil clínico e sugere modelos clínicos.
+            </p>
           </div>
-          <div>
-            <Label className="text-xs uppercase">Diagnóstico fisioterapêutico</Label>
-            <Input placeholder="Ex.: hemiparesia direita pós-AVC" {...register("diagnostico_fisio")} />
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h4 className="text-sm font-semibold">Biblioteca de modelos clínicos</h4>
-          </div>
-          <span className="text-xs text-muted-foreground">{catalog.length} disponíveis</span>
-        </div>
-        {suggestions.length > 0 && (
-          <div className="mb-3">
-            <p className="text-xs text-muted-foreground mb-2">Sugeridos pelo diagnóstico:</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((d) => (
-                <Button
-                  key={d.code}
-                  size="sm"
-                  variant={applied.includes(d.code) ? "secondary" : "default"}
-                  onClick={() => applyTemplate(d)}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  {d.label}
-                  {applied.includes(d.code) && <CheckCircle2 className="h-3 w-3 ml-1" />}
-                </Button>
-              ))}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <RequiredLabel>Médico responsável</RequiredLabel>
+              <Input className="rounded-xl mt-1.5" placeholder="Nome / CRM" {...register("medico_responsavel")} />
+            </div>
+            <div>
+              <RequiredLabel>Diagnóstico fisioterapêutico</RequiredLabel>
+              <Input className="rounded-xl mt-1.5" placeholder="Ex.: hemiparesia direita pós-AVC" {...register("diagnostico_fisio")} />
             </div>
           </div>
-        )}
-        <Accordion type="single" collapsible>
-          <AccordionItem value="all">
-            <AccordionTrigger className="text-xs">Ver biblioteca completa</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                {catalog.map((d: DiagnosisCatalogItem) => (
-                  <button
-                    key={d.code}
-                    onClick={() => applyTemplate(d)}
-                    className="text-left border rounded-md p-2 hover:bg-accent transition"
-                  >
-                    <div className="text-sm font-medium">{d.label}</div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {d.clinical_profiles.map((p) => (
-                        <Badge key={p} variant="outline" className={`text-[10px] ${PROFILE_COLOR[p as ClinicalProfile]}`}>
-                          {PROFILE_LABEL[p as ClinicalProfile]}
-                        </Badge>
-                      ))}
-                    </div>
-                  </button>
-                ))}
+        </div>
+      </InfoCard>
+
+      <InfoCard
+        icon={Sparkles}
+        title="Biblioteca de modelos clínicos"
+        description={`${catalog.length} modelos disponíveis para aplicar na anamnese e plano.`}
+      >
+        {catalog.length === 0 ? (
+          <EmptyState icon={Sparkles} title="Biblioteca vazia" description="Nenhum modelo clínico cadastrado no catálogo." className="py-6" />
+        ) : (
+          <>
+            {suggestions.length > 0 && (
+              <div className="mb-4">
+                <p className="mb-2 text-xs text-muted-foreground">Sugeridos pelo diagnóstico:</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestions.map((d) => (
+                    <Button
+                      key={d.code}
+                      size="sm"
+                      variant={applied.includes(d.code) ? "secondary" : "default"}
+                      className="rounded-xl"
+                      onClick={() => applyTemplate(d)}
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      {d.label}
+                      {applied.includes(d.code) && <CheckCircle2 className="ml-1 h-3 w-3" />}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </Card>
+            )}
+            <Accordion type="single" collapsible>
+              <AccordionItem value="all" className="border-none">
+                <AccordionTrigger className="rounded-xl border px-3 py-2 text-xs hover:no-underline">
+                  Ver biblioteca completa
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                    {catalog.map((d: DiagnosisCatalogItem) => (
+                      <button
+                        key={d.code}
+                        type="button"
+                        onClick={() => applyTemplate(d)}
+                        className="rounded-xl border border-slate-200 p-3 text-left transition hover:border-primary/30 hover:bg-primary/5"
+                      >
+                        <div className="text-sm font-medium">{d.label}</div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {d.clinical_profiles.map((p) => (
+                            <Badge key={p} variant="outline" className={`text-[10px] ${PROFILE_COLOR[p as ClinicalProfile]}`}>
+                              {PROFILE_LABEL[p as ClinicalProfile]}
+                            </Badge>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </>
+        )}
+      </InfoCard>
     </div>
   );
 }
 
-function StepAnamnese({ register }: any) {
+function StepAnamnese({ register, values }: any) {
   return (
-    <Accordion type="multiple" defaultValue={["queixa", "hma"]} className="space-y-2">
-      <SectionAccordion value="queixa" title="Queixa principal *">
-        <Textarea rows={2} {...register("queixa_principal")} />
-      </SectionAccordion>
-      <SectionAccordion value="hma" title="História da Moléstia Atual (HMA)">
-        <Textarea rows={4} {...register("hma")} />
-      </SectionAccordion>
-      <SectionAccordion value="hmp" title="História da Moléstia Pregressa (HMP)">
-        <Textarea rows={3} {...register("hmp")} />
-      </SectionAccordion>
-      <SectionAccordion value="antec" title="Antecedentes pessoais e familiares">
-        <div className="grid sm:grid-cols-2 gap-3">
+    <div className="space-y-4">
+      <InfoCard icon={FileText} title="Queixa principal" description="Motivo da consulta e início do atendimento.">
+        <RequiredLabel required filled={!!values.queixa_principal?.trim()}>
+          Queixa principal
+        </RequiredLabel>
+        <Textarea
+          rows={2}
+          className={cn("mt-1.5 rounded-xl", !values.queixa_principal?.trim() && "border-destructive/50")}
+          {...register("queixa_principal")}
+        />
+        {!values.queixa_principal?.trim() && (
+          <p className="mt-1 text-[11px] text-destructive">Obrigatório para finalizar a avaliação</p>
+        )}
+      </InfoCard>
+      <InfoCard icon={FileText} title="História da moléstia atual (HMA)">
+        <Textarea rows={4} className="rounded-xl" {...register("hma")} />
+      </InfoCard>
+      <InfoCard icon={FileText} title="História da moléstia pregressa (HMP)">
+        <Textarea rows={3} className="rounded-xl" {...register("hmp")} />
+      </InfoCard>
+      <InfoCard icon={FileText} title="Antecedentes pessoais e familiares">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label className="text-xs uppercase">Pessoais</Label>
-            <Textarea rows={3} {...register("antecedentes_pessoais")} />
+            <RequiredLabel>Pessoais</RequiredLabel>
+            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("antecedentes_pessoais")} />
           </div>
           <div>
-            <Label className="text-xs uppercase">Familiares</Label>
-            <Textarea rows={3} {...register("antecedentes_familiares")} />
-          </div>
-        </div>
-      </SectionAccordion>
-      <SectionAccordion value="med" title="Medicamentos e hábitos">
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs uppercase">Medicamentos em uso</Label>
-            <Textarea rows={3} {...register("medicamentos")} />
-          </div>
-          <div>
-            <Label className="text-xs uppercase">Hábitos de vida</Label>
-            <Textarea rows={3} {...register("habitos_vida")} />
+            <RequiredLabel>Familiares</RequiredLabel>
+            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("antecedentes_familiares")} />
           </div>
         </div>
-      </SectionAccordion>
-    </Accordion>
+      </InfoCard>
+      <InfoCard icon={FileText} title="Medicamentos e hábitos">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <RequiredLabel>Medicamentos em uso</RequiredLabel>
+            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("medicamentos")} />
+          </div>
+          <div>
+            <RequiredLabel>Hábitos de vida</RequiredLabel>
+            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("habitos_vida")} />
+          </div>
+        </div>
+      </InfoCard>
+    </div>
   );
 }
 
 function StepExame({ register, values, setValue, control, profiles }: any) {
   const show = (p: ClinicalProfile) => profiles?.includes(p);
   return (
-    <Accordion type="multiple" defaultValue={["geral", ...profiles]} className="space-y-2">
-      <SectionAccordion value="geral" title="Avaliação geral">
+    <div className="space-y-4">
+      <InfoCard icon={Activity} title="Avaliação geral" description="EVA, inspeção e palpação.">
         <div className="space-y-3">
-          <div>
-            <Controller
-              control={control}
-              name="eva"
-              render={({ field }) => (
-                <EvaScale
-                  label="EVA — Dor"
-                  value={Number(field.value ?? 0)}
-                  onChange={(v) => {
-                    const n = Number(v);
-                    const normalizedValue = Number.isFinite(n) ? Math.min(10, Math.max(0, Math.round(n))) : 0;
-                    field.onChange(normalizedValue);
-                    setValue("eva", normalizedValue, {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: false,
-                    });
-                  }}
-                />
-              )}
-            />
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs uppercase">Inspeção</Label>
-              <Textarea rows={2} {...register("inspecao")} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Palpação</Label>
-              <Textarea rows={2} {...register("palpacao")} />
-            </div>
+          <Controller
+            control={control}
+            name="eva"
+            render={({ field }) => (
+              <EvaScale
+                label="EVA — Dor"
+                value={Number(field.value ?? 0)}
+                onChange={(v) => {
+                  const n = Number(v);
+                  const normalizedValue = Number.isFinite(n) ? Math.min(10, Math.max(0, Math.round(n))) : 0;
+                  field.onChange(normalizedValue);
+                  setValue("eva", normalizedValue, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: false,
+                  });
+                }}
+              />
+            )}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Inspeção" reg={register("inspecao")} />
+            <Field label="Palpação" reg={register("palpacao")} />
           </div>
         </div>
-      </SectionAccordion>
+      </InfoCard>
 
       {show("neuro") && (
-        <SectionAccordion value="neuro" title="Avaliação Neurológica" badge="Neuro">
-          <div className="grid sm:grid-cols-2 gap-3">
+        <InfoCard icon={Activity} title="Avaliação neurológica" description="Perfil neuro detectado automaticamente.">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Nível de consciência" reg={register("neuro_consciencia")} />
             <Field label="Comunicação" reg={register("neuro_comunicacao")} />
             <Field label="Cognição" reg={register("neuro_cognicao")} />
@@ -833,28 +1215,25 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
             <Field label="Coordenação" reg={register("neuro_coordenacao")} />
             <Field label="Equilíbrio" reg={register("neuro_equilibrio")} />
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            Escalas detalhadas (MRC, Ashworth, Berg) serão preenchidas na etapa Escalas (Fase 2).
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Escalas detalhadas (MRC, Ashworth, Berg) na etapa Escalas.
           </p>
-        </SectionAccordion>
+        </InfoCard>
       )}
 
       {show("orto") && (
-        <SectionAccordion value="orto" title="Avaliação Ortopédica" badge="Orto">
-          <div className="grid sm:grid-cols-2 gap-3">
+        <InfoCard icon={Activity} title="Avaliação ortopédica">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Dor por movimento" reg={register("orto_dor_movimento")} />
             <Field label="Limitações funcionais" reg={register("orto_limitacoes")} />
             <Field label="Testes especiais" reg={register("orto_testes")} multiline />
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            Goniometria bilateral e tabela MRC serão preenchidas na etapa Escalas (Fase 2).
-          </p>
-        </SectionAccordion>
+        </InfoCard>
       )}
 
       {show("respiratorio") && (
-        <SectionAccordion value="respiratorio" title="Avaliação Respiratória" badge="Resp">
-          <div className="grid sm:grid-cols-3 gap-3">
+        <InfoCard icon={Activity} title="Avaliação respiratória">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Field label="FR (irpm)" reg={register("resp_fr")} />
             <Field label="SpO₂ (%)" reg={register("resp_spo2")} />
             <Field label="Uso de O₂" reg={register("resp_oxigenio")} />
@@ -862,52 +1241,53 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
             <Field label="Tosse" reg={register("resp_tosse")} />
             <Field label="Dispneia (mMRC)" reg={register("resp_dispneia")} />
           </div>
-        </SectionAccordion>
+        </InfoCard>
       )}
 
       {profiles?.length === 0 && (
-        <div className="text-xs text-muted-foreground bg-muted/40 rounded-md p-3 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>
-            Preencha o diagnóstico clínico na etapa anterior para que o sistema mostre as seções
-            específicas (Neuro / Orto / Respiratório / Geriátrico) automaticamente.
-          </span>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title="Perfis clínicos não detectados"
+          description="Preencha o diagnóstico clínico na etapa anterior para exibir seções específicas (Neuro, Orto, Respiratório)."
+          className="py-8"
+        />
       )}
-    </Accordion>
+    </div>
   );
 }
 
 function StepPlano({ register, suggested }: any) {
   const uniqueSuggested: string[] = Array.from(new Set(suggested ?? []));
   return (
-    <Card className="p-4 space-y-3">
+    <div className="space-y-4">
       {uniqueSuggested.length > 0 && (
-        <div className="rounded-md border bg-primary/5 p-3">
-          <p className="text-xs font-medium mb-1.5">Objetivos sugeridos pelo diagnóstico:</p>
+        <InfoCard icon={Sparkles} title="Objetivos sugeridos" description="Baseados no diagnóstico detectado.">
           <div className="flex flex-wrap gap-1.5">
             {uniqueSuggested.map((o) => (
-              <Badge key={o} variant="secondary">{o.replace(/_/g, " ")}</Badge>
+              <Badge key={o} variant="secondary" className="rounded-lg">
+                {o.replace(/_/g, " ")}
+              </Badge>
             ))}
           </div>
-        </div>
+        </InfoCard>
       )}
-      <div>
-        <Label className="text-xs uppercase">Objetivos terapêuticos</Label>
-        <Textarea rows={4} {...register("objetivos")} />
-      </div>
-      <div>
-        <Label className="text-xs uppercase">Condutas</Label>
-        <Textarea rows={4} {...register("condutas")} />
-      </div>
-      <div>
-        <Label className="text-xs uppercase">Recursos terapêuticos</Label>
-        <Textarea rows={3} {...register("recursos_terapeuticos")} />
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        Metas estruturadas (prazo / indicador / status) com histórico chegam na Fase 3.
-      </p>
-    </Card>
+      <InfoCard icon={Target} title="Plano terapêutico" description="Objetivos, condutas e recursos.">
+        <div className="space-y-3">
+          <div>
+            <RequiredLabel>Objetivos terapêuticos</RequiredLabel>
+            <Textarea rows={4} className="mt-1.5 rounded-xl" {...register("objetivos")} />
+          </div>
+          <div>
+            <RequiredLabel>Condutas</RequiredLabel>
+            <Textarea rows={4} className="mt-1.5 rounded-xl" {...register("condutas")} />
+          </div>
+          <div>
+            <RequiredLabel>Recursos terapêuticos</RequiredLabel>
+            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("recursos_terapeuticos")} />
+          </div>
+        </div>
+      </InfoCard>
+    </div>
   );
 }
 
@@ -916,56 +1296,44 @@ function PlaceholderPhase({
 }: { title: string; phase: string; description: string; scales?: string[] }) {
   const uniqueScales = scales ? Array.from(new Set(scales)) : [];
   return (
-    <Card className="p-6 text-center space-y-3 border-dashed">
-      <Badge variant="outline" className="mx-auto">{phase}</Badge>
-      <h4 className="text-lg font-semibold">{title}</h4>
-      <p className="text-sm text-muted-foreground max-w-md mx-auto">{description}</p>
-      {uniqueScales.length > 0 && (
-        <div className="pt-2">
-          <p className="text-xs text-muted-foreground mb-2">Escalas que serão habilitadas para este paciente:</p>
-          <div className="flex flex-wrap gap-1.5 justify-center">
-            {uniqueScales.map((s) => (
-              <Badge key={s} variant="secondary" className="uppercase">{s}</Badge>
-            ))}
+    <InfoCard icon={Pen} title={title} description={description} className="border-dashed">
+      <div className="text-center">
+        <Badge variant="outline" className="mx-auto">{phase}</Badge>
+        {uniqueScales.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-2 text-xs text-muted-foreground">Escalas habilitadas para este paciente:</p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {uniqueScales.map((s) => (
+                <Badge key={s} variant="secondary" className="uppercase">{s}</Badge>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+      </div>
+    </InfoCard>
   );
 }
 
 // helpers --------------------------------------------------------------------
 
-function SectionAccordion({
-  value, title, badge, children,
-}: { value: string; title: string; badge?: string; children: React.ReactNode }) {
-  return (
-    <AccordionItem value={value} className="border rounded-lg bg-card">
-      <AccordionTrigger className="px-4 py-3 hover:no-underline">
-        <span className="flex items-center gap-2 text-sm font-medium">
-          {title}
-          {badge && <Badge variant="outline" className="text-[10px]">{badge}</Badge>}
-        </span>
-      </AccordionTrigger>
-      <AccordionContent className="px-4 pb-4 pt-1">{children}</AccordionContent>
-    </AccordionItem>
-  );
-}
-
 function Field({ label, reg, multiline }: { label: string; reg: any; multiline?: boolean }) {
   return (
     <div>
-      <Label className="text-xs uppercase">{label}</Label>
-      {multiline ? <Textarea rows={2} {...reg} /> : <Input {...reg} />}
+      <RequiredLabel>{label}</RequiredLabel>
+      {multiline ? (
+        <Textarea rows={2} className="mt-1.5 rounded-xl" {...reg} />
+      ) : (
+        <Input className="mt-1.5 rounded-xl" {...reg} />
+      )}
     </div>
   );
 }
 
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
+function Info({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className="font-medium">{value ?? "—"}</div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="mt-1 font-medium">{value ?? "—"}</div>
     </div>
   );
 }
