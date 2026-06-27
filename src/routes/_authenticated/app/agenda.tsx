@@ -1,34 +1,84 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus, ChevronLeft, ChevronRight, MoreVertical, UserCircle2, Pencil, CheckCircle2, XCircle, CalendarDays } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  UserCircle2,
+  Pencil,
+  CheckCircle2,
+  XCircle,
+  CalendarDays,
+  Search,
+  Clock,
+  GripVertical,
+  X,
+  Filter,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
-import { EmptyState } from "@/components/empty-state";
+import {
+  AppShell,
+  EmptyState,
+  InfoCard,
+  PageHeader,
+  PageSection,
+  StatusBadge,
+} from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
+import type { LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
 });
 
-type Form = { patient_id: string; professional_id: string; data: string; horario: string; duracao_min: number; status: Status; tipo?: string; observacao?: string };
+type Form = {
+  patient_id: string;
+  professional_id: string;
+  data: string;
+  horario: string;
+  duracao_min: number;
+  status: Status;
+  tipo?: string;
+  observacao?: string;
+};
 type ViewMode = "dia" | "semana" | "mes";
 type Status = "agendado" | "confirmado" | "realizado" | "cancelado";
+
+type Appt = {
+  id: string;
+  data: string;
+  horario: string;
+  duracao_min: number;
+  status: Status | string;
+  observacao: string | null;
+  patient_id: string;
+  professional_id: string;
+  patients: { nome_completo: string } | null;
+  professionals: { nome: string } | null;
+};
 
 const STATUS_LABEL: Record<Status, string> = {
   agendado: "Pendente",
@@ -37,40 +87,53 @@ const STATUS_LABEL: Record<Status, string> = {
   cancelado: "Cancelado",
 };
 
-const STATUS_CLASS: Record<Status, string> = {
-  confirmado: "bg-emerald-50 text-emerald-700 ring-emerald-200 border-l-emerald-500",
-  agendado:   "bg-amber-50 text-amber-800 ring-amber-200 border-l-amber-500",
-  realizado:  "bg-sky-50 text-sky-700 ring-sky-200 border-l-sky-500",
-  cancelado:  "bg-rose-50 text-rose-700 ring-rose-200 border-l-rose-500",
+const STATUS_VARIANT: Record<Status, "success" | "warning" | "danger" | "info" | "neutral"> = {
+  confirmado: "success",
+  agendado: "warning",
+  realizado: "info",
+  cancelado: "danger",
 };
 
-const STATUS_DOT: Record<Status, string> = {
-  confirmado: "bg-emerald-500",
-  agendado:   "bg-amber-500",
-  realizado:  "bg-sky-500",
-  cancelado:  "bg-rose-500",
+const STATUS_CLASS: Record<Status, string> = {
+  confirmado: "bg-emerald-50 text-emerald-700 ring-emerald-200 border-l-emerald-500",
+  agendado: "bg-amber-50 text-amber-800 ring-amber-200 border-l-amber-500",
+  realizado: "bg-sky-50 text-sky-700 ring-sky-200 border-l-sky-500",
+  cancelado: "bg-rose-50 text-rose-700 ring-rose-200 border-l-rose-500",
 };
 
 const ALL_STATUSES: Status[] = ["confirmado", "agendado", "realizado", "cancelado"];
+const DND_MIME = "application/x-moveplus-agenda-appt";
 
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function startOfWeek(d: Date) {
-  const x = new Date(d); x.setHours(0, 0, 0, 0);
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
   x.setDate(x.getDate() - x.getDay());
   return x;
 }
-function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
-function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function endOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
 
 function translateError(msg?: string): string {
   if (!msg) return "Não foi possível salvar. Tente novamente.";
   const m = msg.toLowerCase();
-  if (m.includes("modo suporte")) return "Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.";
-  if (m.includes("row-level security") || m.includes("permission")) return "Você não tem permissão para alterar este agendamento.";
-  if (m.includes("locked") || m.includes("bloqueado")) return "Registro bloqueado: não pode ser alterado.";
+  if (m.includes("modo suporte"))
+    return "Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.";
+  if (m.includes("row-level security") || m.includes("permission"))
+    return "Você não tem permissão para alterar este agendamento.";
+  if (m.includes("locked") || m.includes("bloqueado"))
+    return "Registro bloqueado: não pode ser alterado.";
   if (m.includes("limite contratado")) return msg;
   return msg;
 }
@@ -79,15 +142,27 @@ function AgendaPage() {
   const qc = useQueryClient();
   const { clinicId, supportMode } = useActiveClinic();
   const [view, setView] = useState<ViewMode>("dia");
-  const [anchor, setAnchor] = useState<Date>(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
+  const [anchor, setAnchor] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const [open, setOpen] = useState(false);
   const [slotPrefill, setSlotPrefill] = useState<{ data: string; horario: string } | null>(null);
   const [filterProf, setFilterProf] = useState<string>("all");
+  const [filterPatient, setFilterPatient] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<Status | "all">("all");
+  const [search, setSearch] = useState("");
+  const [selectedAppt, setSelectedAppt] = useState<Appt | null>(null);
+  const [editing, setEditing] = useState<Appt | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const { rangeStart, rangeEnd } = useMemo(() => {
-    if (view === "dia")    return { rangeStart: anchor, rangeEnd: anchor };
-    if (view === "semana") { const s = startOfWeek(anchor); return { rangeStart: s, rangeEnd: addDays(s, 6) }; }
+    if (view === "dia") return { rangeStart: anchor, rangeEnd: anchor };
+    if (view === "semana") {
+      const s = startOfWeek(anchor);
+      return { rangeStart: s, rangeEnd: addDays(s, 6) };
+    }
     return { rangeStart: startOfMonth(anchor), rangeEnd: endOfMonth(anchor) };
   }, [view, anchor]);
 
@@ -97,36 +172,56 @@ function AgendaPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("appointments")
-        .select("id, data, horario, duracao_min, status, observacao, patient_id, professional_id, patients(nome_completo), professionals(nome)")
+        .select(
+          "id, data, horario, duracao_min, status, observacao, patient_id, professional_id, patients(nome_completo), professionals(nome)",
+        )
         .eq("clinic_id", clinicId!)
         .gte("data", ymd(rangeStart))
         .lte("data", ymd(rangeEnd))
-        .order("data").order("horario");
-      return (data ?? []) as any[];
+        .order("data")
+        .order("horario");
+      return (data ?? []) as Appt[];
     },
   });
 
   const patients = useQuery({
     queryKey: ["patients-all", clinicId],
     enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("patients").select("id, nome_completo").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("patients")
+          .select("id, nome_completo")
+          .eq("clinic_id", clinicId!)
+          .order("nome_completo")
+      ).data ?? [],
   });
   const profs = useQuery({
     queryKey: ["professionals-active", clinicId],
     enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("professionals").select("id, nome").eq("clinic_id", clinicId!).eq("situacao", "ativo").order("nome")).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("professionals")
+          .select("id, nome")
+          .eq("clinic_id", clinicId!)
+          .eq("situacao", "ativo")
+          .order("nome")
+      ).data ?? [],
   });
 
   const create = useMutation({
     mutationFn: async (v: Form) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
-      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      if (supportMode)
+        throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       if (!v.patient_id || !v.professional_id || !v.data || !v.horario) {
         throw new Error("Preencha paciente, profissional, data e horário.");
       }
       const { data: u } = await supabase.auth.getUser();
       const tipo = (v.tipo ?? "Atendimento").trim();
-      const observacao = [tipo && `Tipo: ${tipo}`, v.observacao?.trim()].filter(Boolean).join("\n") || null;
+      const observacao =
+        [tipo && `Tipo: ${tipo}`, v.observacao?.trim()].filter(Boolean).join("\n") || null;
       const payload = {
         clinic_id: clinicId,
         patient_id: v.patient_id,
@@ -141,19 +236,14 @@ function AgendaPage() {
       const { error } = await supabase.from("appointments").insert(payload as any).select("id").single();
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Agendamento criado"); setOpen(false); setSlotPrefill(null); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
-    onError: (e: any) => toast.error(translateError(e?.message)),
+    onSuccess: () => {
+      toast.success("Agendamento criado");
+      setOpen(false);
+      setSlotPrefill(null);
+      qc.invalidateQueries({ queryKey: ["appts", clinicId] });
+    },
+    onError: (e: { message?: string }) => toast.error(translateError(e?.message)),
   });
-
-  function openNewSlot(dateStr: string, hour?: number) {
-    if (supportMode) {
-      toast.error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
-      return;
-    }
-    const horario = hour != null ? `${String(hour).padStart(2, "0")}:00` : "08:00";
-    setSlotPrefill({ data: dateStr, horario });
-    setOpen(true);
-  }
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Status }) => {
@@ -165,15 +255,19 @@ function AgendaPage() {
         .eq("clinic_id", clinicId);
       if (error) throw error;
     },
-    onSuccess: (_d, v) => { toast.success(`Marcado como ${STATUS_LABEL[v.status]}`); qc.invalidateQueries({ queryKey: ["appts", clinicId] }); },
-    onError: (e: any) => toast.error(translateError(e?.message)),
+    onSuccess: (_d, v) => {
+      toast.success(`Marcado como ${STATUS_LABEL[v.status]}`);
+      qc.invalidateQueries({ queryKey: ["appts", clinicId] });
+      setSelectedAppt((prev) => (prev?.id === v.id ? { ...prev, status: v.status } : prev));
+    },
+    onError: (e: { message?: string }) => toast.error(translateError(e?.message)),
   });
 
-  const [editing, setEditing] = useState<any | null>(null);
   const update = useMutation({
     mutationFn: async (v: Form & { id: string; status: Status }) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
-      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      if (supportMode)
+        throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
       if (!v.patient_id || !v.professional_id || !v.data || !v.horario) {
         throw new Error("Preencha paciente, profissional, data e horário.");
       }
@@ -198,157 +292,381 @@ function AgendaPage() {
       setEditing(null);
       qc.invalidateQueries({ queryKey: ["appts", clinicId] });
     },
-    onError: (e: any) => toast.error(translateError(e?.message)),
+    onError: (e: { message?: string }) => toast.error(translateError(e?.message)),
   });
 
-  // Filtering (applied to list)
+  const reschedule = useMutation({
+    mutationFn: async ({ id, data, horario }: { id: string; data: string; horario: string }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode)
+        throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      const { error } = await supabase
+        .from("appointments")
+        .update({ data, horario })
+        .eq("id", id)
+        .eq("clinic_id", clinicId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Horário remarcado");
+      qc.invalidateQueries({ queryKey: ["appts", clinicId] });
+    },
+    onError: (e: { message?: string }) => toast.error(translateError(e?.message)),
+  });
+
+  function openNewSlot(dateStr: string, hour?: number) {
+    if (supportMode) {
+      toast.error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+      return;
+    }
+    const horario = hour != null ? `${String(hour).padStart(2, "0")}:00` : "08:00";
+    setSlotPrefill({ data: dateStr, horario });
+    setOpen(true);
+  }
+
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return (list.data ?? []).filter((a) => {
       if (filterProf !== "all" && a.professional_id !== filterProf) return false;
+      if (filterPatient !== "all" && a.patient_id !== filterPatient) return false;
       if (filterStatus !== "all" && a.status !== filterStatus) return false;
+      if (q) {
+        const hay = [a.patients?.nome_completo, a.professionals?.nome, a.observacao]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [list.data, filterProf, filterStatus]);
+  }, [list.data, filterProf, filterPatient, filterStatus, search]);
 
-  // Day summary (always for anchor day)
   const daySummary = useMemo(() => {
     const day = ymd(anchor);
-    const todays = (list.data ?? []).filter((a) => a.data === day);
+    const todays = filtered.filter((a) => a.data === day);
     return {
       total: todays.length,
       confirmado: todays.filter((a) => a.status === "confirmado").length,
-      agendado:   todays.filter((a) => a.status === "agendado").length,
-      realizado:  todays.filter((a) => a.status === "realizado").length,
-      cancelado:  todays.filter((a) => a.status === "cancelado").length,
+      agendado: todays.filter((a) => a.status === "agendado").length,
+      cancelado: todays.filter((a) => a.status === "cancelado").length,
     };
-  }, [list.data, anchor]);
+  }, [filtered, anchor]);
+
+  const sideDayItems = useMemo(() => {
+    const day = ymd(anchor);
+    return filtered
+      .filter((a) => a.data === day)
+      .sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
+  }, [filtered, anchor]);
+
+  const selectedFromList = useMemo(() => {
+    if (!selectedAppt) return null;
+    return filtered.find((a) => a.id === selectedAppt.id) ?? selectedAppt;
+  }, [selectedAppt, filtered]);
 
   function shift(delta: number) {
-    if (view === "dia")    setAnchor(addDays(anchor, delta));
+    if (view === "dia") setAnchor(addDays(anchor, delta));
     else if (view === "semana") setAnchor(addDays(anchor, delta * 7));
-    else { const d = new Date(anchor); d.setMonth(d.getMonth() + delta); setAnchor(d); }
+    else {
+      const d = new Date(anchor);
+      d.setMonth(d.getMonth() + delta);
+      setAnchor(d);
+    }
   }
 
   const headerLabel = useMemo(() => {
     if (view === "dia") return fmtDate(ymd(anchor));
     if (view === "semana") {
-      const s = startOfWeek(anchor); const e = addDays(s, 6);
+      const s = startOfWeek(anchor);
+      const e = addDays(s, 6);
       return `${s.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} — ${e.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}`;
     }
     return anchor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   }, [view, anchor]);
 
+  const handleReschedule = useCallback(
+    (id: string, data: string, horario: string) => {
+      reschedule.mutate({ id, data, horario });
+    },
+    [reschedule],
+  );
+
+  const hasActiveFilters =
+    filterProf !== "all" || filterPatient !== "all" || filterStatus !== "all" || search.trim() !== "";
+
   return (
-    <div className="space-y-6">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:flex-wrap sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-[2rem] leading-tight font-semibold tracking-tight">Agenda</h1>
-          <p className="mt-1.5 text-[15px] text-muted-foreground capitalize">{headerLabel}</p>
-        </div>
-        <div className="shrink-0">
-          <SupportGuardButton supportMode={supportMode} onClick={() => openNewSlot(ymd(anchor))} tooltip="Modo Suporte ativo — novo agendamento bloqueado">
-            <Plus className="h-4 w-4 mr-2" />Novo agendamento
+    <AppShell className="dashboard-premium">
+      <PageHeader
+        icon={CalendarDays}
+        eyebrow="Gestão clínica"
+        title="Agenda"
+        description={`Visualize e gerencie atendimentos · ${headerLabel}`}
+        actions={
+          <SupportGuardButton
+            supportMode={supportMode}
+            onClick={() => openNewSlot(ymd(anchor))}
+            tooltip="Modo Suporte ativo — novo agendamento bloqueado"
+            className="rounded-xl bg-primary font-semibold text-primary-foreground shadow-soft hover:bg-primary/90"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Novo agendamento
           </SupportGuardButton>
-          <NewAppointmentDialog
-            open={open}
-            setOpen={(o: boolean) => { setOpen(o); if (!o) setSlotPrefill(null); }}
-            create={create}
-            patients={patients.data ?? []}
-            profs={profs.data ?? []}
-            initialDate={slotPrefill?.data ?? ymd(anchor)}
-            initialHora={slotPrefill?.horario ?? "08:00"}
-            disabled={supportMode}
-          />
-        </div>
-      </header>
+        }
+      />
 
-      {/* Top controls */}
-      <Card className="p-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Anterior"><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={() => { const d = new Date(); d.setHours(0,0,0,0); setAnchor(d); }}>Hoje</Button>
-          <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Próximo"><ChevronRight className="h-4 w-4" /></Button>
-        </div>
-        <div className="ml-auto">
-          <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
-            <TabsList>
-              <TabsTrigger value="dia">Dia</TabsTrigger>
-              <TabsTrigger value="semana">Semana</TabsTrigger>
-              <TabsTrigger value="mes">Mês</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </Card>
+      <NewAppointmentDialog
+        open={open}
+        setOpen={(o: boolean) => {
+          setOpen(o);
+          if (!o) setSlotPrefill(null);
+        }}
+        create={create}
+        patients={patients.data ?? []}
+        profs={profs.data ?? []}
+        initialDate={slotPrefill?.data ?? ymd(anchor)}
+        initialHora={slotPrefill?.horario ?? "08:00"}
+        disabled={supportMode}
+      />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        {/* Main pane */}
-        <div className="min-w-0 space-y-4">
-          {list.isLoading ? (
-            <Card className="p-8 text-center text-sm text-muted-foreground">Carregando…</Card>
-          ) : view === "dia" ? (
-            <DayView items={filtered} day={ymd(anchor)} onStatus={(id, s) => updateStatus.mutate({ id, status: s })} onEdit={(a) => setEditing(a)} disabled={supportMode} onNew={() => openNewSlot(ymd(anchor))} onSlotClick={(h) => openNewSlot(ymd(anchor), h)} />
-          ) : view === "semana" ? (
-            <WeekView items={filtered} weekStart={startOfWeek(anchor)} onPick={(d) => { setAnchor(d); setView("dia"); }} onNewOnDay={(d) => openNewSlot(ymd(d))} disabled={supportMode} />
-          ) : (
-            <MonthView items={filtered} anchor={anchor} onPick={(d) => { setAnchor(d); setView("dia"); }} />
-          )}
-        </div>
-
-        {/* Side panel — desktop only */}
-        <aside className="hidden lg:block space-y-4">
-          <Card className="p-3">
-            <CalendarPicker
-              mode="single"
-              selected={anchor}
-              onSelect={(d) => d && setAnchor(d)}
-              className="pointer-events-auto"
+      {list.isLoading ? (
+        <AgendaSkeleton />
+      ) : (
+        <>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
+            <SummaryCard
+              icon={CalendarDays}
+              label="Atendimentos hoje"
+              value={daySummary.total}
+              accent="var(--primary)"
             />
-          </Card>
+            <SummaryCard
+              icon={CheckCircle2}
+              label="Confirmados"
+              value={daySummary.confirmado}
+              accent="#059669"
+            />
+            <SummaryCard
+              icon={Clock}
+              label="Pendentes"
+              value={daySummary.agendado}
+              accent="#d97706"
+            />
+            <SummaryCard
+              icon={XCircle}
+              label="Cancelados"
+              value={daySummary.cancelado}
+              accent="#e11d48"
+            />
+          </section>
 
-          <Card className="p-4 space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filtros</div>
-            <div className="space-y-2">
-              <Label className="text-xs">Profissional</Label>
-              <Select value={filterProf} onValueChange={setFilterProf}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {(profs.data ?? []).map((p: any) => (<SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Status</Label>
-              <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {ALL_STATUSES.map((s) => (<SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
+          <InfoCard padded className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Anterior">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setHours(0, 0, 0, 0);
+                    setAnchor(d);
+                  }}
+                >
+                  Hoje
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Próximo">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
 
-          <Card className="p-4 space-y-3">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo do dia</div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-semibold tabular-nums">{daySummary.total}</span>
-              <span className="text-sm text-muted-foreground">atendimentos</span>
+              <div className="relative min-w-[180px] flex-1 sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Pesquisa rápida…"
+                  className="rounded-xl pl-9"
+                />
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg lg:hidden"
+                onClick={() => setShowMobileFilters((v) => !v)}
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                Filtros
+                {hasActiveFilters && (
+                  <span className="ml-1.5 h-2 w-2 rounded-full bg-primary" />
+                )}
+              </Button>
+
+              <div className="ml-auto">
+                <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
+                  <TabsList className="rounded-xl">
+                    <TabsTrigger value="dia" className="rounded-lg">
+                      Dia
+                    </TabsTrigger>
+                    <TabsTrigger value="semana" className="rounded-lg">
+                      Semana
+                    </TabsTrigger>
+                    <TabsTrigger value="mes" className="rounded-lg">
+                      Mês
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
-            <ul className="space-y-1.5 text-sm">
-              {ALL_STATUSES.map((s) => (
-                <li key={s} className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <span className={cn("h-2 w-2 rounded-full", STATUS_DOT[s])} />
-                    {STATUS_LABEL[s]}
-                  </span>
-                  <span className="tabular-nums text-muted-foreground">{daySummary[s]}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </aside>
-      </div>
+
+            <div className={cn("grid gap-3 sm:grid-cols-3", showMobileFilters ? "grid" : "hidden lg:grid")}>
+              <FilterSelect
+                label="Profissional"
+                value={filterProf}
+                onChange={setFilterProf}
+                options={[
+                  { value: "all", label: "Todos" },
+                  ...(profs.data ?? []).map((p) => ({ value: p.id, label: p.nome })),
+                ]}
+              />
+              <FilterSelect
+                label="Paciente"
+                value={filterPatient}
+                onChange={setFilterPatient}
+                options={[
+                  { value: "all", label: "Todos" },
+                  ...(patients.data ?? []).map((p) => ({ value: p.id, label: p.nome_completo })),
+                ]}
+              />
+              <FilterSelect
+                label="Status"
+                value={filterStatus}
+                onChange={(v) => setFilterStatus(v as Status | "all")}
+                options={[
+                  { value: "all", label: "Todos" },
+                  ...ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+                ]}
+              />
+            </div>
+          </InfoCard>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0">
+              {view === "dia" ? (
+                <DayView
+                  items={filtered}
+                  day={ymd(anchor)}
+                  onStatus={(id, s) => updateStatus.mutate({ id, status: s })}
+                  onEdit={(a) => setEditing(a)}
+                  onSelect={(a) => setSelectedAppt(a)}
+                  selectedId={selectedAppt?.id}
+                  disabled={supportMode}
+                  onNew={() => openNewSlot(ymd(anchor))}
+                  onSlotClick={(h) => openNewSlot(ymd(anchor), h)}
+                  onReschedule={handleReschedule}
+                  isRescheduling={reschedule.isPending}
+                />
+              ) : view === "semana" ? (
+                <WeekView
+                  items={filtered}
+                  weekStart={startOfWeek(anchor)}
+                  onPick={(d) => {
+                    setAnchor(d);
+                    setView("dia");
+                  }}
+                  onSelect={(a) => setSelectedAppt(a)}
+                  onNewOnDay={(d) => openNewSlot(ymd(d))}
+                  disabled={supportMode}
+                  onReschedule={handleReschedule}
+                />
+              ) : (
+                <MonthView
+                  items={filtered}
+                  anchor={anchor}
+                  onPick={(d) => {
+                    setAnchor(d);
+                    setView("dia");
+                  }}
+                />
+              )}
+            </div>
+
+            <aside className="space-y-4">
+              <InfoCard padded={false} className="overflow-hidden">
+                <CalendarPicker
+                  mode="single"
+                  selected={anchor}
+                  onSelect={(d) => d && setAnchor(d)}
+                  className="pointer-events-auto mx-auto p-3"
+                />
+              </InfoCard>
+
+              {selectedFromList ? (
+                <DetailPanel
+                  appt={selectedFromList}
+                  onClose={() => setSelectedAppt(null)}
+                  onEdit={() => setEditing(selectedFromList)}
+                  onStatus={(s) => updateStatus.mutate({ id: selectedFromList.id, status: s })}
+                  disabled={supportMode}
+                />
+              ) : (
+                <PageSection
+                  icon={Clock}
+                  title="Agenda do dia"
+                  description={fmtDate(ymd(anchor))}
+                  contentClassName="py-3"
+                >
+                  {sideDayItems.length === 0 ? (
+                    <EmptyState
+                      icon={CalendarDays}
+                      title="Nenhum atendimento"
+                      description="Não há consultas agendadas para este dia com os filtros atuais."
+                      action={{
+                        label: "Novo agendamento",
+                        onClick: () => openNewSlot(ymd(anchor)),
+                      }}
+                      className="py-8"
+                    />
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {sideDayItems.map((a) => {
+                        const s = (a.status ?? "agendado") as Status;
+                        return (
+                          <li key={a.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAppt(a)}
+                              className="flex w-full items-start gap-3 px-1 py-3 text-left transition-colors hover:bg-slate-50"
+                            >
+                              <span className="shrink-0 pt-0.5 text-xs font-bold tabular-nums text-primary">
+                                {String(a.horario).slice(0, 5)}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-medium">
+                                  {a.patients?.nome_completo ?? "—"}
+                                </div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {a.professionals?.nome ?? "—"}
+                                </div>
+                              </div>
+                              <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"}>
+                                {STATUS_LABEL[s] ?? s}
+                              </StatusBadge>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </PageSection>
+              )}
+            </aside>
+          </div>
+        </>
+      )}
 
       <EditAppointmentDialog
         appt={editing}
@@ -358,55 +676,309 @@ function AgendaPage() {
         profs={profs.data ?? []}
         disabled={supportMode}
       />
+    </AppShell>
+  );
+}
+
+function AgendaSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="h-16 rounded-2xl" />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Skeleton className="h-[520px] rounded-2xl" />
+        <Skeleton className="h-[520px] rounded-2xl" />
+      </div>
     </div>
   );
 }
 
-/* ───────────────────────── DAY VIEW ───────────────────────── */
-
-function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }: {
-  items: any[]; day: string; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean; onNew: () => void; onSlotClick: (hour: number) => void;
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+  accent: string;
 }) {
-  const todays = items.filter((a) => a.data === day);
-  if (!todays.length) {
-    // Mesmo sem agendamentos, mostrar grade clicável de horários
-    const hours = Array.from({ length: 14 }, (_, i) => i + 7);
-    return (
-      <Card className="p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b bg-muted/30 text-xs text-muted-foreground">
-          Clique em um horário vazio para criar um agendamento.
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
+      <div
+        className="flex h-9 w-9 items-center justify-center rounded-xl"
+        style={{ background: `${accent}18`, color: accent }}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="mt-3 text-2xl font-bold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="rounded-xl">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function DetailPanel({
+  appt,
+  onClose,
+  onEdit,
+  onStatus,
+  disabled,
+}: {
+  appt: Appt;
+  onClose: () => void;
+  onEdit: () => void;
+  onStatus: (s: Status) => void;
+  disabled: boolean;
+}) {
+  const s = (appt.status ?? "agendado") as Status;
+  return (
+    <PageSection
+      icon={CalendarDays}
+      title="Detalhes do atendimento"
+      actions={
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label="Fechar">
+          <X className="h-4 w-4" />
+        </Button>
+      }
+      contentClassName="space-y-4"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-bold tracking-tight">
+            {appt.patients?.nome_completo ?? "—"}
+          </h3>
+          <p className="text-sm text-muted-foreground">{appt.professionals?.nome ?? "—"}</p>
         </div>
-        <ul className="divide-y divide-border/60">
+        <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"}>{STATUS_LABEL[s] ?? s}</StatusBadge>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data</dt>
+          <dd className="mt-1 font-medium">{fmtDate(appt.data)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horário</dt>
+          <dd className="mt-1 font-medium tabular-nums">{String(appt.horario).slice(0, 5)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duração</dt>
+          <dd className="mt-1 font-medium">{appt.duracao_min} min</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</dt>
+          <dd className="mt-1 font-medium">{STATUS_LABEL[s] ?? s}</dd>
+        </div>
+      </dl>
+
+      {appt.observacao && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Observação
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{appt.observacao}</p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+        {appt.patient_id && (
+          <Button asChild variant="outline" size="sm" className="rounded-lg">
+            <Link to="/app/pacientes/$id" params={{ id: appt.patient_id }}>
+              <UserCircle2 className="mr-2 h-4 w-4" />
+              Ver paciente
+            </Link>
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-lg"
+          disabled={disabled}
+          onClick={() => {
+            if (disabled)
+              return toast.error(
+                "Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar.",
+              );
+            onEdit();
+          }}
+        >
+          <Pencil className="mr-2 h-4 w-4" />
+          Editar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-lg"
+          disabled={disabled || s === "confirmado"}
+          onClick={() => onStatus("confirmado")}
+        >
+          Confirmar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-lg"
+          disabled={disabled || s === "realizado"}
+          onClick={() => onStatus("realizado")}
+        >
+          Realizado
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-lg text-rose-600 hover:text-rose-700"
+          disabled={disabled || s === "cancelado"}
+          onClick={() => onStatus("cancelado")}
+        >
+          Cancelar
+        </Button>
+      </div>
+
+      {!disabled && (
+        <p className="text-xs text-muted-foreground">
+          Arraste o atendimento na grade para remarcar horário.
+        </p>
+      )}
+    </PageSection>
+  );
+}
+
+function DayView({
+  items,
+  day,
+  onStatus,
+  onEdit,
+  onSelect,
+  selectedId,
+  disabled,
+  onSlotClick,
+  onReschedule,
+  isRescheduling,
+}: {
+  items: Appt[];
+  day: string;
+  onStatus: (id: string, s: Status) => void;
+  onEdit: (a: Appt) => void;
+  onSelect: (a: Appt) => void;
+  selectedId?: string;
+  disabled: boolean;
+  onNew: () => void;
+  onSlotClick: (hour: number) => void;
+  onReschedule: (id: string, data: string, horario: string) => void;
+  isRescheduling: boolean;
+}) {
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null);
+  const todays = items.filter((a) => a.data === day);
+  const hours = Array.from({ length: 14 }, (_, i) => i + 7);
+
+  if (!todays.length) {
+    return (
+      <PageSection icon={CalendarDays} title="Grade do dia" description={fmtDate(day)}>
+        <EmptyState
+          icon={CalendarDays}
+          title="Agenda livre neste dia"
+          description="Clique em um horário vazio abaixo ou crie um novo agendamento."
+          action={{ label: "Novo agendamento", onClick: onSlotClick.bind(null, 8) }}
+          className="py-10"
+        />
+        <ul className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200/80">
           {hours.map((h) => (
-            <li key={h} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 min-h-[56px]">
-              <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2,"0")}:00</div>
-              <SupportGuardClickable
-                supportMode={disabled}
-                onClick={() => onSlotClick(h)}
-                tooltip="Horário vazio bloqueado no Modo Suporte"
-              >
-                <button
-                  type="button"
-                  className="w-full rounded-md border border-dashed border-border/60 text-xs text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {disabled ? "—" : "+ Novo agendamento"}
-                </button>
-              </SupportGuardClickable>
-            </li>
+            <TimeSlotRow
+              key={h}
+              hour={h}
+              day={day}
+              isDragOver={dragOverHour === h}
+              disabled={disabled || isRescheduling}
+              onDragOver={() => setDragOverHour(h)}
+              onDragLeave={() => setDragOverHour(null)}
+              onDrop={(id) => {
+                setDragOverHour(null);
+                onReschedule(id, day, `${String(h).padStart(2, "0")}:00`);
+              }}
+              onEmptyClick={() => onSlotClick(h)}
+            />
           ))}
         </ul>
-      </Card>
+      </PageSection>
     );
   }
-  const hours = Array.from({ length: 14 }, (_, i) => i + 7);
+
   return (
-    <Card className="p-0 overflow-hidden">
-      <ul className="divide-y divide-border/60">
+    <PageSection
+      icon={CalendarDays}
+      title="Grade do dia"
+      description={!disabled ? "Arraste atendimentos para remarcar" : fmtDate(day)}
+    >
+      <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200/80">
         {hours.map((h) => {
           const slot = todays.filter((a) => Number(String(a.horario).slice(0, 2)) === h);
           return (
-            <li key={h} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 min-h-[64px]">
-              <div className="text-xs font-semibold tabular-nums text-muted-foreground pt-2">{String(h).padStart(2, "0")}:00</div>
+            <li
+              key={h}
+              className={cn(
+                "grid min-h-[64px] grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 transition-colors",
+                dragOverHour === h && "bg-primary/5",
+              )}
+              onDragOver={(e) => {
+                if (disabled) return;
+                e.preventDefault();
+                setDragOverHour(h);
+              }}
+              onDragLeave={() => setDragOverHour(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverHour(null);
+                if (disabled) return;
+                const raw = e.dataTransfer.getData(DND_MIME);
+                if (!raw) return;
+                try {
+                  const { id } = JSON.parse(raw) as { id: string };
+                  onReschedule(id, day, `${String(h).padStart(2, "0")}:00`);
+                } catch {
+                  /* ignore malformed payload */
+                }
+              }}
+            >
+              <div className="pt-2 text-xs font-semibold tabular-nums text-muted-foreground">
+                {String(h).padStart(2, "0")}:00
+              </div>
               <div className="space-y-2">
                 {slot.length === 0 ? (
                   <SupportGuardClickable
@@ -416,146 +988,387 @@ function DayView({ items, day, onStatus, onEdit, disabled, onNew, onSlotClick }:
                   >
                     <button
                       type="button"
-                      className="w-full h-10 rounded-md border border-dashed border-border/50 text-xs text-muted-foreground/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={`Criar agendamento às ${String(h).padStart(2,"0")}:00`}
+                      className="h-10 w-full rounded-lg border border-dashed border-slate-200 text-xs text-muted-foreground/60 transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Criar agendamento às ${String(h).padStart(2, "0")}:00`}
                     >
                       + Novo agendamento
                     </button>
                   </SupportGuardClickable>
-                ) : slot.map((a) => <AppointmentBlock key={a.id} a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />)}
+                ) : (
+                  slot.map((a) => (
+                    <AppointmentBlock
+                      key={a.id}
+                      a={a}
+                      selected={selectedId === a.id}
+                      onStatus={onStatus}
+                      onEdit={onEdit}
+                      onSelect={onSelect}
+                      disabled={disabled}
+                    />
+                  ))
+                )}
               </div>
             </li>
           );
         })}
       </ul>
-    </Card>
+    </PageSection>
   );
 }
 
-function AppointmentBlock({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean }) {
+function TimeSlotRow({
+  hour,
+  day,
+  isDragOver,
+  disabled,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onEmptyClick,
+}: {
+  hour: number;
+  day: string;
+  isDragOver: boolean;
+  disabled: boolean;
+  onDragOver: () => void;
+  onDragLeave: () => void;
+  onDrop: (id: string) => void;
+  onEmptyClick: () => void;
+}) {
+  return (
+    <li
+      className={cn(
+        "grid min-h-[56px] grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 transition-colors",
+        isDragOver && "bg-primary/5",
+      )}
+      onDragOver={(e) => {
+        if (disabled) return;
+        e.preventDefault();
+        onDragOver();
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (disabled) return;
+        const raw = e.dataTransfer.getData(DND_MIME);
+        if (!raw) return;
+        try {
+          const { id } = JSON.parse(raw) as { id: string };
+          onDrop(id);
+        } catch {
+          /* ignore */
+        }
+      }}
+    >
+      <div className="pt-2 text-xs font-semibold tabular-nums text-muted-foreground">
+        {String(hour).padStart(2, "0")}:00
+      </div>
+      <SupportGuardClickable
+        supportMode={disabled}
+        onClick={onEmptyClick}
+        tooltip="Horário vazio bloqueado no Modo Suporte"
+      >
+        <button
+          type="button"
+          className="w-full rounded-lg border border-dashed border-slate-200 py-2 text-xs text-muted-foreground/70 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {disabled ? "—" : "+ Novo agendamento"}
+        </button>
+      </SupportGuardClickable>
+    </li>
+  );
+}
+
+function AppointmentBlock({
+  a,
+  selected,
+  onStatus,
+  onEdit,
+  onSelect,
+  disabled,
+}: {
+  a: Appt;
+  selected?: boolean;
+  onStatus: (id: string, s: Status) => void;
+  onEdit: (a: Appt) => void;
+  onSelect: (a: Appt) => void;
+  disabled: boolean;
+}) {
   const s = (a.status ?? "agendado") as Status;
   return (
-    <div className={cn("rounded-xl border-l-4 ring-1 px-3 py-2 flex items-start gap-3", STATUS_CLASS[s])}>
-      <div className="text-xs font-semibold tabular-nums w-12 shrink-0 pt-0.5">{String(a.horario).slice(0, 5)}</div>
+    <div
+      draggable={!disabled}
+      onDragStart={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.setData(DND_MIME, JSON.stringify({ id: a.id }));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className={cn(
+        "flex cursor-grab items-start gap-2 rounded-xl border-l-4 px-3 py-2 ring-1 active:cursor-grabbing",
+        STATUS_CLASS[s],
+        selected && "ring-2 ring-primary ring-offset-1",
+      )}
+      onClick={() => onSelect(a)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelect(a);
+      }}
+    >
+      {!disabled && (
+        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 opacity-40" aria-hidden />
+      )}
+      <div className="w-12 shrink-0 pt-0.5 text-xs font-semibold tabular-nums">
+        {String(a.horario).slice(0, 5)}
+      </div>
       <div className="min-w-0 flex-1">
-        <div className="font-medium truncate">{a.patients?.nome_completo ?? "—"}</div>
-        <div className="text-xs opacity-80 truncate">
-          {a.professionals?.nome ?? "—"} · Atendimento · {a.duracao_min} min
+        <div className="truncate font-medium">{a.patients?.nome_completo ?? "—"}</div>
+        <div className="truncate text-xs opacity-80">
+          {a.professionals?.nome ?? "—"} · {a.duracao_min} min
         </div>
       </div>
-      <Badge variant="outline" className="bg-white/60 border-transparent text-[10px] uppercase tracking-wide shrink-0">{STATUS_LABEL[s]}</Badge>
+      <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"} className="hidden shrink-0 sm:inline-flex">
+        {STATUS_LABEL[s]}
+      </StatusBadge>
       <RowActions a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />
     </div>
   );
 }
 
-function RowActions({ a, onStatus, onEdit, disabled }: { a: any; onStatus: (id: string, s: Status) => void; onEdit: (a: any) => void; disabled: boolean }) {
+function RowActions({
+  a,
+  onStatus,
+  onEdit,
+  disabled,
+}: {
+  a: Appt;
+  onStatus: (id: string, s: Status) => void;
+  onEdit: (a: Appt) => void;
+  disabled: boolean;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"><MoreVertical className="h-4 w-4" /></Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 bg-popover">
         {a.patient_id && (
           <DropdownMenuItem asChild>
-            <Link to="/app/pacientes/$id" params={{ id: a.patient_id }}><UserCircle2 className="h-4 w-4 mr-2" /> Ver paciente</Link>
+            <Link to="/app/pacientes/$id" params={{ id: a.patient_id }}>
+              <UserCircle2 className="mr-2 h-4 w-4" /> Ver paciente
+            </Link>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
-          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onEdit(a); }}
-          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
-          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+          onClick={() => {
+            if (disabled)
+              return toast.error(
+                "Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar.",
+              );
+            onEdit(a);
+          }}
+          className={cn("cursor-pointer", disabled && "cursor-not-allowed opacity-50")}
         >
-          <Pencil className="h-4 w-4 mr-2" /> Editar
+          <Pencil className="mr-2 h-4 w-4" /> Editar
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "confirmado"); }}
-          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
-          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+          onClick={() => {
+            if (disabled)
+              return toast.error(
+                "Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar.",
+              );
+            onStatus(a.id, "confirmado");
+          }}
+          className={cn("cursor-pointer", disabled && "cursor-not-allowed opacity-50")}
         >
           Marcar como Confirmado
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "realizado"); }}
-          className={cn("cursor-pointer", disabled && "opacity-50 cursor-not-allowed")}
-          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+          onClick={() => {
+            if (disabled)
+              return toast.error(
+                "Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar.",
+              );
+            onStatus(a.id, "realizado");
+          }}
+          className={cn("cursor-pointer", disabled && "cursor-not-allowed opacity-50")}
         >
-          <CheckCircle2 className="h-4 w-4 mr-2" /> Marcar como Realizado
+          <CheckCircle2 className="mr-2 h-4 w-4" /> Marcar como Realizado
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => { if (disabled) return toast.error("Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar."); onStatus(a.id, "cancelado"); }}
-          className={cn("cursor-pointer text-rose-600", disabled && "opacity-50 cursor-not-allowed")}
-          title={disabled ? "Modo Suporte ativo — somente leitura" : undefined}
+          onClick={() => {
+            if (disabled)
+              return toast.error(
+                "Modo Suporte ativo: esta ação é somente leitura. Encerre o modo suporte para editar.",
+              );
+            onStatus(a.id, "cancelado");
+          }}
+          className={cn("cursor-pointer text-rose-600", disabled && "cursor-not-allowed opacity-50")}
         >
-          <XCircle className="h-4 w-4 mr-2" /> Cancelar
+          <XCircle className="mr-2 h-4 w-4" /> Cancelar
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-/* ───────────────────────── WEEK VIEW ───────────────────────── */
-
-function WeekView({ items, weekStart, onPick, onNewOnDay, disabled }: { items: any[]; weekStart: Date; onPick: (d: Date) => void; onNewOnDay: (d: Date) => void; disabled: boolean }) {
+function WeekView({
+  items,
+  weekStart,
+  onPick,
+  onSelect,
+  onNewOnDay,
+  disabled,
+  onReschedule,
+}: {
+  items: Appt[];
+  weekStart: Date;
+  onPick: (d: Date) => void;
+  onSelect: (a: Appt) => void;
+  onNewOnDay: (d: Date) => void;
+  disabled: boolean;
+  onReschedule: (id: string, data: string, horario: string) => void;
+}) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = ymd(new Date());
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="grid grid-cols-7 border-b bg-muted/40 text-xs">
-        {days.map((d) => {
-          const key = ymd(d);
-          return (
-            <button
-              key={key}
-              onClick={() => onPick(d)}
-              className={cn("px-2 py-2 text-left hover:bg-muted/60 transition", key === today && "bg-primary/10")}
-            >
-              <div className="uppercase tracking-wider text-muted-foreground">{d.toLocaleDateString("pt-BR", { weekday: "short" })}</div>
-              <div className="text-lg font-semibold tabular-nums">{d.getDate()}</div>
-            </button>
-          );
-        })}
-      </div>
-      <div className="grid grid-cols-7 min-h-[420px] divide-x divide-border/60">
-        {days.map((d) => {
-          const key = ymd(d);
-          const dayItems = items.filter((a) => a.data === key).sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
-          return (
-            <div key={key} className="p-2 space-y-1.5">
-              {dayItems.map((a) => {
-                const s = (a.status ?? "agendado") as Status;
-                return (
+    <PageSection icon={CalendarDays} title="Visão semanal" description="Arraste para remarcar em outro dia">
+      <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+        <div className="min-w-[640px]">
+          <div className="grid grid-cols-7 border-b bg-slate-50 text-xs">
+            {days.map((d) => {
+              const key = ymd(d);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onPick(d)}
+                  className={cn(
+                    "px-2 py-2 text-left transition hover:bg-slate-100",
+                    key === today && "bg-primary/10",
+                  )}
+                >
+                  <div className="uppercase tracking-wider text-muted-foreground">
+                    {d.toLocaleDateString("pt-BR", { weekday: "short" })}
+                  </div>
+                  <div className="text-lg font-semibold tabular-nums">{d.getDate()}</div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid min-h-[420px] grid-cols-7 divide-x divide-slate-100">
+            {days.map((d) => {
+              const key = ymd(d);
+              const dayItems = items
+                .filter((a) => a.data === key)
+                .sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "space-y-1.5 p-2 transition-colors",
+                    dragOverDay === key && "bg-primary/5",
+                  )}
+                  onDragOver={(e) => {
+                    if (disabled) return;
+                    e.preventDefault();
+                    setDragOverDay(key);
+                  }}
+                  onDragLeave={() => setDragOverDay(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverDay(null);
+                    if (disabled) return;
+                    const raw = e.dataTransfer.getData(DND_MIME);
+                    if (!raw) return;
+                    try {
+                      const { id, horario } = JSON.parse(raw) as { id: string; horario?: string };
+                      onReschedule(id, key, horario ?? "08:00");
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                >
+                  {dayItems.map((a) => {
+                    const s = (a.status ?? "agendado") as Status;
+                    return (
+                      <div
+                        key={a.id}
+                        draggable={!disabled}
+                        onDragStart={(e) => {
+                          if (disabled) {
+                            e.preventDefault();
+                            return;
+                          }
+                          e.dataTransfer.setData(
+                            DND_MIME,
+                            JSON.stringify({ id: a.id, horario: String(a.horario).slice(0, 5) }),
+                          );
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        className={cn(
+                          "w-full cursor-grab rounded-lg border-l-4 px-2 py-1.5 ring-1 active:cursor-grabbing",
+                          STATUS_CLASS[s],
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => onSelect(a)}
+                          className="w-full text-left"
+                        >
+                          <div className="text-[11px] font-semibold tabular-nums">
+                            {String(a.horario).slice(0, 5)}
+                          </div>
+                          <div className="truncate text-xs font-medium">
+                            {a.patients?.nome_completo ?? "—"}
+                          </div>
+                          <div className="truncate text-[10px] opacity-80">
+                            {a.professionals?.nome ?? ""}
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
                   <button
-                    key={a.id}
-                    onClick={() => onPick(d)}
-                    className={cn("w-full text-left rounded-md border-l-4 ring-1 px-2 py-1.5", STATUS_CLASS[s])}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onNewOnDay(d)}
+                    className="w-full rounded-lg border border-dashed border-slate-200 py-1.5 text-[11px] text-muted-foreground/70 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <div className="text-[11px] font-semibold tabular-nums">{String(a.horario).slice(0, 5)}</div>
-                    <div className="text-xs truncate font-medium">{a.patients?.nome_completo ?? "—"}</div>
-                    <div className="text-[10px] truncate opacity-80">{a.professionals?.nome ?? ""}</div>
+                    + Novo
                   </button>
-                );
-              })}
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onNewOnDay(d)}
-                className="w-full text-[11px] rounded-md border border-dashed border-border/60 text-muted-foreground/70 hover:bg-primary/5 hover:border-primary/40 hover:text-primary py-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                + Novo
-              </button>
-            </div>
-          );
-        })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </Card>
+    </PageSection>
   );
 }
 
-/* ───────────────────────── MONTH VIEW ───────────────────────── */
-
-function MonthView({ items, anchor, onPick }: { items: any[]; anchor: Date; onPick: (d: Date) => void }) {
+function MonthView({
+  items,
+  anchor,
+  onPick,
+}: {
+  items: Appt[];
+  anchor: Date;
+  onPick: (d: Date) => void;
+}) {
   const first = startOfMonth(anchor);
   const gridStart = startOfWeek(first);
   const today = ymd(new Date());
@@ -564,55 +1377,89 @@ function MonthView({ items, anchor, onPick }: { items: any[]; anchor: Date; onPi
   for (const a of items) counts.set(a.data, (counts.get(a.data) ?? 0) + 1);
 
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="grid grid-cols-7 border-b bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-        {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-          <div key={d} className="px-2 py-2 text-center font-semibold">{d}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 grid-rows-6">
-        {cells.map((d) => {
-          const key = ymd(d);
-          const inMonth = d.getMonth() === anchor.getMonth();
-          const count = counts.get(key) ?? 0;
-          const isToday = key === today;
-          return (
-            <button
-              key={key}
-              onClick={() => onPick(d)}
-              className={cn(
-                "min-h-[88px] border-b border-r border-border/60 p-2 text-left transition hover:bg-muted/40",
-                !inMonth && "bg-muted/20 text-muted-foreground/50",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className={cn(
-                  "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm tabular-nums",
-                  isToday && "bg-primary text-primary-foreground font-semibold",
-                )}>{d.getDate()}</span>
-                {count > 0 && (
-                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{count}</Badge>
-                )}
+    <PageSection icon={CalendarDays} title="Visão mensal" description="Clique em um dia para detalhar">
+      <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+        <div className="min-w-[560px]">
+          <div className="grid grid-cols-7 border-b bg-slate-50 text-[11px] uppercase tracking-wider text-muted-foreground">
+            {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+              <div key={d} className="px-2 py-2 text-center font-semibold">
+                {d}
               </div>
-            </button>
-          );
-        })}
+            ))}
+          </div>
+          <div className="grid grid-cols-7 grid-rows-6">
+            {cells.map((d) => {
+              const key = ymd(d);
+              const inMonth = d.getMonth() === anchor.getMonth();
+              const count = counts.get(key) ?? 0;
+              const isToday = key === today;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onPick(d)}
+                  className={cn(
+                    "min-h-[88px] border-b border-r border-slate-100 p-2 text-left transition hover:bg-slate-50",
+                    !inMonth && "bg-slate-50/80 text-muted-foreground/50",
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm tabular-nums",
+                        isToday && "bg-primary font-semibold text-primary-foreground",
+                      )}
+                    >
+                      {d.getDate()}
+                    </span>
+                    {count > 0 && (
+                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        {count}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </Card>
+    </PageSection>
   );
 }
 
-/* ───────────────────────── NEW DIALOG ───────────────────────── */
-
-function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialDate, initialHora, disabled }: any) {
+function NewAppointmentDialog({
+  open,
+  setOpen,
+  create,
+  patients,
+  profs,
+  initialDate,
+  initialHora,
+  disabled,
+}: {
+  open: boolean;
+  setOpen: (o: boolean) => void;
+  create: { mutate: (v: Form) => void; isPending: boolean };
+  patients: { id: string; nome_completo: string }[];
+  profs: { id: string; nome: string }[];
+  initialDate: string;
+  initialHora: string;
+  disabled: boolean;
+}) {
   const { register, handleSubmit, setValue, watch, reset } = useForm<Form>({
-    defaultValues: { data: initialDate, horario: initialHora ?? "08:00", duracao_min: 60, status: "agendado", tipo: "Atendimento" },
+    defaultValues: {
+      data: initialDate,
+      horario: initialHora ?? "08:00",
+      duracao_min: 60,
+      status: "agendado",
+      tipo: "Atendimento",
+    },
   });
   const patient_id = watch("patient_id");
   const professional_id = watch("professional_id");
   const status = watch("status") ?? "agendado";
 
-  // Reset whenever the dialog opens with a new slot
   useEffect(() => {
     if (open) {
       reset({
@@ -629,68 +1476,147 @@ function NewAppointmentDialog({ open, setOpen, create, patients, profs, initialD
   }, [open, initialDate, initialHora, reset]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) reset();
+      }}
+    >
       <DialogContent>
-        <DialogHeader><DialogTitle>Novo agendamento</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Novo agendamento</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
+            <Select
+              value={patient_id ?? ""}
+              onValueChange={(v) => setValue("patient_id", v)}
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {patients.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome_completo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs uppercase">Profissional</Label>
-            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+            <Select
+              value={professional_id ?? ""}
+              onValueChange={(v) => setValue("professional_id", v)}
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {profs.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
-            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("horario")} disabled={disabled} /></div>
-            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" min={15} step={15} {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
+            <div>
+              <Label className="text-xs uppercase">Data</Label>
+              <Input type="date" required {...register("data")} disabled={disabled} />
+            </div>
+            <div>
+              <Label className="text-xs uppercase">Hora</Label>
+              <Input type="time" required {...register("horario")} disabled={disabled} />
+            </div>
+            <div>
+              <Label className="text-xs uppercase">Duração</Label>
+              <Input
+                type="number"
+                min={15}
+                step={15}
+                {...register("duracao_min", { valueAsNumber: true })}
+                disabled={disabled}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-xs uppercase">Tipo</Label><Input {...register("tipo")} disabled={disabled} placeholder="Atendimento" /></div>
+            <div>
+              <Label className="text-xs uppercase">Tipo</Label>
+              <Input {...register("tipo")} disabled={disabled} placeholder="Atendimento" />
+            </div>
             <div>
               <Label className="text-xs uppercase">Status</Label>
-              <Select value={status} onValueChange={(v) => setValue("status", v as Status)} disabled={disabled}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={status}
+                onValueChange={(v) => setValue("status", v as Status)}
+                disabled={disabled}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {ALL_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                  {ALL_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABEL[s]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div><Label className="text-xs uppercase">Observação</Label><Textarea rows={2} {...register("observacao")} disabled={disabled} /></div>
-          <div className="flex justify-end"><Button type="submit" disabled={disabled || create.isPending || !patient_id || !professional_id}>Agendar</Button></div>
+          <div>
+            <Label className="text-xs uppercase">Observação</Label>
+            <Textarea rows={2} {...register("observacao")} disabled={disabled} />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={disabled || create.isPending || !patient_id || !professional_id}
+            >
+              Agendar
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-/* ───────────────────────── EDIT DIALOG ───────────────────────── */
-
-function EditAppointmentDialog({ appt, onClose, update, patients, profs, disabled }: {
-  appt: any | null;
+function EditAppointmentDialog({
+  appt,
+  onClose,
+  update,
+  patients,
+  profs,
+  disabled,
+}: {
+  appt: Appt | null;
   onClose: () => void;
-  update: { mutate: (v: any) => void; isPending: boolean };
-  patients: any[];
-  profs: any[];
+  update: { mutate: (v: Form & { id: string; status: Status }) => void; isPending: boolean };
+  patients: { id: string; nome_completo: string }[];
+  profs: { id: string; nome: string }[];
   disabled: boolean;
 }) {
   const open = !!appt;
   const { register, handleSubmit, setValue, watch, reset } = useForm<Form & { status: Status }>({
     defaultValues: {
-      patient_id: "", professional_id: "", data: "", horario: "08:00",
-      duracao_min: 60, observacao: "", status: "agendado",
+      patient_id: "",
+      professional_id: "",
+      data: "",
+      horario: "08:00",
+      duracao_min: 60,
+      observacao: "",
+      status: "agendado",
     },
   });
 
-  // Reset form whenever a new appointment is opened
   useEffect(() => {
     if (appt) {
       reset({
@@ -715,41 +1641,93 @@ function EditAppointmentDialog({ appt, onClose, update, patients, profs, disable
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !update.isPending) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && !update.isPending) onClose();
+      }}
+    >
       <DialogContent>
-        <DialogHeader><DialogTitle>Editar agendamento</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Editar agendamento</DialogTitle>
+        </DialogHeader>
         {disabled && (
-          <div className="rounded-md bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-xs px-3 py-2">
+          <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
             Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.
           </div>
         )}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div>
             <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => setValue("patient_id", v)} disabled={disabled}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
+            <Select
+              value={patient_id ?? ""}
+              onValueChange={(v) => setValue("patient_id", v)}
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {patients.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome_completo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div>
             <Label className="text-xs uppercase">Profissional</Label>
-            <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)} disabled={disabled}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>{profs.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+            <Select
+              value={professional_id ?? ""}
+              onValueChange={(v) => setValue("professional_id", v)}
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {profs.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-xs uppercase">Data</Label><Input type="date" required {...register("data")} disabled={disabled} /></div>
-            <div><Label className="text-xs uppercase">Hora</Label><Input type="time" required {...register("horario")} disabled={disabled} /></div>
-            <div><Label className="text-xs uppercase">Duração</Label><Input type="number" {...register("duracao_min", { valueAsNumber: true })} disabled={disabled} /></div>
+            <div>
+              <Label className="text-xs uppercase">Data</Label>
+              <Input type="date" required {...register("data")} disabled={disabled} />
+            </div>
+            <div>
+              <Label className="text-xs uppercase">Hora</Label>
+              <Input type="time" required {...register("horario")} disabled={disabled} />
+            </div>
+            <div>
+              <Label className="text-xs uppercase">Duração</Label>
+              <Input
+                type="number"
+                {...register("duracao_min", { valueAsNumber: true })}
+                disabled={disabled}
+              />
+            </div>
           </div>
           <div>
             <Label className="text-xs uppercase">Status</Label>
-            <Select value={status} onValueChange={(v) => setValue("status", v as Status)} disabled={disabled}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={status}
+              onValueChange={(v) => setValue("status", v as Status)}
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {(["agendado", "confirmado", "realizado", "cancelado"] as Status[]).map((s) => (
-                  <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
+                  <SelectItem key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -759,8 +1737,13 @@ function EditAppointmentDialog({ appt, onClose, update, patients, profs, disable
             <Textarea rows={2} {...register("observacao")} disabled={disabled} />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={update.isPending}>Cancelar</Button>
-            <Button type="submit" disabled={disabled || update.isPending || !patient_id || !professional_id}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={update.isPending}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={disabled || update.isPending || !patient_id || !professional_id}
+            >
               {update.isPending ? "Salvando…" : "Salvar alterações"}
             </Button>
           </div>
