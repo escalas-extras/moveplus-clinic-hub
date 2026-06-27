@@ -1,11 +1,54 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ClipboardList, Plus, Search, Trash2, Eye, Users } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Plus,
+  Search,
+  Trash2,
+  Eye,
+  Users,
+  UserPlus,
+  Activity,
+  LogOut,
+  LayoutGrid,
+  List,
+  Phone,
+  CalendarDays,
+  Clock,
+  ClipboardList,
+  FileText,
+  RefreshCw,
+  DollarSign,
+  Stethoscope,
+  X,
+  Filter,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   AppShell,
   EmptyState,
@@ -17,69 +60,234 @@ import {
 import { toast } from "sonner";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
-import { useAuth, useRoles } from "@/lib/auth";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useActiveClinic } from "@/lib/active-clinic";
 import { safeDeletePatient } from "@/lib/patient-delete";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/")({
   component: PacientesPage,
 });
 
+type PatientRow = {
+  id: string;
+  nome_completo: string;
+  cpf: string | null;
+  data_nascimento: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  convenio_nome: string | null;
+  situacao: "ativo" | "inativo";
+  data_alta: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ViewMode = "lista" | "cards";
+type SortMode = "nome_asc" | "nome_desc" | "recentes" | "atualizados";
+type StatusFilter = "all" | "ativo" | "inativo" | "tratamento" | "alta";
+
+type ApptSummary = {
+  last: { data: string; horario: string } | null;
+  next: { data: string; horario: string } | null;
+};
+
+type TimelineEntry = {
+  id: string;
+  date: string;
+  kind: "assessment" | "reassessment" | "evolution" | "document" | "financial";
+  title: string;
+  subtitle?: string;
+};
+
+function ymd(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function contactOf(p: PatientRow) {
+  return p.telefone ?? p.whatsapp ?? "—";
+}
+
+function patientStatusLabel(p: PatientRow) {
+  if (p.situacao === "inativo" || p.data_alta) return "Alta";
+  return "Em tratamento";
+}
+
+function patientStatusVariant(p: PatientRow): "success" | "neutral" | "info" {
+  if (p.situacao === "inativo" || p.data_alta) return "neutral";
+  return "success";
+}
+
 function PacientesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate({ from: "/app/pacientes" });
+  const { clinicId, isAdmin } = useActiveClinic();
+
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const { user } = useAuth();
-  const { isAdmin } = useRoles(user?.id);
-  const { data: activeClinicId } = useQuery({
-    queryKey: ["active-clinic-id", user?.id],
-    enabled: !!user?.id,
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>("ativo");
+  const [filterProf, setFilterProf] = useState("all");
+  const [filterConvenio, setFilterConvenio] = useState("all");
+  const [sort, setSort] = useState<SortMode>("nome_asc");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+  const monthIso = ymd(startOfMonth(new Date()));
+  const todayIso = ymd(new Date());
+
+  const kpis = useQuery({
+    queryKey: ["patients-kpis", clinicId, monthIso],
+    enabled: !!clinicId,
     queryFn: async () => {
-      const [{ data: supportCid }, { data: ownCid }] = await Promise.all([
-        supabase.rpc("current_support_session_clinic"),
-        supabase.rpc("current_clinic_id"),
+      const cid = clinicId!;
+      const [total, novos, emTratamento, altas] = await Promise.all([
+        supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", cid),
+        supabase
+          .from("patients")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid)
+          .gte("created_at", monthIso),
+        supabase
+          .from("patients")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid)
+          .eq("situacao", "ativo")
+          .is("data_alta", null),
+        supabase
+          .from("patients")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid)
+          .or("situacao.eq.inativo,data_alta.not.is.null"),
       ]);
-      return ((supportCid as string | null) ?? (ownCid as string | null) ?? null);
+      return {
+        total: total.count ?? 0,
+        novos: novos.count ?? 0,
+        emTratamento: emTratamento.count ?? 0,
+        altas: altas.count ?? 0,
+      };
     },
   });
 
   const list = useQuery({
-    queryKey: ["patients", activeClinicId, q],
-    enabled: !!activeClinicId,
+    queryKey: ["patients", clinicId, filterStatus],
+    enabled: !!clinicId,
     queryFn: async () => {
-      let query = supabase
-        .from("patients")
-        .select("*")
-        .eq("clinic_id", activeClinicId!)
-        .eq("situacao", "ativo")
-        .order("nome_completo");
-      if (q) query = query.ilike("nome_completo", `%${q}%`);
+      let query = supabase.from("patients").select("*").eq("clinic_id", clinicId!);
+      if (filterStatus === "ativo") query = query.eq("situacao", "ativo");
+      else if (filterStatus === "inativo") query = query.eq("situacao", "inativo");
+      else if (filterStatus === "tratamento")
+        query = query.eq("situacao", "ativo").is("data_alta", null);
+      else if (filterStatus === "alta")
+        query = query.or("situacao.eq.inativo,data_alta.not.is.null");
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data ?? []) as PatientRow[];
+    },
+  });
+
+  const profs = useQuery({
+    queryKey: ["professionals-active", clinicId],
+    enabled: !!clinicId,
+    queryFn: async () =>
+      (
+        await supabase
+          .from("professionals")
+          .select("id, nome")
+          .eq("clinic_id", clinicId!)
+          .eq("situacao", "ativo")
+          .order("nome")
+      ).data ?? [],
+  });
+
+  const profPatientIds = useQuery({
+    queryKey: ["patient-ids-by-prof", clinicId, filterProf],
+    enabled: !!clinicId && filterProf !== "all",
+    queryFn: async () => {
+      const cid = clinicId!;
+      const [appts, assess, evol] = await Promise.all([
+        supabase
+          .from("appointments")
+          .select("patient_id")
+          .eq("clinic_id", cid)
+          .eq("professional_id", filterProf),
+        supabase
+          .from("assessments")
+          .select("patient_id")
+          .eq("clinic_id", cid)
+          .eq("professional_id", filterProf),
+        supabase
+          .from("evolutions")
+          .select("patient_id")
+          .eq("clinic_id", cid)
+          .eq("professional_id", filterProf),
+      ]);
+      const ids = new Set<string>();
+      for (const row of appts.data ?? []) ids.add(row.patient_id);
+      for (const row of assess.data ?? []) ids.add(row.patient_id);
+      for (const row of evol.data ?? []) ids.add(row.patient_id);
+      return ids;
+    },
+  });
+
+  const apptSummary = useQuery({
+    queryKey: ["patient-appt-summary", clinicId],
+    enabled: !!clinicId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("appointments")
+        .select("patient_id, data, horario, status")
+        .eq("clinic_id", clinicId!)
+        .order("data")
+        .order("horario");
+      const map = new Map<string, ApptSummary>();
+      for (const a of data ?? []) {
+        if (!a.patient_id || !a.data) continue;
+        const cur = map.get(a.patient_id) ?? { last: null, next: null };
+        const cancelled = a.status === "cancelado";
+        if (!cancelled) {
+          if (a.data < todayIso || a.status === "realizado") {
+            if (!cur.last || a.data > cur.last.data || (a.data === cur.last.data && a.horario > cur.last.horario)) {
+              cur.last = { data: a.data, horario: a.horario };
+            }
+          }
+          if (a.data >= todayIso && a.status !== "realizado") {
+            if (!cur.next || a.data < cur.next.data || (a.data === cur.next.data && a.horario < cur.next.horario)) {
+              cur.next = { data: a.data, horario: a.horario };
+            }
+          }
+        }
+        map.set(a.patient_id, cur);
+      }
+      return map;
     },
   });
 
   const create = useMutation({
     mutationFn: async (input: PatientInput) => {
-      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("patients").insert({ ...input, clinic_id: activeClinicId, created_by: u.user?.id } as any);
+      const { error } = await supabase
+        .from("patients")
+        .insert({ ...input, clinic_id: clinicId, created_by: u.user?.id } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Paciente cadastrado");
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patients-kpis"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: { message?: string }) => toast.error(e.message ?? "Erro ao cadastrar"),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      if (!activeClinicId) throw new Error("Clínica ativa não identificada");
-      return safeDeletePatient({ clinicId: activeClinicId, patientId: id });
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
+      return safeDeletePatient({ clinicId, patientId: id });
     },
     onSuccess: (res) => {
       toast.success(
@@ -87,18 +295,78 @@ function PacientesPage() {
           ? "Paciente excluído"
           : "Paciente inativado (histórico clínico preservado)",
       );
+      setSelectedId(null);
       qc.invalidateQueries({ queryKey: ["patients"] });
+      qc.invalidateQueries({ queryKey: ["patients-kpis"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: { message?: string }) => toast.error(e.message ?? "Erro ao excluir"),
   });
 
+  const convenioOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of list.data ?? []) {
+      if (p.convenio_nome?.trim()) set.add(p.convenio_nome.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [list.data]);
+
+  const filtered = useMemo(() => {
+    const search = q.trim().toLowerCase();
+    let rows = [...(list.data ?? [])];
+
+    if (search) {
+      rows = rows.filter((p) => {
+        const hay = [p.nome_completo, p.cpf, p.telefone, p.whatsapp, p.convenio_nome]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(search);
+      });
+    }
+
+    if (filterProf !== "all" && profPatientIds.data) {
+      rows = rows.filter((p) => profPatientIds.data!.has(p.id));
+    }
+
+    if (filterConvenio === "particular") {
+      rows = rows.filter((p) => !(p.convenio_nome ?? "").trim());
+    } else if (filterConvenio !== "all") {
+      rows = rows.filter((p) => (p.convenio_nome ?? "").trim() === filterConvenio);
+    }
+
+    rows.sort((a, b) => {
+      if (sort === "nome_desc") return b.nome_completo.localeCompare(a.nome_completo, "pt-BR");
+      if (sort === "recentes")
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sort === "atualizados")
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      return a.nome_completo.localeCompare(b.nome_completo, "pt-BR");
+    });
+
+    return rows;
+  }, [list.data, q, filterProf, filterConvenio, sort, profPatientIds.data]);
+
+  const selected = useMemo(
+    () => filtered.find((p) => p.id === selectedId) ?? null,
+    [filtered, selectedId],
+  );
+
+  const hasActiveFilters =
+    filterStatus !== "ativo" ||
+    filterProf !== "all" ||
+    filterConvenio !== "all" ||
+    q.trim() !== "" ||
+    sort !== "nome_asc";
+
+  const loading = list.isLoading || kpis.isLoading;
+
   return (
-    <AppShell>
+    <AppShell className="dashboard-premium">
       <PageHeader
         icon={Users}
-        eyebrow="Gestão clínica"
+        eyebrow="CRM clínico"
         title="Pacientes"
-        description="Cadastros ativos, dados de contato e acesso rápido aos prontuários."
+        description="Gestão premium de cadastros, histórico clínico e ações rápidas."
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -108,129 +376,741 @@ function PacientesPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo paciente</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Novo paciente</DialogTitle>
+              </DialogHeader>
               <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
             </DialogContent>
           </Dialog>
         }
       />
 
-      <InfoCard
-        icon={Search}
-        title="Busca de pacientes"
-        description="Filtre por nome para encontrar rapidamente o cadastro correto."
-      >
-        <div className="relative max-w-xl">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome..." className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9" />
-        </div>
-      </InfoCard>
+      {loading ? (
+        <PacientesSkeleton />
+      ) : (
+        <>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
+            <KpiCard icon={Users} label="Total de pacientes" value={kpis.data?.total ?? 0} accent="var(--primary)" />
+            <KpiCard icon={UserPlus} label="Novos no mês" value={kpis.data?.novos ?? 0} accent="#059669" />
+            <KpiCard icon={Activity} label="Em tratamento" value={kpis.data?.emTratamento ?? 0} accent="#0284c7" />
+            <KpiCard icon={LogOut} label="Altas" value={kpis.data?.altas ?? 0} accent="#64748b" />
+          </section>
 
-      <PageSection
-        icon={ClipboardList}
-        title="Lista de pacientes"
-        description="Pacientes ativos cadastrados na clínica."
-        contentClassName="p-0"
-      >
-        {list.isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Carregando...</div>
-        ) : !list.data?.length ? (
-          <EmptyState
-            icon={Users}
-            title={q ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado ainda"}
-            description={
-              q
-                ? "Tente outro nome ou limpe a busca para ver toda a lista."
-                : "Comece cadastrando seu primeiro paciente para abrir prontuários, gerar documentos e agendar atendimentos."
-            }
-            action={!q ? { label: "Cadastrar primeiro paciente", onClick: () => setOpen(true) } : undefined}
-          />
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-              <tr className="text-left">
-                <th className="px-5 py-3 font-bold">Nome</th>
-                <th className="hidden px-5 py-3 font-bold md:table-cell">CPF</th>
-                <th className="hidden px-5 py-3 font-bold lg:table-cell">Idade</th>
-                <th className="hidden px-5 py-3 font-bold lg:table-cell">Telefone</th>
-                <th className="px-5 py-3 font-bold">Situação</th>
-                <th className="w-10 px-5 py-3 text-center font-bold">Abrir</th>
-                {isAdmin && <th className="w-10 px-5 py-3 font-bold"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {list.data.map((p) => (
-                <tr
-                  key={p.id}
-                  className="cursor-pointer transition-colors hover:bg-emerald-50/40"
-                  onClick={() => navigate({ to: "/app/pacientes/$id", params: { id: p.id } })}
+          <InfoCard icon={Search} title="Busca e filtros" description="Pesquisa instantânea e refinamento da lista.">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[200px] flex-1 sm:max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Buscar nome, CPF, telefone ou convênio…"
+                    className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9"
+                  />
+                </div>
+
+                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                  <TabsList className="rounded-xl">
+                    <TabsTrigger value="cards" className="gap-1.5 rounded-lg">
+                      <LayoutGrid className="h-4 w-4" />
+                      <span className="hidden sm:inline">Cards</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="lista" className="gap-1.5 rounded-lg">
+                      <List className="h-4 w-4" />
+                      <span className="hidden sm:inline">Lista</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg lg:hidden"
+                  onClick={() => setShowMobileFilters((v) => !v)}
                 >
-                  <td className="px-5 py-4">
-                    <span className="font-semibold text-slate-950">{p.nome_completo}</span>
-                    <div className="text-xs text-muted-foreground md:hidden">{p.cpf ?? "Sem CPF"}</div>
-                  </td>
-                  <td className="hidden px-5 py-4 tabular-nums md:table-cell">{p.cpf ?? "-"}</td>
-                  <td className="hidden px-5 py-4 lg:table-cell">{calcAge(p.data_nascimento) ?? "-"}</td>
-                  <td className="hidden px-5 py-4 lg:table-cell">{p.telefone ?? p.whatsapp ?? "-"}</td>
-                  <td className="px-5 py-4">
-                    <StatusBadge variant={p.situacao === "ativo" ? "success" : "neutral"}>
-                      {p.situacao}
-                    </StatusBadge>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-xl"
-                      title="Abrir prontuário"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate({ to: "/app/pacientes/$id", params: { id: p.id } });
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </td>
-                  {isAdmin && (
-                    <td className="px-5 py-4 text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="rounded-xl text-destructive hover:text-destructive"
-                            title="Excluir paciente"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Se o paciente possuir histórico clínico, financeiro ou de agenda, ele será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => remove.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Confirmar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </PageSection>
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filtros
+                  {hasActiveFilters && <span className="ml-1.5 h-2 w-2 rounded-full bg-primary" />}
+                </Button>
+              </div>
+
+              <div className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-4", showMobileFilters ? "grid" : "hidden lg:grid")}>
+                <FilterField label="Status">
+                  <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ativo">Ativos</SelectItem>
+                      <SelectItem value="tratamento">Em tratamento</SelectItem>
+                      <SelectItem value="alta">Altas / inativos</SelectItem>
+                      <SelectItem value="inativo">Inativos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+                <FilterField label="Profissional">
+                  <Select value={filterProf} onValueChange={setFilterProf}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {(profs.data ?? []).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+                <FilterField label="Convênio">
+                  <Select value={filterConvenio} onValueChange={setFilterConvenio}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="particular">Particular (sem convênio)</SelectItem>
+                      {convenioOptions.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+                <FilterField label="Ordenação">
+                  <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nome_asc">Nome A → Z</SelectItem>
+                      <SelectItem value="nome_desc">Nome Z → A</SelectItem>
+                      <SelectItem value="recentes">Mais recentes</SelectItem>
+                      <SelectItem value="atualizados">Última atualização</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+              </div>
+            </div>
+          </InfoCard>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <PageSection
+              icon={Users}
+              title={viewMode === "cards" ? "Pacientes" : "Lista de pacientes"}
+              description={`${filtered.length} registro${filtered.length === 1 ? "" : "s"} encontrado${filtered.length === 1 ? "" : "s"}`}
+              contentClassName={viewMode === "lista" ? "p-0" : undefined}
+            >
+              {!filtered.length ? (
+                <EmptyState
+                  icon={Users}
+                  title={q || hasActiveFilters ? "Nenhum paciente encontrado" : "Nenhum paciente cadastrado ainda"}
+                  description={
+                    q || hasActiveFilters
+                      ? "Ajuste os filtros ou limpe a busca para ver mais resultados."
+                      : "Comece cadastrando seu primeiro paciente para abrir prontuários, gerar documentos e agendar atendimentos."
+                  }
+                  action={
+                    !q && !hasActiveFilters
+                      ? { label: "Cadastrar primeiro paciente", onClick: () => setOpen(true) }
+                      : undefined
+                  }
+                  className="py-10"
+                />
+              ) : viewMode === "cards" ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {filtered.map((p) => (
+                    <PatientCard
+                      key={p.id}
+                      patient={p}
+                      summary={apptSummary.data?.get(p.id)}
+                      selected={selectedId === p.id}
+                      isAdmin={isAdmin}
+                      onSelect={() => setSelectedId(p.id)}
+                      onOpen={() => navigate({ to: "/app/pacientes/$id", params: { id: p.id } })}
+                      onDelete={() => remove.mutate(p.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      <tr className="text-left">
+                        <th className="px-5 py-3 font-bold">Paciente</th>
+                        <th className="hidden px-5 py-3 font-bold md:table-cell">Contato</th>
+                        <th className="hidden px-5 py-3 font-bold lg:table-cell">Convênio</th>
+                        <th className="px-5 py-3 font-bold">Status</th>
+                        <th className="hidden px-5 py-3 font-bold xl:table-cell">Próximo</th>
+                        <th className="w-24 px-5 py-3 text-center font-bold">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filtered.map((p) => (
+                        <tr
+                          key={p.id}
+                          className={cn(
+                            "cursor-pointer transition-colors hover:bg-emerald-50/40",
+                            selectedId === p.id && "bg-primary/5",
+                          )}
+                          onClick={() => setSelectedId(p.id)}
+                        >
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <PatientAvatar name={p.nome_completo} />
+                              <div>
+                                <span className="font-semibold text-slate-950">{p.nome_completo}</span>
+                                <div className="text-xs text-muted-foreground">
+                                  {calcAge(p.data_nascimento) ?? "—"} anos · {p.cpf ?? "Sem CPF"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="hidden px-5 py-4 md:table-cell">{contactOf(p)}</td>
+                          <td className="hidden px-5 py-4 lg:table-cell">
+                            {p.convenio_nome ?? "Particular"}
+                          </td>
+                          <td className="px-5 py-4">
+                            <StatusBadge variant={patientStatusVariant(p)}>
+                              {patientStatusLabel(p)}
+                            </StatusBadge>
+                          </td>
+                          <td className="hidden px-5 py-4 tabular-nums xl:table-cell">
+                            {apptSummary.data?.get(p.id)?.next
+                              ? `${fmtDate(apptSummary.data.get(p.id)!.next!.data)} ${String(apptSummary.data.get(p.id)!.next!.horario).slice(0, 5)}`
+                              : "—"}
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-xl"
+                                title="Abrir prontuário"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate({ to: "/app/pacientes/$id", params: { id: p.id } });
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {isAdmin && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="rounded-xl text-destructive hover:text-destructive"
+                                      title="Excluir paciente"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Se o paciente possuir histórico clínico, financeiro ou de agenda, ele
+                                        será <strong>inativado</strong> (dados preservados). Caso contrário,
+                                        será excluído definitivamente.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => remove.mutate(p.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </PageSection>
+
+            <aside className="space-y-4">
+              {selected ? (
+                <SelectedPatientPanel
+                  patient={selected}
+                  summary={apptSummary.data?.get(selected.id)}
+                  onClose={() => setSelectedId(null)}
+                  onOpen={() => navigate({ to: "/app/pacientes/$id", params: { id: selected.id } })}
+                />
+              ) : (
+                <PageSection
+                  icon={Users}
+                  title="Detalhes do paciente"
+                  description="Selecione um paciente para ver timeline e atalhos."
+                  contentClassName="py-8"
+                >
+                  <EmptyState
+                    icon={Users}
+                    title="Nenhum paciente selecionado"
+                    description="Clique em um card ou linha da lista para visualizar o resumo clínico."
+                    className="py-6"
+                  />
+                </PageSection>
+              )}
+            </aside>
+          </div>
+        </>
+      )}
     </AppShell>
   );
 }
 
-// helper not used but exporting for typing
-export { fmtDate };
+function PacientesSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="h-36 rounded-2xl" />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Skeleton className="h-[480px] rounded-2xl" />
+        <Skeleton className="h-[480px] rounded-2xl" />
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
+      <div
+        className="flex h-9 w-9 items-center justify-center rounded-xl"
+        style={{ background: `${accent}18`, color: accent }}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="mt-3 text-2xl font-bold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function FilterField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function PatientAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+  const cls =
+    size === "lg" ? "h-14 w-14 text-lg" : size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-2xl bg-primary/10 font-bold text-primary ring-1 ring-primary/15",
+        cls,
+      )}
+    >
+      {initials || "?"}
+    </div>
+  );
+}
+
+function PatientCard({
+  patient: p,
+  summary,
+  selected,
+  isAdmin,
+  onSelect,
+  onOpen,
+  onDelete,
+}: {
+  patient: PatientRow;
+  summary?: ApptSummary;
+  selected?: boolean;
+  isAdmin: boolean;
+  onSelect: () => void;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] transition-all sm:p-5",
+        selected ? "border-primary ring-2 ring-primary/20" : "border-slate-200/80 hover:border-primary/30",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <PatientAvatar name={p.nome_completo} size="lg" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <button type="button" onClick={onSelect} className="min-w-0 text-left">
+              <h3 className="truncate font-bold tracking-tight text-slate-950">{p.nome_completo}</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {calcAge(p.data_nascimento) ?? "—"} anos · {p.convenio_nome ?? "Particular"}
+              </p>
+            </button>
+            <StatusBadge variant={patientStatusVariant(p)}>{patientStatusLabel(p)}</StatusBadge>
+          </div>
+
+          <div className="mt-3 space-y-1.5 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Phone className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{contactOf(p)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                Último:{" "}
+                {summary?.last
+                  ? `${fmtDate(summary.last.data)} ${String(summary.last.horario).slice(0, 5)}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                Próximo:{" "}
+                {summary?.next
+                  ? `${fmtDate(summary.next.data)} ${String(summary.next.horario).slice(0, 5)}`
+                  : "—"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" className="rounded-lg" onClick={onSelect}>
+              Detalhes
+            </Button>
+            <Button size="sm" className="rounded-lg" onClick={onOpen}>
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              Prontuário
+            </Button>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-lg text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se o paciente possuir histórico clínico, financeiro ou de agenda, ele será{" "}
+                      <strong>inativado</strong> (dados preservados). Caso contrário, será excluído
+                      definitivamente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelectedPatientPanel({
+  patient: p,
+  summary,
+  onClose,
+  onOpen,
+}: {
+  patient: PatientRow;
+  summary?: ApptSummary;
+  onClose: () => void;
+  onOpen: () => void;
+}) {
+  const { clinicId } = useActiveClinic();
+
+  const timeline = useQuery({
+    queryKey: ["patient-crm-timeline", clinicId, p.id],
+    enabled: !!clinicId && !!p.id,
+    queryFn: async (): Promise<TimelineEntry[]> => {
+      const cid = clinicId!;
+      const [assess, evol, reass, docs, financial] = await Promise.all([
+        supabase
+          .from("assessments")
+          .select("id, data, tipo, professionals(nome)")
+          .eq("clinic_id", cid)
+          .eq("patient_id", p.id)
+          .order("data", { ascending: false })
+          .limit(5),
+        supabase
+          .from("evolutions")
+          .select("id, data, hora, professionals(nome)")
+          .eq("clinic_id", cid)
+          .eq("patient_id", p.id)
+          .order("data", { ascending: false })
+          .limit(5),
+        supabase
+          .from("reassessment_schedule")
+          .select("id, scheduled_for, completed_at")
+          .eq("clinic_id", cid)
+          .eq("patient_id", p.id)
+          .order("scheduled_for", { ascending: false })
+          .limit(5),
+        supabase
+          .from("clinical_documents")
+          .select("id, issued_at, doc_type, title")
+          .eq("clinic_id", cid)
+          .eq("patient_id", p.id)
+          .order("issued_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("financial_entries")
+          .select("id, data, valor, status")
+          .eq("clinic_id", cid)
+          .eq("patient_id", p.id)
+          .order("data", { ascending: false })
+          .limit(5),
+      ]);
+
+      const items: TimelineEntry[] = [];
+      for (const a of assess.data ?? []) {
+        items.push({
+          id: `a-${a.id}`,
+          date: a.data,
+          kind: a.tipo === "reavaliacao" ? "reassessment" : "assessment",
+          title: a.tipo === "reavaliacao" ? "Reavaliação" : "Avaliação",
+          subtitle: (a as any).professionals?.nome ?? undefined,
+        });
+      }
+      for (const e of evol.data ?? []) {
+        items.push({
+          id: `e-${e.id}`,
+          date: e.data,
+          kind: "evolution",
+          title: "Evolução",
+          subtitle: (e as any).professionals?.nome ?? undefined,
+        });
+      }
+      for (const r of reass.data ?? []) {
+        items.push({
+          id: `r-${r.id}`,
+          date: r.scheduled_for,
+          kind: "reassessment",
+          title: r.completed_at ? "Reavaliação concluída" : "Reavaliação agendada",
+        });
+      }
+      for (const d of docs.data ?? []) {
+        items.push({
+          id: `d-${d.id}`,
+          date: (d.issued_at ?? "").slice(0, 10),
+          kind: "document",
+          title: d.title || `Documento (${d.doc_type})`,
+        });
+      }
+      for (const f of financial.data ?? []) {
+        items.push({
+          id: `f-${f.id}`,
+          date: f.data,
+          kind: "financial",
+          title: `Financeiro · ${f.status}`,
+          subtitle: f.valor != null ? `R$ ${Number(f.valor).toFixed(2)}` : undefined,
+        });
+      }
+
+      return items
+        .filter((i) => i.date)
+        .sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0))
+        .slice(0, 8);
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <PageSection
+        icon={Users}
+        title={p.nome_completo}
+        actions={
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label="Fechar">
+            <X className="h-4 w-4" />
+          </Button>
+        }
+        contentClassName="space-y-4"
+      >
+        <div className="flex items-center gap-3">
+          <PatientAvatar name={p.nome_completo} size="lg" />
+          <div className="min-w-0">
+            <StatusBadge variant={patientStatusVariant(p)}>{patientStatusLabel(p)}</StatusBadge>
+            <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Phone className="h-3.5 w-3.5" />
+              {contactOf(p)}
+            </p>
+            <p className="text-xs text-muted-foreground">{p.convenio_nome ?? "Particular"}</p>
+          </div>
+        </div>
+
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Último atendimento
+            </dt>
+            <dd className="mt-1 font-medium tabular-nums">
+              {summary?.last
+                ? `${fmtDate(summary.last.data)} · ${String(summary.last.horario).slice(0, 5)}`
+                : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Próximo atendimento
+            </dt>
+            <dd className="mt-1 font-medium tabular-nums">
+              {summary?.next
+                ? `${fmtDate(summary.next.data)} · ${String(summary.next.horario).slice(0, 5)}`
+                : "—"}
+            </dd>
+          </div>
+        </dl>
+
+        <Button className="w-full rounded-xl" onClick={onOpen}>
+          <Eye className="mr-2 h-4 w-4" />
+          Abrir prontuário completo
+        </Button>
+      </PageSection>
+
+      <PageSection icon={Activity} title="Timeline resumida" contentClassName="py-3">
+        {timeline.isLoading ? (
+          <div className="space-y-2 px-1">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 rounded-lg" />
+            ))}
+          </div>
+        ) : !timeline.data?.length ? (
+          <EmptyState
+            icon={ClipboardList}
+            title="Sem eventos ainda"
+            description="Registre avaliações, evoluções ou documentos no prontuário."
+            action={{ label: "Abrir prontuário", onClick: onOpen }}
+            className="py-6"
+          />
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {timeline.data.map((item) => (
+              <TimelineRow key={item.id} item={item} />
+            ))}
+          </ul>
+        )}
+      </PageSection>
+
+      <PageSection icon={Stethoscope} title="Atalhos rápidos" contentClassName="py-4">
+        <div className="grid grid-cols-2 gap-2">
+          <QuickLink icon={ClipboardList} label="Nova avaliação" to="/app/pacientes/$id" params={{ id: p.id }} />
+          <QuickLink icon={Activity} label="Evolução" to="/app/pacientes/$id" params={{ id: p.id }} />
+          <QuickLink icon={CalendarDays} label="Agendar" to="/app/agenda" />
+          <QuickLink icon={FileText} label="Documentos" to="/app/pacientes/$id" params={{ id: p.id }} />
+          <QuickLink icon={DollarSign} label="Financeiro" to="/app/financeiro" className="col-span-2 sm:col-span-1" />
+        </div>
+      </PageSection>
+    </div>
+  );
+}
+
+const TIMELINE_META: Record<
+  TimelineEntry["kind"],
+  { icon: LucideIcon; variant: "success" | "warning" | "info" | "neutral" }
+> = {
+  assessment: { icon: ClipboardList, variant: "info" },
+  reassessment: { icon: RefreshCw, variant: "warning" },
+  evolution: { icon: Activity, variant: "success" },
+  document: { icon: FileText, variant: "neutral" },
+  financial: { icon: DollarSign, variant: "info" },
+};
+
+function TimelineRow({ item }: { item: TimelineEntry }) {
+  const meta = TIMELINE_META[item.kind];
+  const Icon = meta.icon;
+  return (
+    <li className="flex items-start gap-3 px-1 py-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{item.title}</span>
+          <StatusBadge variant={meta.variant} className="text-[10px]">
+            {fmtDate(item.date)}
+          </StatusBadge>
+        </div>
+        {item.subtitle && (
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{item.subtitle}</p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function QuickLink({
+  icon: Icon,
+  label,
+  to,
+  params,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  to: string;
+  params?: Record<string, string>;
+  className?: string;
+}) {
+  return (
+    <Link
+      to={to as any}
+      params={params as any}
+      className={cn(
+        "flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/60 px-3 py-2.5 text-sm font-medium transition-colors hover:border-primary/30 hover:bg-primary/5",
+        className,
+      )}
+    >
+      <Icon className="h-4 w-4 text-primary" />
+      {label}
+    </Link>
+  );
+}
