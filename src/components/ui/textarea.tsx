@@ -1,9 +1,15 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { clinical } from "@/components/layout/clinical-classes";
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(
-  ({ className, onInput, onChange, ...props }, ref) => {
+export type TextareaProps = React.ComponentProps<"textarea"> & {
+  /** Crescimento automático de altura (desativado por padrão — preferir resize-y). */
+  autoGrow?: boolean;
+};
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, autoGrow = false, onInput, onChange, style, ...props }, ref) => {
     const innerRef = React.useRef<HTMLTextAreaElement | null>(null);
 
     const setRefs = React.useCallback(
@@ -17,22 +23,20 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"tex
 
     const resize = React.useCallback(() => {
       const el = innerRef.current;
-      if (!el) return;
+      if (!el || !autoGrow) return;
+      el.style.width = "100%";
       el.style.height = "auto";
       el.style.height = `${el.scrollHeight}px`;
-    }, []);
+    }, [autoGrow]);
 
-    // Resize on every render (covers controlled value updates, RHF resets, etc.)
     React.useLayoutEffect(() => {
-      resize();
+      if (autoGrow) resize();
     });
 
-    // Resize when the element changes size (e.g. becomes visible inside a tab/dialog,
-    // viewport resizes, fonts load).
     React.useEffect(() => {
+      if (!autoGrow) return;
       const el = innerRef.current;
       if (!el) return;
-      // Initial pass after mount in case layout wasn't ready yet.
       const raf = requestAnimationFrame(resize);
 
       let ro: ResizeObserver | undefined;
@@ -41,27 +45,22 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"tex
         if (el.parentElement) ro.observe(el.parentElement);
       }
 
-      // Catch programmatic value changes that don't go through React (rare, but RHF
-      // sometimes sets the input value via the ref).
-      const mo = new MutationObserver(() => resize());
-      mo.observe(el, { attributes: true, attributeFilter: ["value"] });
-
       window.addEventListener("resize", resize);
       return () => {
         cancelAnimationFrame(raf);
         ro?.disconnect();
-        mo.disconnect();
         window.removeEventListener("resize", resize);
       };
-    }, [resize]);
+    }, [autoGrow, resize]);
 
     return (
       <textarea
         className={cn(
-          "flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          "resize-none overflow-hidden",
+          clinical.textarea,
+          autoGrow && "overflow-hidden resize-none",
           className,
         )}
+        style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", ...style }}
         ref={setRefs}
         onInput={(e) => {
           resize();

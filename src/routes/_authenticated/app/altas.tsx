@@ -6,7 +6,6 @@ import { useActiveClinic } from "@/lib/active-clinic";
 import { fmtDate } from "@/lib/format";
 import {
   LogOut,
-  ArrowRight,
   Filter,
   CalendarDays,
   TrendingUp,
@@ -22,10 +21,10 @@ import {
   InfoCard,
   KpiCard,
   KpiGrid,
-  PageHeader,
   PageSection,
+  QueryErrorState,
   SearchField,
-  StatusBadge,
+  SelectableListRow,
   clinical,
 } from "@/components/layout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -177,6 +176,7 @@ function AltasPage() {
   }, [selectedId, pendingQ.data, dischargesQ.data, clinicId]);
 
   const loading = pendingQ.isLoading || dischargesQ.isLoading;
+  const hasError = pendingQ.isError || dischargesQ.isError;
 
   return (
     <AppShell clinical>
@@ -188,7 +188,14 @@ function AltasPage() {
         description="Encerramento do ciclo clínico com comparativo evolutivo, assistente guiado e documentação."
       />
 
-      {loading ? (
+      {hasError ? (
+        <QueryErrorState
+          onRetry={() => {
+            void pendingQ.refetch();
+            void dischargesQ.refetch();
+          }}
+        />
+      ) : loading ? (
         <ClinicalSkeleton variant="split" kpiCount={4} />
       ) : (
         <>
@@ -230,6 +237,7 @@ function AltasPage() {
               </InfoCard>
 
               <PageSection
+                icon={LogOut}
                 title="Pacientes"
                 description={`${filtered.length} registro${filtered.length === 1 ? "" : "s"} · ${kpis.pending} aguardando alta`}
                 contentClassName="p-0"
@@ -249,20 +257,20 @@ function AltasPage() {
                   <ul className="divide-y divide-slate-100">
                     {filtered.map((item) =>
                       item.kind === "pending" ? (
-                        <PatientRow
+                        <SelectableListRow
                           key={`p-${item.patient.id}`}
-                          name={item.patient.nome_completo}
+                          title={item.patient.nome_completo}
                           subtitle="Em tratamento · pronto para alta"
-                          badge={{ label: "Ativo", variant: "warning" as const }}
+                          badge={{ label: "Ativo", variant: "warning" }}
                           selected={selectedId === item.patient.id}
                           onSelect={() => setSelectedId(item.patient.id)}
                         />
                       ) : (
-                        <PatientRow
+                        <SelectableListRow
                           key={`d-${item.discharge.id}`}
-                          name={item.discharge.patients?.nome_completo ?? "—"}
+                          title={item.discharge.patients?.nome_completo ?? "—"}
                           subtitle={`Alta em ${fmtDate(item.discharge.data_alta)} · ${item.discharge.motivo}`}
-                          badge={{ label: "Alta registrada", variant: "success" as const }}
+                          badge={{ label: "Alta registrada", variant: "success" }}
                           selected={selectedId === item.discharge.patient_id}
                           onSelect={() => setSelectedId(item.discharge.patient_id)}
                         />
@@ -292,42 +300,5 @@ function AltasPage() {
         </>
       )}
     </AppShell>
-  );
-}
-
-function PatientRow({
-  name,
-  subtitle,
-  badge,
-  selected,
-  onSelect,
-}: {
-  name: string;
-  subtitle: string;
-  badge: { label: string; variant: "success" | "warning" | "danger" | "info" | "neutral" };
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onSelect}
-        className={cn(
-          "flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50",
-          selected && "bg-primary/5 ring-1 ring-inset ring-primary/20",
-          clinical.focusRing,
-        )}
-      >
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
-          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-        </div>
-      </button>
-    </li>
   );
 }

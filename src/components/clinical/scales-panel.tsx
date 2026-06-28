@@ -7,12 +7,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { SCALES, computeScale, RISK_COLORS, type ScaleType } from "@/lib/clinical-scales";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { fmtDate } from "@/lib/format";
+import {
+  ClinicalDialogBody,
+  ClinicalDialogContent,
+  ClinicalDialogFooter,
+  ClinicalDialogHeader,
+  ClinicalDialogTitle,
+  ClinicalField,
+} from "@/components/layout";
 
 export function ScalesPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
   const qc = useQueryClient();
@@ -31,41 +39,42 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
   });
 
   return (
-    <Card className="p-4 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="font-semibold flex items-center gap-2"><Activity className="h-4 w-4" /> Escalas Funcionais</h3>
+    <Card className="space-y-5 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 font-semibold"><Activity className="h-4 w-4" /> Escalas Funcionais</h3>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Aplicar escala</Button></DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Aplicar Escala</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <Label>Escala</Label>
+          <DialogTrigger asChild><Button size="sm"><Plus className="mr-1 h-4 w-4" />Aplicar escala</Button></DialogTrigger>
+          <ClinicalDialogContent>
+            <ClinicalDialogHeader>
+              <ClinicalDialogTitle>Aplicar escala</ClinicalDialogTitle>
+            </ClinicalDialogHeader>
+            <ClinicalDialogBody className="space-y-5">
+              <ClinicalField label="Escala">
                 <Select value={activeScale} onValueChange={(v) => setActiveScale(v as ScaleType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.values(SCALES).map((s) => <SelectItem key={s.type} value={s.type}>{s.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">{SCALES[activeScale].description}</p>
-              </div>
+              </ClinicalField>
+              <p className="text-sm leading-relaxed text-slate-600">{SCALES[activeScale].description}</p>
               <ScaleForm
                 scaleType={activeScale}
                 patientId={patientId}
                 assessmentId={assessmentId}
                 onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["scales", patientId] }); }}
               />
-            </div>
-          </DialogContent>
+            </ClinicalDialogBody>
+          </ClinicalDialogContent>
         </Dialog>
       </div>
 
       {rows.data?.length ? (
         <>
           <ScalesCharts items={rows.data} />
-          <div className="grid sm:grid-cols-2 gap-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {rows.data.map((r: any) => (
-              <div key={r.id} className="border rounded-md p-3 text-sm">
+              <div key={r.id} className="rounded-xl border border-[rgba(15,76,92,0.12)] bg-white p-4 text-sm shadow-sm">
                 <div className="flex items-center justify-between gap-2">
                   <strong>{SCALES[r.scale_type as ScaleType]?.title ?? r.scale_type}</strong>
                   <span className="text-xs text-muted-foreground">{fmtDate(r.applied_at)}</span>
@@ -109,13 +118,13 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
   });
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
+    <div className="space-y-5">
+      <div className="max-h-[min(52vh,520px)] space-y-4 overflow-y-auto pr-1">
         {cfg.items.map((it) => (
-          <div key={it.key} className="grid sm:grid-cols-2 gap-2 items-center">
-            <Label className="text-sm">{it.label}</Label>
+          <div key={it.key} className="fos-scale-form-row">
+            <Label className="fos-scale-form-label text-sm font-medium leading-snug text-slate-700">{it.label}</Label>
             {it.kind === "numeric" ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -133,7 +142,7 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
                     });
                   }}
                 />
-                {it.unit ? <span className="text-xs text-muted-foreground">{it.unit}</span> : null}
+                {it.unit ? <span className="text-xs text-slate-500">{it.unit}</span> : null}
               </div>
             ) : (
               <Select value={items[it.key]?.toString() ?? ""} onValueChange={(v) => setItems((p) => ({ ...p, [it.key]: Number(v) }))}>
@@ -146,23 +155,24 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
           </div>
         ))}
       </div>
-      <div>
-        <Label>Observações</Label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-      </div>
-      <div className="flex items-center justify-between bg-muted p-3 rounded-md">
+      <ClinicalField label="Observações" optional>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+      </ClinicalField>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[rgba(15,76,92,0.12)] bg-[#f4f7f9] p-4">
         <div>
-          <div className="text-xs text-muted-foreground">Total</div>
-          <div className="text-2xl font-bold">{result.total} / {result.maxScore}</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</div>
+          <div className="text-2xl font-bold tabular-nums text-slate-950">{result.total} / {result.maxScore}</div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-muted-foreground">Classificação</div>
-          <span className={`inline-block text-xs px-2 py-1 rounded-full border ${RISK_COLORS[result.risk]}`}>{result.classification}</span>
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Classificação</div>
+          <span className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${RISK_COLORS[result.risk]}`}>{result.classification}</span>
         </div>
       </div>
-      <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full">
-        {save.isPending ? "Salvando…" : "Registrar aplicação"}
-      </Button>
+      <ClinicalDialogFooter className="border-0 bg-transparent px-0 py-0">
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full sm:w-auto">
+          {save.isPending ? "Salvando…" : "Registrar aplicação"}
+        </Button>
+      </ClinicalDialogFooter>
     </div>
   );
 }

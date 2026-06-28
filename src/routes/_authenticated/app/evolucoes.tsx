@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   AppShell,
+  ClinicalDataTable,
   ClinicalSkeleton,
   EmptyState,
   InfoCard,
@@ -25,6 +26,8 @@ import {
   KpiGrid,
   PageHeader,
   PageSection,
+  PatientRecordLink,
+  QueryErrorState,
   SearchField,
   StatusBadge,
 } from "@/components/layout";
@@ -65,7 +68,7 @@ function EvolucoesPage() {
   const [q, setQ] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["evolucoes-list", clinicId],
     enabled: !!clinicId,
     queryFn: async () => {
@@ -129,7 +132,9 @@ function EvolucoesPage() {
         description="Histórico cronológico de sessões registradas em todos os prontuários."
       />
 
-      {isLoading ? (
+      {isError ? (
+        <QueryErrorState onRetry={() => void refetch()} />
+      ) : isLoading ? (
         <ClinicalSkeleton variant="split" kpiCount={3} />
       ) : (
         <>
@@ -161,7 +166,7 @@ function EvolucoesPage() {
             </div>
           </InfoCard>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
             <PageSection
               icon={Activity}
               title={viewMode === "timeline" ? "Timeline cronológica" : "Lista de evoluções"}
@@ -187,8 +192,8 @@ function EvolucoesPage() {
                   ))}
                 </ol>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-sm">
+                <ClinicalDataTable>
+                  <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                       <tr>
                         <th className="px-5 py-3 text-left font-bold">Data</th>
@@ -201,7 +206,7 @@ function EvolucoesPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filtered.map((a) => (
-                        <tr key={a.id} className="transition-colors hover:bg-emerald-50/40">
+                        <tr key={a.id} className="transition-colors hover:bg-primary/[0.03]">
                           <td className="whitespace-nowrap px-5 py-3.5 tabular-nums font-medium">
                             {a.data ? fmtDate(a.data) : "—"}
                           </td>
@@ -209,14 +214,10 @@ function EvolucoesPage() {
                             {a.hora ? String(a.hora).slice(0, 5) : "—"}
                           </td>
                           <td className="px-5 py-3.5">
-                            <Link
-                              to="/app/pacientes/$id"
-                              params={{ id: a.patient_id }}
-                              className="inline-flex items-center gap-1 font-semibold hover:underline"
-                            >
-                              {a.patients?.nome_completo ?? "—"}
-                              <ArrowRight className="h-3 w-3 opacity-60" />
-                            </Link>
+                            <PatientRecordLink
+                              patientId={a.patient_id}
+                              name={a.patients?.nome_completo ?? "—"}
+                            />
                           </td>
                           <td className="hidden px-5 py-3.5 text-muted-foreground md:table-cell">
                             {a.professionals?.nome ?? "—"}
@@ -233,10 +234,11 @@ function EvolucoesPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </ClinicalDataTable>
               )}
             </PageSection>
 
+            {filtered.length > 0 && (
             <aside>
               <PageSection icon={Clock} title="Histórico recente" description="Últimas sessões registradas.">
                 <ul className="divide-y divide-slate-100">
@@ -269,6 +271,7 @@ function EvolucoesPage() {
                 </ul>
               </PageSection>
             </aside>
+            )}
           </div>
         </>
       )}
@@ -296,14 +299,11 @@ function TimelineItem({ row: a }: { row: EvolutionRow }) {
               {fmtDate(a.data)} · {String(a.hora).slice(0, 5)}
               {a.sessao_numero ? ` · Sessão #${a.sessao_numero}` : ""}
             </div>
-            <Link
-              to="/app/pacientes/$id"
-              params={{ id: a.patient_id }}
-              className="mt-1 inline-flex items-center gap-1 text-base font-bold text-slate-950 hover:underline"
-            >
-              {a.patients?.nome_completo ?? "—"}
-              <ArrowRight className="h-3.5 w-3.5 opacity-50" />
-            </Link>
+            <PatientRecordLink
+              patientId={a.patient_id}
+              name={a.patients?.nome_completo ?? "—"}
+              className="mt-1 text-base"
+            />
             <p className="text-sm text-muted-foreground">{a.professionals?.nome ?? "—"}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -312,7 +312,7 @@ function TimelineItem({ row: a }: { row: EvolutionRow }) {
               <StatusBadge variant="neutral">EVA {a.eva}</StatusBadge>
             )}
             <StatusBadge variant={a.locked_at ? "success" : "warning"}>
-              {a.locked_at ? "Assinada" : "Rascunho"}
+              {a.locked_at ? "Assinada" : "Sem assinatura"}
             </StatusBadge>
           </div>
         </div>

@@ -13,7 +13,7 @@ export function AppShell({ children, className, clinical: isClinical }: AppShell
   return (
     <div
       className={cn(
-        "min-h-[calc(100vh-8rem)] space-y-6 rounded-[28px] border border-white/70 bg-[#f8fafc]/80 p-4 shadow-[0_24px_70px_-48px_rgba(15,23,42,0.45)] sm:space-y-7 sm:p-6 lg:p-8",
+        "min-h-[calc(100vh-8rem)] space-y-6 rounded-[28px] border border-[rgba(15,76,92,0.12)] bg-white/75 p-4 shadow-[var(--fos-card-shadow)] backdrop-blur-sm sm:space-y-7 sm:p-6 lg:p-8",
         isClinical && "dashboard-premium clinical-module",
         className,
       )}

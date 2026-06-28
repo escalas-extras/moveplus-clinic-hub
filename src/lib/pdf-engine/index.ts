@@ -29,15 +29,19 @@ export {
   normalizeLogoDataUrl,
   prepareLogoForPdf,
   prepareLogoFromUrl,
+  prepareLogoInput,
   urlToDataUrl,
 } from "./logo";
 
 export {
   drawContainedImage,
+  drawLogoBox,
   drawLogoOrFallback,
   drawSignatureImage,
+  computeLogoBoxRect,
   fitRect,
   type ImageDrawResult,
+  type LogoBoxRect,
 } from "./images";
 
 export {
@@ -59,3 +63,18 @@ export {
 export { drawMiniIcon, drawMonogram, fieldIconFor, type IconKind } from "./icons";
 
 export { renderPdf } from "./render";
+
+export {
+  composeAndBalance,
+  measurePublishingBlock,
+  renderPublishingPageContent,
+  DENSITY_TARGET,
+  type PublishingPage,
+  type PublishingBlockGroup,
+} from "./publishing";
+
+export {
+  DS_LAYOUT_ID,
+  createDocumentTheme,
+  renderFisioosDsDocument,
+} from "./design-system";

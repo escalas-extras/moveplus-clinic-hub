@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ClinicalField } from "@/components/layout";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -191,9 +192,8 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
 
 function FieldText({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+    <ClinicalField label={label} optional>
       <Textarea rows={2} value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
+    </ClinicalField>
   );
 }

@@ -68,9 +68,10 @@ export const PDF_QR = {
 } as const;
 
 export const PDF_LOGO = {
-  boxW: 86,
-  boxH: 78,
-  padding: 14,
+  boxW: 118,
+  boxH: 112,
+  padding: 10,
+  inset: 4,
   maxCanvasDim: 512,
 } as const;
 

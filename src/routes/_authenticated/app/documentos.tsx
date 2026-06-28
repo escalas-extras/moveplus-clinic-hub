@@ -11,17 +11,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  FileText, Eye, Download, Save, Lock, Search, Check, ChevronLeft, ChevronRight,
+  FileText, Eye, Save, Lock, Check, ChevronLeft, ChevronRight,
   ClipboardList, User2, FileCheck2, Send, AlertTriangle, ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
-import { buildPdf, previewPdf } from "@/lib/pdf";
+import { buildPdf } from "@/lib/pdf";
+import { CURRENT_LAYOUT_PREVIEW_NOTICE, previewLiveDocumentPdf } from "@/lib/clinical-document-pdf";
+import { withContractPremiumLayout } from "@/lib/document-pdf-layout";
+import { ClinicalDocumentPdfActions } from "@/components/clinical-document-pdf-actions";
 import { resolveResponsibleProfessional, validateProfessionalForDoc } from "@/lib/professional-resolver";
 import { buildMergeData, renderTemplateSections, type ContratanteData } from "@/lib/merge-tags";
 import { useAuth } from "@/lib/auth";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { fmtDate, fmtDateTime, calcAge } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  AppShell,
+  ClinicalField,
+  EmptyState,
+  FormGrid,
+  PageHeader,
+  SearchField,
+  clinical,
+} from "@/components/layout";
 
 type SearchSchema = { patient?: string; template?: string };
 
@@ -162,7 +174,7 @@ function DocumentosPage() {
     },
   });
 
-  const { data: professionalInfo } = useQuery({
+  const { data: professionalInfo, isLoading: professionalLoading } = useQuery({
     queryKey: ["my-professional", user?.id, activeClinicId],
     enabled: !!user?.id && !!activeClinicId,
     queryFn: async () => {
@@ -247,21 +259,21 @@ function DocumentosPage() {
     return renderTemplateSections((template.sections as any) || [], data);
   }, [template, patient, lastAssessment, scales, professional, clinic, lastDischarge, effectiveContratante]);
 
-  const buildPdfOpts = () => ({
-    title: template?.name || "Documento",
-    subtitle: `Emitido em ${fmtDate(new Date())}`,
-    patientName: patient?.nome_completo,
-    professional: professional ?? null,
-    sections: renderedSections,
-    // White-label seguro: branding do PDF vem da clínica dona do paciente.
-    clinicId: ((patient as any)?.clinic_id ?? activeClinicId ?? null) as string | null,
-    contratante: isContractTemplate
-      ? { nome: effectiveContratante?.nome ?? null, cpf: effectiveContratante?.cpf ?? null, vinculo: effectiveContratante?.vinculo ?? null }
-      : null,
-    patientSnapshot: isContractTemplate
-      ? { nome: patient?.nome_completo ?? null, cpf: patient?.cpf ?? null }
-      : null,
-  });
+  const buildPdfOpts = () =>
+    withContractPremiumLayout({
+      title: template?.name || "Documento",
+      subtitle: `Emitido em ${fmtDate(new Date())}`,
+      patientName: patient?.nome_completo,
+      professional: professional ?? null,
+      sections: renderedSections,
+      clinicId: ((patient as any)?.clinic_id ?? activeClinicId ?? null) as string | null,
+      contratante: isContractTemplate
+        ? { nome: effectiveContratante?.nome ?? null, cpf: effectiveContratante?.cpf ?? null, vinculo: effectiveContratante?.vinculo ?? null }
+        : null,
+      patientSnapshot: isContractTemplate
+        ? { nome: patient?.nome_completo ?? null, cpf: patient?.cpf ?? null }
+        : null,
+    });
 
   // ----- ACTIONS -----
   const emit = useMutation({
@@ -353,7 +365,8 @@ function DocumentosPage() {
   const missing: string[] = [];
   if (!template) missing.push("Modelo de documento");
   if (!patient) missing.push("Paciente");
-  if (professionalInfo && !professionalReady) missing.push(professionalInfo.message || "Profissional responsável");
+  if (professionalLoading) missing.push("Validando profissional responsável…");
+  else if (professionalInfo && !professionalReady) missing.push(professionalInfo.message || "Profissional responsável");
   if (isContractTemplate && contratanteMode === "responsavel") {
     const f = contratanteForm;
     if (!f.nome?.trim() || !f.cpf?.trim() || !f.rg?.trim() || !f.vinculo?.trim() || !f.telefone?.trim() || !f.endereco?.trim()) {
@@ -366,13 +379,14 @@ function DocumentosPage() {
   const prev = () => setStep((s) => (Math.max(1, s - 1) as 1 | 2 | 3 | 4));
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Emissão de Documentos</h1>
-        <p className="text-sm text-muted-foreground">
-          Siga as etapas para gerar um documento clínico oficial e arquivá-lo no prontuário do paciente.
-        </p>
-      </header>
+    <AppShell clinical className="max-w-6xl">
+      <PageHeader
+        icon={FileText}
+        eyebrow="Documentos clínicos"
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Documentos" }]}
+        title="Emissão de Documentos"
+        description="Siga as etapas para gerar um documento clínico oficial e arquivá-lo no prontuário do paciente."
+      />
 
       {supportMode && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm flex items-start gap-3">
@@ -387,7 +401,7 @@ function DocumentosPage() {
       )}
 
       {/* Progress bar */}
-      <Card className="p-4 rounded-2xl shadow-soft">
+      <Card className={cn(clinical.card, "p-4 shadow-none")}>
         <ol className="flex items-center gap-2">
           {STEPS.map((s, idx) => {
             const status: "current" | "done" | "pending" =
@@ -436,24 +450,23 @@ function DocumentosPage() {
         <div className="space-y-4">
           {/* STEP 1 — Modelo */}
           {step === 1 && (
-            <Card className="p-5 rounded-2xl shadow-soft space-y-4">
+            <Card className={cn(clinical.card, "space-y-4 p-5 shadow-none")}>
               <div>
-                <h2 className="text-lg font-semibold">Escolha o modelo</h2>
+                <h2 className="text-lg font-semibold text-slate-950">Escolha o modelo</h2>
                 <p className="text-xs text-muted-foreground">Modelos disponíveis na sua clínica.</p>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={templateSearch}
-                  onChange={(e) => setTemplateSearch(e.target.value)}
-                  placeholder="Buscar modelo por nome ou categoria..."
-                  className="pl-9"
-                />
-              </div>
+              <SearchField
+                placeholder="Buscar modelo por nome ou categoria…"
+                value={templateSearch}
+                onChange={(e) => setTemplateSearch(e.target.value)}
+              />
               {filteredTemplates.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  Nenhum modelo encontrado.
-                </div>
+                <EmptyState
+                  icon={ClipboardList}
+                  title="Nenhum modelo encontrado"
+                  description="Ajuste a busca ou cadastre modelos em Configurações."
+                  className="py-10"
+                />
               ) : (
                 <div className="grid sm:grid-cols-2 gap-3">
                   {filteredTemplates.map((t: any) => {
@@ -492,24 +505,23 @@ function DocumentosPage() {
 
           {/* STEP 2 — Paciente */}
           {step === 2 && (
-            <Card className="p-5 rounded-2xl shadow-soft space-y-4">
+            <Card className={cn(clinical.card, "space-y-4 p-5 shadow-none")}>
               <div>
-                <h2 className="text-lg font-semibold">Selecione o paciente</h2>
+                <h2 className="text-lg font-semibold text-slate-950">Selecione o paciente</h2>
                 <p className="text-xs text-muted-foreground">Apenas pacientes da clínica ativa.</p>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={patientSearch}
-                  onChange={(e) => setPatientSearch(e.target.value)}
-                  placeholder="Buscar por nome ou CPF..."
-                  className="pl-9"
-                />
-              </div>
+              <SearchField
+                placeholder="Buscar por nome ou CPF…"
+                value={patientSearch}
+                onChange={(e) => setPatientSearch(e.target.value)}
+              />
               {filteredPatients.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  Nenhum paciente encontrado.
-                </div>
+                <EmptyState
+                  icon={User2}
+                  title="Nenhum paciente encontrado"
+                  description="Ajuste a busca ou cadastre um paciente."
+                  className="py-10"
+                />
               ) : (
                 <div className="grid sm:grid-cols-2 gap-3 max-h-[55vh] overflow-auto pr-1">
                   {filteredPatients.slice(0, 80).map((p: any) => {
@@ -544,39 +556,47 @@ function DocumentosPage() {
 
               {/* Contratante (se contrato) */}
               {isContractTemplate && patientId && (
-                <div className="border-t pt-4 space-y-3">
-                  <Label>Contratante</Label>
-                  <RadioGroup
-                    value={contratanteMode}
-                    onValueChange={(v) => setContratanteMode(v as "paciente" | "responsavel")}
-                    className="flex flex-col sm:flex-row gap-3 text-sm"
-                  >
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <RadioGroupItem value="paciente" id="ct-pac" />
-                      <span>Próprio paciente</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <RadioGroupItem value="responsavel" id="ct-resp" />
-                      <span>Responsável / contratante financeiro</span>
-                    </label>
-                  </RadioGroup>
+                <div className="space-y-4 border-t border-[rgba(15,76,92,0.1)] pt-4">
+                  <ClinicalField label="Contratante">
+                    <RadioGroup
+                      value={contratanteMode}
+                      onValueChange={(v) => setContratanteMode(v as "paciente" | "responsavel")}
+                      className="flex flex-col gap-3 text-sm sm:flex-row"
+                    >
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[rgba(15,76,92,0.12)] px-3 py-2.5 transition-colors hover:bg-slate-50">
+                        <RadioGroupItem value="paciente" id="ct-pac" />
+                        <span>Próprio paciente</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[rgba(15,76,92,0.12)] px-3 py-2.5 transition-colors hover:bg-slate-50">
+                        <RadioGroupItem value="responsavel" id="ct-resp" />
+                        <span>Responsável / contratante financeiro</span>
+                      </label>
+                    </RadioGroup>
+                  </ClinicalField>
                   {contratanteMode === "responsavel" && (
-                    <div className="grid sm:grid-cols-2 gap-2">
-                      <div className="sm:col-span-2"><Label className="text-xs">Nome completo *</Label>
-                        <Input value={contratanteForm.nome ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, nome: e.target.value }))} maxLength={120} /></div>
-                      <div><Label className="text-xs">CPF *</Label>
-                        <Input value={contratanteForm.cpf ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, cpf: e.target.value }))} maxLength={20} /></div>
-                      <div><Label className="text-xs">RG *</Label>
-                        <Input value={contratanteForm.rg ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, rg: e.target.value }))} maxLength={20} /></div>
-                      <div><Label className="text-xs">Vínculo *</Label>
-                        <Input value={contratanteForm.vinculo ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, vinculo: e.target.value }))} placeholder="Mãe, filho(a), cônjuge…" maxLength={60} /></div>
-                      <div><Label className="text-xs">Telefone *</Label>
-                        <Input value={contratanteForm.telefone ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, telefone: e.target.value }))} maxLength={30} /></div>
-                      <div className="sm:col-span-2"><Label className="text-xs">Endereço *</Label>
-                        <Textarea value={contratanteForm.endereco ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, endereco: e.target.value }))} rows={2} maxLength={240} /></div>
-                      <div className="sm:col-span-2"><Label className="text-xs">E-mail (opcional)</Label>
-                        <Input type="email" value={contratanteForm.email ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, email: e.target.value }))} maxLength={120} /></div>
-                    </div>
+                    <FormGrid>
+                      <ClinicalField label="Nome completo" required filled={!!contratanteForm.nome?.trim()} className="sm:col-span-2">
+                        <Input value={contratanteForm.nome ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, nome: e.target.value }))} maxLength={120} />
+                      </ClinicalField>
+                      <ClinicalField label="CPF" required filled={!!contratanteForm.cpf?.trim()}>
+                        <Input value={contratanteForm.cpf ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, cpf: e.target.value }))} maxLength={20} />
+                      </ClinicalField>
+                      <ClinicalField label="RG" required filled={!!contratanteForm.rg?.trim()}>
+                        <Input value={contratanteForm.rg ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, rg: e.target.value }))} maxLength={20} />
+                      </ClinicalField>
+                      <ClinicalField label="Vínculo" required filled={!!contratanteForm.vinculo?.trim()}>
+                        <Input value={contratanteForm.vinculo ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, vinculo: e.target.value }))} placeholder="Mãe, filho(a), cônjuge…" maxLength={60} />
+                      </ClinicalField>
+                      <ClinicalField label="Telefone" required filled={!!contratanteForm.telefone?.trim()}>
+                        <Input value={contratanteForm.telefone ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, telefone: e.target.value }))} maxLength={30} />
+                      </ClinicalField>
+                      <ClinicalField label="Endereço" required filled={!!contratanteForm.endereco?.trim()} className="sm:col-span-2">
+                        <Textarea value={contratanteForm.endereco ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, endereco: e.target.value }))} rows={2} maxLength={240} />
+                      </ClinicalField>
+                      <ClinicalField label="E-mail" optional className="sm:col-span-2">
+                        <Input type="email" value={contratanteForm.email ?? ""} onChange={(e) => setContratanteForm((f) => ({ ...f, email: e.target.value }))} maxLength={120} />
+                      </ClinicalField>
+                    </FormGrid>
                   )}
                 </div>
               )}
@@ -585,7 +605,7 @@ function DocumentosPage() {
 
           {/* STEP 3 — Visualização */}
           {step === 3 && (
-            <Card className="p-5 rounded-2xl shadow-soft space-y-4">
+            <Card className={cn(clinical.card, "space-y-4 p-5 shadow-none")}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">Confira os dados</h2>
@@ -637,7 +657,7 @@ function DocumentosPage() {
 
           {/* STEP 4 — Emitir e Arquivar */}
           {step === 4 && (
-            <Card className="p-5 rounded-2xl shadow-soft space-y-4">
+            <Card className={cn(clinical.card, "space-y-4 p-5 shadow-none")}>
               <div>
                 <h2 className="text-lg font-semibold">Emitir e arquivar</h2>
                 <p className="text-xs text-muted-foreground">
@@ -657,21 +677,28 @@ function DocumentosPage() {
                 </div>
               )}
 
+              <div className="rounded-xl border border-blue-200 bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900 p-3 text-xs text-blue-900 dark:text-blue-200">
+                {CURRENT_LAYOUT_PREVIEW_NOTICE} Use este botão antes de arquivar para ver o layout atual do PDF.
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 <Button
+                  type="button"
                   variant="outline"
-                  disabled={!template || !patient || !professionalReady}
-                  onClick={() => previewPdf(buildPdfOpts())}
+                  disabled={!template || !patient || professionalLoading || !professionalReady}
+                  onClick={() => void previewLiveDocumentPdf(buildPdfOpts())}
                 >
-                  <FileText className="h-4 w-4 mr-2" /> Abrir PDF
+                  <FileText className="h-4 w-4 mr-2" /> Pré-visualizar com layout atual
                 </Button>
                 <Button
+                  type="button"
                   disabled={!canEmit || emit.isPending}
+                  loading={emit.isPending}
                   onClick={() => emit.mutate()}
                   title={supportMode ? "Modo suporte: emissão bloqueada." : undefined}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  {emit.isPending ? "Emitindo..." : "Emitir e arquivar"}
+                  {emit.isPending ? "Emitindo…" : "Emitir e arquivar"}
                 </Button>
               </div>
             </Card>
@@ -679,11 +706,12 @@ function DocumentosPage() {
 
           {/* Wizard navigation */}
           <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={prev} disabled={step === 1}>
+            <Button variant="ghost" type="button" onClick={prev} disabled={step === 1}>
               <ChevronLeft className="h-4 w-4 mr-1" /> Voltar
             </Button>
             {step < 4 && (
               <Button
+                type="button"
                 onClick={next}
                 disabled={
                   (step === 1 && !canAdvanceFrom1) ||
@@ -697,20 +725,26 @@ function DocumentosPage() {
         </div>
 
         {/* Side panel — Documentos emitidos */}
-        <Card className="p-4 rounded-2xl shadow-soft h-fit lg:sticky lg:top-4 space-y-3">
+        <Card className={cn(clinical.card, "h-fit space-y-3 p-4 shadow-none lg:sticky lg:top-4")}>
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-sm">Documentos do paciente</h2>
             {patient && <Badge variant="outline" className="max-w-[160px] truncate">{patient.nome_completo}</Badge>}
           </div>
           {!patient && (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              Selecione um paciente para ver os documentos arquivados.
-            </div>
+            <EmptyState
+              icon={User2}
+              title="Nenhum paciente selecionado"
+              description="Selecione um paciente para ver os documentos arquivados."
+              className="py-8"
+            />
           )}
           {patient && emitted.length === 0 && (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              Nenhum documento emitido ainda.
-            </div>
+            <EmptyState
+              icon={FileText}
+              title="Nenhum documento emitido"
+              description="Os documentos gerados aparecerão aqui após a emissão."
+              className="py-8"
+            />
           )}
           <div className="space-y-2 max-h-[60vh] overflow-auto">
             {emitted.map((d: any) => (
@@ -727,15 +761,11 @@ function DocumentosPage() {
                 )}
                 {d.pdf_url && (
                   <div className="mt-2">
-                    <Button
-                      size="sm" variant="outline" className="h-7 text-xs"
-                      onClick={async () => {
-                        const { data } = await supabase.storage.from("documents").createSignedUrl(d.pdf_url, 300);
-                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                      }}
-                    >
-                      <Download className="h-3 w-3 mr-1" /> Abrir
-                    </Button>
+                    <ClinicalDocumentPdfActions
+                      document={d}
+                      patientName={patient?.nome_completo}
+                      compact
+                    />
                   </div>
                 )}
               </div>
@@ -760,7 +790,7 @@ function DocumentosPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </AppShell>
   );
 }
 

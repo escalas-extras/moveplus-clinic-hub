@@ -10,6 +10,7 @@ import {
   buildReassessmentPdfOpts,
 } from "../src/lib/clinical-pdf-builders";
 import { renderPdf, type ClinicData, type Professional } from "../src/lib/pdf-engine";
+import { prepareLogoInputNode } from "./lib/logo-node";
 
 const OUT = resolve(process.cwd(), "pdf-clinical-fixtures");
 mkdirSync(OUT, { recursive: true });
@@ -138,7 +139,8 @@ const discharge = {
 };
 
 async function write(name: string, opts: Parameters<typeof renderPdf>[0], logo: string | null = null) {
-  const doc = await renderPdf(opts, { clinic: CLINIC, logo });
+  const prepared = logo != null ? await prepareLogoInputNode(logo) : null;
+  const doc = await renderPdf(opts, { clinic: CLINIC, logo: prepared });
   const file = resolve(OUT, `${name}.pdf`);
   writeFileSync(file, Buffer.from(doc.output("arraybuffer") as ArrayBuffer));
   console.log(`✓ ${file}`);

@@ -18,7 +18,7 @@ import {
   ClipboardList, Activity, Target, Pen, User, Save, AlertCircle, History, Circle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton } from "@/components/layout";
+import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton, FormHeaderField, FieldLabel } from "@/components/layout";
 import { calcAge, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +38,8 @@ const STEPS = [
   { key: "plano", label: "Plano Terapêutico", icon: Target },
   { key: "assinaturas", label: "Assinaturas", icon: Pen },
 ] as const;
+
+const ASSESSMENT_TEXTAREA = "mt-1.5 w-full min-w-0 max-w-full rounded-xl";
 
 type StepKey = (typeof STEPS)[number]["key"];
 
@@ -697,11 +699,11 @@ function AssessmentPremiumHeader({
   return (
     <InfoCard icon={Stethoscope} title="Prontuário de avaliação" description="Registro clínico premium para uso diário.">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <HeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
-        <HeaderField label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
-        <HeaderField label="Diagnóstico" value={diagnosis?.trim() || "—"} className="sm:col-span-2 lg:col-span-1 xl:col-span-2" />
-        <HeaderField label="Data" value={fmtDate(date)} />
-        <HeaderField label="Profissional" value={professional} />
+        <FormHeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
+        <FormHeaderField label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
+        <FormHeaderField label="Diagnóstico" value={diagnosis?.trim() || "—"} className="sm:col-span-2 lg:col-span-1 xl:col-span-2" />
+        <FormHeaderField label="Data" value={fmtDate(date)} />
+        <FormHeaderField label="Profissional" value={professional} />
         <div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Status</div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -722,23 +724,6 @@ function AssessmentPremiumHeader({
         </div>
       )}
     </InfoCard>
-  );
-}
-
-function HeaderField({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-slate-950 truncate">{value}</div>
-    </div>
   );
 }
 
@@ -901,28 +886,6 @@ function PreviousAssessmentsPanel({
   );
 }
 
-function RequiredLabel({
-  children,
-  required,
-  filled,
-}: {
-  children: ReactNode;
-  required?: boolean;
-  filled?: boolean;
-}) {
-  return (
-    <Label
-      className={cn(
-        "text-xs font-semibold uppercase tracking-wider",
-        required && !filled && "text-destructive",
-      )}
-    >
-      {children}
-      {required && <span className="ml-0.5 text-destructive">*</span>}
-    </Label>
-  );
-}
-
 // ============================================================================
 // STEPS
 // ============================================================================
@@ -933,9 +896,9 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
       <InfoCard icon={User} title="Identificação" description="Profissional responsável e dados da sessão.">
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <RequiredLabel required filled={!!values.professional_id}>
+            <FieldLabel required filled={!!values.professional_id}>
               Profissional
-            </RequiredLabel>
+            </FieldLabel>
             <Select
               value={values.professional_id}
               onValueChange={(v) => setValue("professional_id", v, { shouldDirty: true })}
@@ -956,7 +919,7 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
             )}
           </div>
           <div>
-            <RequiredLabel>Tipo</RequiredLabel>
+            <FieldLabel>Tipo</FieldLabel>
             <Select value={values.tipo} onValueChange={(v) => setValue("tipo", v, { shouldDirty: true })}>
               <SelectTrigger className="rounded-xl mt-1.5">
                 <SelectValue />
@@ -968,9 +931,9 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
             </Select>
           </div>
           <div>
-            <RequiredLabel required filled={!!values.data}>
+            <FieldLabel required filled={!!values.data}>
               Data
-            </RequiredLabel>
+            </FieldLabel>
             <Input type="date" className="rounded-xl mt-1.5" {...register("data")} />
           </div>
         </div>
@@ -995,10 +958,10 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
       <InfoCard icon={Stethoscope} title="Diagnóstico clínico" description="CID, descrição e diagnóstico fisioterapêutico.">
         <div className="space-y-3">
           <div>
-            <RequiredLabel filled={!!values.diagnostico_clinico?.trim()}>Diagnóstico clínico (CID / descrição)</RequiredLabel>
+            <FieldLabel filled={!!values.diagnostico_clinico?.trim()}>Diagnóstico clínico (CID / descrição)</FieldLabel>
             <Textarea
               rows={3}
-              className="mt-1.5 rounded-xl"
+              className={ASSESSMENT_TEXTAREA}
               placeholder="Ex.: AVC isquêmico em território de ACM esquerda, com hemiparesia direita"
               {...register("diagnostico_clinico")}
             />
@@ -1006,14 +969,14 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
               Conforme você digita, o sistema detecta o perfil clínico e sugere modelos clínicos.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <RequiredLabel>Médico responsável</RequiredLabel>
-              <Input className="rounded-xl mt-1.5" placeholder="Nome / CRM" {...register("medico_responsavel")} />
+          <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
+            <div className="min-w-0 w-full">
+              <FieldLabel>Médico responsável</FieldLabel>
+              <Input className={cn(ASSESSMENT_TEXTAREA, "h-11")} placeholder="Nome / CRM" {...register("medico_responsavel")} />
             </div>
-            <div>
-              <RequiredLabel>Diagnóstico fisioterapêutico</RequiredLabel>
-              <Input className="rounded-xl mt-1.5" placeholder="Ex.: hemiparesia direita pós-AVC" {...register("diagnostico_fisio")} />
+            <div className="min-w-0 w-full">
+              <FieldLabel>Diagnóstico fisioterapêutico</FieldLabel>
+              <Input className={cn(ASSESSMENT_TEXTAREA, "h-11")} placeholder="Ex.: hemiparesia direita pós-AVC" {...register("diagnostico_fisio")} />
             </div>
           </div>
         </div>
@@ -1085,14 +1048,14 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
 
 function StepAnamnese({ register, values }: any) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full min-w-0">
       <InfoCard icon={FileText} title="Queixa principal" description="Motivo da consulta e início do atendimento.">
-        <RequiredLabel required filled={!!values.queixa_principal?.trim()}>
+        <FieldLabel required filled={!!values.queixa_principal?.trim()}>
           Queixa principal
-        </RequiredLabel>
+        </FieldLabel>
         <Textarea
           rows={2}
-          className={cn("mt-1.5 rounded-xl", !values.queixa_principal?.trim() && "border-destructive/50")}
+          className={cn(ASSESSMENT_TEXTAREA, !values.queixa_principal?.trim() && "border-destructive/50")}
           {...register("queixa_principal")}
         />
         {!values.queixa_principal?.trim() && (
@@ -1100,32 +1063,32 @@ function StepAnamnese({ register, values }: any) {
         )}
       </InfoCard>
       <InfoCard icon={FileText} title="História da moléstia atual (HMA)">
-        <Textarea rows={4} className="rounded-xl" {...register("hma")} />
+        <Textarea rows={4} className={ASSESSMENT_TEXTAREA} {...register("hma")} />
       </InfoCard>
       <InfoCard icon={FileText} title="História da moléstia pregressa (HMP)">
-        <Textarea rows={3} className="rounded-xl" {...register("hmp")} />
+        <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("hmp")} />
       </InfoCard>
       <InfoCard icon={FileText} title="Antecedentes pessoais e familiares">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <RequiredLabel>Pessoais</RequiredLabel>
-            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("antecedentes_pessoais")} />
+        <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 w-full">
+            <FieldLabel>Pessoais</FieldLabel>
+            <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("antecedentes_pessoais")} />
           </div>
-          <div>
-            <RequiredLabel>Familiares</RequiredLabel>
-            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("antecedentes_familiares")} />
+          <div className="min-w-0 w-full">
+            <FieldLabel>Familiares</FieldLabel>
+            <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("antecedentes_familiares")} />
           </div>
         </div>
       </InfoCard>
       <InfoCard icon={FileText} title="Medicamentos e hábitos">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <RequiredLabel>Medicamentos em uso</RequiredLabel>
-            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("medicamentos")} />
+        <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 w-full">
+            <FieldLabel>Medicamentos em uso</FieldLabel>
+            <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("medicamentos")} />
           </div>
-          <div>
-            <RequiredLabel>Hábitos de vida</RequiredLabel>
-            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("habitos_vida")} />
+          <div className="min-w-0 w-full">
+            <FieldLabel>Hábitos de vida</FieldLabel>
+            <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("habitos_vida")} />
           </div>
         </div>
       </InfoCard>
@@ -1159,7 +1122,7 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
               />
             )}
           />
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
             <Field label="Inspeção" reg={register("inspecao")} />
             <Field label="Palpação" reg={register("palpacao")} />
           </div>
@@ -1233,18 +1196,18 @@ function StepPlano({ register, suggested }: any) {
         </InfoCard>
       )}
       <InfoCard icon={Target} title="Plano terapêutico" description="Objetivos, condutas e recursos.">
-        <div className="space-y-3">
-          <div>
-            <RequiredLabel>Objetivos terapêuticos</RequiredLabel>
-            <Textarea rows={4} className="mt-1.5 rounded-xl" {...register("objetivos")} />
+        <div className="space-y-3 w-full min-w-0">
+          <div className="w-full min-w-0">
+            <FieldLabel>Objetivos terapêuticos</FieldLabel>
+            <Textarea rows={4} className={ASSESSMENT_TEXTAREA} {...register("objetivos")} />
           </div>
-          <div>
-            <RequiredLabel>Condutas</RequiredLabel>
-            <Textarea rows={4} className="mt-1.5 rounded-xl" {...register("condutas")} />
+          <div className="w-full min-w-0">
+            <FieldLabel>Condutas</FieldLabel>
+            <Textarea rows={4} className={ASSESSMENT_TEXTAREA} {...register("condutas")} />
           </div>
-          <div>
-            <RequiredLabel>Recursos terapêuticos</RequiredLabel>
-            <Textarea rows={3} className="mt-1.5 rounded-xl" {...register("recursos_terapeuticos")} />
+          <div className="w-full min-w-0">
+            <FieldLabel>Recursos terapêuticos</FieldLabel>
+            <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("recursos_terapeuticos")} />
           </div>
         </div>
       </InfoCard>
@@ -1279,12 +1242,12 @@ function PlaceholderPhase({
 
 function Field({ label, reg, multiline }: { label: string; reg: any; multiline?: boolean }) {
   return (
-    <div>
-      <RequiredLabel>{label}</RequiredLabel>
+    <div className="w-full min-w-0">
+      <FieldLabel>{label}</FieldLabel>
       {multiline ? (
-        <Textarea rows={2} className="mt-1.5 rounded-xl" {...reg} />
+        <Textarea rows={2} className={ASSESSMENT_TEXTAREA} {...reg} />
       ) : (
-        <Input className="mt-1.5 rounded-xl" {...reg} />
+        <Input className={ASSESSMENT_TEXTAREA} {...reg} />
       )}
     </div>
   );

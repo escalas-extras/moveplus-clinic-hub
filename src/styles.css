@@ -71,92 +71,109 @@
 :root {
   --radius: 1.25rem;          /* 20px base — cards usam rounded-2xl */
 
-  /* ───── FisioOS Premium Palette ─────
-   * Primária  Azul Petróleo  #1B4965
-   * Secundária Verde Esmeralda #10B981
-   * Alerta    Laranja        #F59E0B
-   * Erro      Vermelho       #DC2626
-   * Fundo     Off-white frio #F6F8FB
-   * Texto     Grafite        #1D2939
+  /* ───── FisioOS Official Palette (Design Language) ─────
+   * Primária   #0F4C5C  teal profundo
+   * Secundária #2BB673  verde saúde
+   * Fundo      neutros quentes + aurora
+   * Texto      #1D2939  grafite
    */
-  --fos-primary: oklch(0.40 0.06 235);     /* azul petróleo */
-  --fos-primary-soft: oklch(0.54 0.07 235);
-  --fos-secondary: oklch(0.70 0.16 162);   /* verde esmeralda */
-  --fos-accent: oklch(0.69 0.15 235);      /* azul petróleo claro p/ realces */
-  --fos-warning: oklch(0.78 0.16 70);      /* laranja alerta */
-  --fos-warning-foreground: oklch(0.30 0.08 50);
-  --fos-bg: oklch(0.978 0.005 250);
-  --fos-bg-deep: oklch(0.96 0.008 250);
-  --fos-ink: oklch(0.28 0.025 255);
-  --fos-ink-soft: oklch(0.50 0.02 255);
-  --fos-sidebar-bg: #082436;              /* sidebar escuro premium */
-  --fos-active-indicator: #00a6a6;        /* barra lateral ativa */
+  --fos-primary: #0f4c5c;
+  --fos-primary-soft: #1a6278;
+  --fos-secondary: #2bb673;
+  --fos-accent: #3d9eb8;
+  --fos-warning: #f59e0b;
+  --fos-warning-foreground: #78350f;
+  --fos-bg: #e8f0f2;
+  --fos-bg-mid: #f0f5f7;
+  --fos-bg-deep: #dfe9ec;
+  --fos-ink: #1d2939;
+  --fos-ink-soft: #475569;
+  --fos-sidebar-bg: #082436;
+  --fos-active-indicator: #2bb673;
 
-  --background: var(--fos-bg);
+  --background: var(--fos-bg-mid);
   --foreground: var(--fos-ink);
 
-  --card: oklch(1 0 0);
+  --card: #ffffff;
   --card-foreground: var(--foreground);
 
-  --popover: oklch(1 0 0);
+  --popover: #ffffff;
   --popover-foreground: var(--foreground);
 
   --primary: var(--fos-primary);
-  --primary-foreground: oklch(0.99 0.005 250);
+  --primary-foreground: #f8fafc;
 
-  --secondary: oklch(0.96 0.012 220);
+  --secondary: #e2eef0;
   --secondary-foreground: var(--fos-primary);
 
-  --muted: oklch(0.955 0.008 250);
+  --muted: #e8eef2;
   --muted-foreground: var(--fos-ink-soft);
 
   --accent: var(--fos-accent);
-  --accent-foreground: oklch(0.99 0.005 250);
+  --accent-foreground: #f8fafc;
 
   --warning: var(--fos-warning);
   --warning-foreground: var(--fos-warning-foreground);
 
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.99 0 0);
+  --destructive: #dc2626;
+  --destructive-foreground: #fef2f2;
 
-  --border: oklch(0.92 0.008 250);
-  --input: oklch(0.94 0.008 250);
+  --border: rgba(15, 76, 92, 0.16);
+  --input: rgba(15, 76, 92, 0.10);
   --ring: var(--fos-primary);
 
   --chart-1: var(--fos-primary);
   --chart-2: var(--fos-secondary);
   --chart-3: var(--fos-warning);
-  --chart-4: oklch(0.70 0.14 60);
-  --chart-5: oklch(0.62 0.15 320);
+  --chart-4: #4f9cf9;
+  --chart-5: #8b5cf6;
 
   --sidebar: #082436;
-  --sidebar-foreground: rgba(255, 255, 255, 0.78);
-  --sidebar-primary: #00a6a6;
+  --sidebar-foreground: rgba(255, 255, 255, 0.88);
+  --sidebar-primary: #2bb673;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.10);
+  --sidebar-accent: rgba(255, 255, 255, 0.12);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.12);
-  --sidebar-ring: #00a6a6;
+  --sidebar-border: rgba(255, 255, 255, 0.16);
+  --sidebar-ring: #2bb673;
 
-  /* Gradientes ambiente (aurora) — mais perceptível, sem poluir */
+  /* Canvas principal — profundidade sutil verde/azul/cinza */
+  --fos-canvas:
+    linear-gradient(
+      168deg,
+      color-mix(in oklab, var(--fos-primary) 6%, #e4eef1) 0%,
+      #f2f6f8 38%,
+      color-mix(in oklab, var(--fos-secondary) 7%, #eef5f1) 100%
+    );
+
+  /* Gradientes ambiente (aurora) — perceptível, elegante */
   --fos-aurora:
-    radial-gradient(1100px 700px at -5% -15%, color-mix(in oklab, var(--fos-accent) 26%, transparent), transparent 55%),
-    radial-gradient(900px 600px at 105% -10%, color-mix(in oklab, var(--fos-secondary) 22%, transparent), transparent 55%),
-    radial-gradient(1000px 700px at 50% 115%, color-mix(in oklab, var(--fos-primary) 18%, transparent), transparent 60%),
-    radial-gradient(700px 500px at 80% 50%, color-mix(in oklab, var(--fos-accent) 10%, transparent), transparent 60%);
+    radial-gradient(1200px 720px at -8% -12%, color-mix(in oklab, var(--fos-primary) 22%, transparent), transparent 58%),
+    radial-gradient(960px 640px at 108% -8%, color-mix(in oklab, var(--fos-secondary) 20%, transparent), transparent 56%),
+    radial-gradient(1100px 760px at 50% 118%, color-mix(in oklab, var(--fos-accent) 16%, transparent), transparent 62%),
+    radial-gradient(800px 560px at 82% 48%, color-mix(in oklab, var(--fos-secondary) 12%, transparent), transparent 58%);
 
-  /* Sombras premium */
+  /* Sombras premium — tint teal */
   --shadow-soft:
-    0 1px 2px rgba(15, 76, 92, 0.06),
-    0 16px 40px -16px rgba(15, 76, 92, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    0 1px 2px rgba(15, 76, 92, 0.08),
+    0 12px 32px -14px rgba(15, 76, 92, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
   --shadow-lift:
-    0 2px 4px rgba(15, 76, 92, 0.08),
-    0 28px 56px -24px rgba(15, 76, 92, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    0 2px 6px rgba(15, 76, 92, 0.10),
+    0 24px 48px -20px rgba(15, 76, 92, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
   --shadow-glow:
-    0 0 0 1px rgba(255, 255, 255, 0.6),
-    0 30px 80px -30px color-mix(in oklab, var(--fos-accent) 35%, transparent);
+    0 0 0 1px rgba(15, 76, 92, 0.08),
+    0 28px 64px -28px color-mix(in oklab, var(--fos-primary) 28%, transparent);
+
+  /* Cards de superfície */
+  --fos-card-border: rgba(15, 76, 92, 0.14);
+  --fos-card-shadow:
+    0 1px 3px rgba(15, 76, 92, 0.07),
+    0 16px 40px -22px rgba(15, 76, 92, 0.18);
+  --fos-kpi-shadow:
+    0 2px 4px rgba(15, 76, 92, 0.08),
+    0 20px 44px -18px rgba(15, 76, 92, 0.22);
 }
 
 .dark {
@@ -194,12 +211,13 @@
   html, body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
   body {
     color: var(--color-foreground);
-    background-color: var(--color-background);
-    background-image: var(--fos-aurora);
+    background-color: var(--fos-bg-deep);
+    background-image: var(--fos-canvas), var(--fos-aurora);
     background-attachment: fixed;
     background-repeat: no-repeat;
+    background-size: cover, auto;
   }
-  /* Camada extra de respiro: gradiente sutil de breathing global */
+  /* Camada de profundidade — breathing sutil */
   body::before {
     content: "";
     position: fixed;
@@ -207,7 +225,7 @@
     pointer-events: none;
     z-index: -1;
     background:
-      radial-gradient(800px 600px at var(--mx, 50%) var(--my, 30%), color-mix(in oklab, var(--fos-accent) 6%, transparent), transparent 60%);
+      radial-gradient(900px 640px at var(--mx, 50%) var(--my, 30%), color-mix(in oklab, var(--fos-secondary) 10%, transparent), transparent 62%);
     transition: background 600ms ease;
   }
   h1, h2, h3, h4, h5 {
@@ -239,16 +257,16 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 @utility glass-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(32px) saturate(180%);
-  border: 1.5px solid rgba(15, 23, 42, 0.18);
-  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--fos-card-border);
+  box-shadow: var(--fos-card-shadow);
   transition: transform 200ms cubic-bezier(.2,.7,.2,1), box-shadow 200ms ease, background-color 200ms ease, border-color 200ms ease;
   &:hover {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.94);
-    border-color: rgba(15, 23, 42, 0.28);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    background: #ffffff;
+    border-color: rgba(15, 76, 92, 0.22);
+    box-shadow: var(--shadow-lift);
   }
 }
 @utility glass-sidebar {
@@ -258,9 +276,12 @@
   color: rgba(255, 255, 255, 0.78);
 }
 @utility glass-topbar {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(30px) saturate(180%);
-  border-bottom: 1px solid rgba(15, 76, 92, 0.08);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(28px) saturate(160%);
+  border-bottom: 1px solid rgba(15, 76, 92, 0.14);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 24px -12px rgba(15, 76, 92, 0.12);
 }
 @utility lift {
   transition: transform 250ms cubic-bezier(.2,.7,.2,1), box-shadow 250ms ease, background-color 250ms ease;
@@ -335,8 +356,8 @@
   button:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
   .btn:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
   [role="button"]:not([aria-disabled="true"]):hover,
-  .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-sidebar="nav-item"]):hover,
-  button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover {
+  .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-sidebar="nav-item"]):not([data-fos-btn]):not(.fos-btn):hover,
+  button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-fos-btn]):hover {
     transform: translateY(-1px) !important;
     filter: brightness(0.88) !important;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.20) !important;
@@ -345,8 +366,8 @@
   .dark button:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
   .dark .btn:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover,
   .dark [role="button"]:not([aria-disabled="true"]):hover,
-  .dark .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-sidebar="nav-item"]):hover,
-  .dark button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]):hover {
+  .dark .inline-flex:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-sidebar="nav-item"]):not([data-fos-btn]):not(.fos-btn):hover,
+  .dark button[class*="bg-"]:not(:disabled):not([disabled]):not([aria-disabled="true"]):not([data-fos-btn]):hover {
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
   }
 }
@@ -380,47 +401,70 @@
 
 /* Fundo escuro do sidebar */
 .glass-sidebar {
-  background: #082436;
-  border-right-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.78);
+  background: linear-gradient(180deg, #0a2d42 0%, #082436 48%, #071e2e 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 4px 0 24px -8px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.88);
 }
 
-/* Bordas internas */
-.glass-sidebar .border-white\/40 {
-  border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* Seções / labels */
-.glass-sidebar .text-muted-foreground {
-  color: rgba(255, 255, 255, 0.55);
+/* Labels de grupo — mais legíveis */
+.glass-sidebar .sidebar-nav-group-label {
+  color: rgba(255, 255, 255, 0.52);
+  letter-spacing: 0.14em;
 }
 
 /* Itens de navegação customizados */
 [data-sidebar="nav-item"] {
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.82);
 }
 [data-sidebar="nav-item"]:hover {
-  background-color: rgba(255, 255, 255, 0.10);
+  background-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 [data-sidebar="nav-item"]:hover svg {
   color: #ffffff;
 }
 [data-sidebar="nav-item"][data-active="true"] {
-  background-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(90deg, rgba(43, 182, 115, 0.22) 0%, rgba(255, 255, 255, 0.10) 100%);
   color: #ffffff;
   font-weight: 700;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(43, 182, 115, 0.25);
 }
 [data-sidebar="nav-item"][data-active="true"] svg {
-  color: #ffffff;
+  color: #5eead4;
+}
+
+/* Identity block — leve elevação sobre sidebar escura */
+.sidebar-identity-glow {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.35);
+}
+
+/* LogoBox — sidebar brand: tamanho calculado via JS (computeSidebarBrandFit) */
+.fos-logo-box--sidebar-brand {
+  transition: height 200ms ease;
+}
+
+.fos-logo-box--sidebar-brand img,
+.fos-logo-box--sidebar-mark img,
+.fos-logo-box--inline img,
+.fos-logo-box--document img {
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Divisores entre grupos (colapsado) */
+.glass-sidebar .sidebar-group-divider {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Barra lateral ativa (span interno) */
 [data-sidebar="nav-item"][data-active="true"] > span.absolute {
-  width: 5px;
+  width: 3px;
   border-radius: 999px;
-  background-color: var(--sidebar-primary);
+  background: linear-gradient(180deg, #2bb673 0%, #3d9eb8 100%);
+  box-shadow: 0 0 8px rgba(43, 182, 115, 0.55);
 }
 
 /* Footer do sidebar */
@@ -446,37 +490,31 @@
   position: relative;
 }
 
-/* Véu branco que reduz significativamente a aurora apenas neste painel,
- * deixando a interface predominantemente branca e documental. */
+/* Véu sobre módulos clínicos — tintado, não branco puro */
 .dashboard-premium::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in oklab, var(--fos-primary) 3%, rgba(237, 244, 246, 0.68));
 }
 .dark .dashboard-premium::before {
   background: rgba(15, 20, 28, 0.55);
 }
 
-/* Cards mais elegantes: fundo branco, borda suave ~#E8ECEF,
- * cantos arredondados e sombras discretas. */
+/* Cards mais elegantes — contraste e sombra reforçados */
 .dashboard-premium .glass-card {
   background: #ffffff;
   backdrop-filter: none;
-  border: 1px solid #e8ecef;
+  border: 1px solid rgba(15, 76, 92, 0.14);
   border-radius: 1rem;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 8px 24px -16px rgba(16, 24, 40, 0.12);
+  box-shadow: var(--fos-card-shadow);
 }
 .dashboard-premium .glass-card:hover {
   background: #ffffff;
-  border-color: #dde3e8;
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.05),
-    0 14px 32px -18px rgba(16, 24, 40, 0.16);
+  border-color: rgba(15, 76, 92, 0.22);
+  box-shadow: var(--shadow-lift);
 }
 .dark .dashboard-premium .glass-card {
   background: rgba(24, 31, 42, 0.92);
@@ -499,16 +537,105 @@
 }
 
 /* ===========================================================
+ * Dashboard Hero — Sprint A homepage premium
+ * =========================================================== */
+.dashboard-hero {
+  border: 1px solid rgba(15, 76, 92, 0.12);
+  box-shadow: var(--fos-card-shadow);
+}
+
+.dashboard-hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      125deg,
+      color-mix(in oklab, var(--hero-primary, #0f4c5c) 14%, #ffffff) 0%,
+      color-mix(in oklab, var(--hero-secondary, #2bb673) 10%, #f4f8fa) 42%,
+      #eef4f6 100%
+    );
+  opacity: 1;
+}
+
+.dashboard-hero-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(640px 320px at 92% 8%, color-mix(in oklab, var(--hero-secondary, #2bb673) 22%, transparent), transparent 58%),
+    radial-gradient(520px 280px at 0% 100%, color-mix(in oklab, var(--hero-primary, #0f4c5c) 16%, transparent), transparent 55%);
+  pointer-events: none;
+}
+
+.dashboard-agenda-timeline-rail {
+  background: linear-gradient(180deg, rgba(15, 76, 92, 0.28), rgba(15, 76, 92, 0.06));
+  border-radius: 999px;
+}
+
+.dashboard-quick-action {
+  border: 1px solid rgba(15, 76, 92, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--fos-card-shadow);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.dashboard-quick-action:hover {
+  transform: translateY(-2px);
+  border-color: rgba(15, 76, 92, 0.22);
+  box-shadow: var(--shadow-lift);
+  background: #ffffff;
+}
+
+.dashboard-upcoming-card {
+  border: 1px solid rgba(15, 76, 92, 0.10);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 1px 2px rgba(15, 76, 92, 0.05);
+  transition: all 200ms ease;
+}
+
+.dashboard-upcoming-card:hover {
+  border-color: rgba(15, 76, 92, 0.18);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-1px);
+}
+
+/* ===========================================================
+ * App canvas & superfícies compartilhadas
+ * =========================================================== */
+.fos-app-canvas {
+  background: transparent;
+  min-height: 100%;
+}
+
+.fos-surface-card {
+  background: #ffffff;
+  border: 1px solid var(--fos-card-border);
+  box-shadow: var(--fos-card-shadow);
+  border-radius: 1rem;
+}
+
+.fos-surface-kpi {
+  background: #ffffff;
+  border: 1px solid rgba(15, 76, 92, 0.16);
+  box-shadow: var(--fos-kpi-shadow);
+  border-radius: 1rem;
+}
+
+/* ===========================================================
  * Clinical Module — refinamento global (Sprint 5.5)
  * Escopo: Dashboard, Agenda, Pacientes, Avaliação, Evolução
  * =========================================================== */
 .clinical-module {
   --clinical-radius: 1rem;
-  --clinical-border: rgba(226, 232, 240, 0.8);
+  --clinical-border: rgba(15, 76, 92, 0.14);
 }
 
 .clinical-module :is(button, a, input, select, textarea, [role="button"]):focus-visible {
-  outline: 2px solid hsl(var(--primary));
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -538,5 +665,305 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===========================================================
+ * Sprint B — Premium Components Design System
+ * =========================================================== */
+
+@keyframes fos-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fos-animate-in {
+  animation: fos-fade-in-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.fos-info-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.fos-info-card__accent {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--fos-primary), var(--fos-secondary));
+  opacity: 0.85;
+}
+
+.fos-info-card--highlight {
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--fos-primary) 6%, #ffffff) 0%,
+    color-mix(in oklab, var(--fos-secondary) 5%, #ffffff) 100%
+  );
+  border-color: color-mix(in oklab, var(--fos-primary) 22%, transparent);
+}
+
+.fos-info-card__divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 76, 92, 0.12), transparent);
+}
+
+.fos-page-section__header {
+  padding: 1.15rem 1.35rem;
+  border-bottom: 1px solid rgba(15, 76, 92, 0.1);
+  background: linear-gradient(180deg, rgba(15, 76, 92, 0.045) 0%, rgba(255, 255, 255, 0.5) 100%);
+}
+
+@media (min-width: 640px) {
+  .fos-page-section__header {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.fos-page-section__body {
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+@media (min-width: 640px) {
+  .fos-page-section__body {
+    padding: 1.35rem 1.5rem 1.5rem;
+  }
+}
+
+.fos-field:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--fos-primary) 14%, transparent);
+}
+
+.fos-field[aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 18%, transparent);
+}
+
+.fos-field[data-success="true"] {
+  border-color: color-mix(in oklab, var(--fos-secondary) 45%, transparent);
+}
+
+.fos-field[data-success="true"]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--fos-secondary) 16%, transparent);
+}
+
+.fos-table-scroll {
+  overflow-x: auto;
+}
+
+.fos-command [cmdk-group-heading] {
+  color: rgba(15, 76, 92, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fos-animate-in,
+  .fos-skeleton {
+    animation: none !important;
+  }
+}
+
+.fos-empty-state__icon {
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--fos-primary) 10%, #ffffff),
+    color-mix(in oklab, var(--fos-secondary) 8%, #ffffff)
+  );
+  box-shadow: var(--fos-card-shadow);
+  outline: 1px solid rgba(15, 76, 92, 0.1);
+}
+
+.fos-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--fos-primary) 6%, #eef2f5) 0%,
+    color-mix(in oklab, var(--fos-primary) 3%, #f8fafb) 50%,
+    color-mix(in oklab, var(--fos-primary) 6%, #eef2f5) 100%
+  );
+  background-size: 200% 100%;
+  animation: fos-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes fos-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.fos-table__head {
+  background: rgba(15, 76, 92, 0.04);
+}
+
+.fos-table-wrap .fos-table__head th {
+  border-bottom: 1px solid rgba(15, 76, 92, 0.1);
+}
+
+.fos-kpi-card__sparkline svg {
+  display: block;
+  width: 100%;
+}
+
+.fos-btn[data-fos-btn]:hover {
+  filter: none !important;
+}
+
+.fos-btn[data-fos-btn]:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Sprint C — Premium Clinical Forms */
+
+.fos-clinical-field {
+  min-width: 0;
+}
+
+.fos-clinical-field__control > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.fos-clinical-field__control input,
+.fos-clinical-field__control textarea,
+.fos-clinical-field__control [role="combobox"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.fos-form-grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.fos-form-grid > * {
+  min-width: 0;
+}
+
+.fos-form-section.fos-info-card > div:last-child {
+  width: 100%;
+  min-width: 0;
+}
+
+.fos-field textarea {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* HOTFIX — campos longos em cards/modais clínicos (Assessment Wizard, etc.) */
+textarea.fos-field,
+.fos-info-card textarea.fos-field,
+.fos-clinical-dialog textarea.fos-field,
+.clinical-module textarea.fos-field {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 5.5rem;
+  line-height: 1.625;
+}
+
+.fos-info-card__body,
+.fos-info-card > div:last-child {
+  width: 100%;
+  min-width: 0;
+}
+
+.fos-info-card__body .grid > *,
+.fos-clinical-dialog__body .grid > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.fos-clinical-field:has(:focus-visible) .fos-clinical-field__label {
+  color: var(--fos-primary);
+}
+
+.fos-clinical-field--error:has(:focus-visible) .fos-clinical-field__label {
+  color: var(--destructive);
+}
+
+.fos-form-section + .fos-form-section {
+  margin-top: 0;
+}
+
+.fos-form-grid > .sm\:col-span-2 {
+  grid-column: span 1;
+}
+
+@media (min-width: 640px) {
+  .fos-form-grid > .sm\:col-span-2 {
+    grid-column: span 2;
+  }
+}
+
+.fos-form-footer:not([class*="sticky"]) {
+  border-top: 1px solid rgba(15, 76, 92, 0.08);
+  margin-top: 0.5rem;
+  padding-top: 1.25rem;
+}
+
+/* Sprint R1 — regressões pós Design System */
+
+.fos-surface-card .fos-field,
+.fos-info-card .fos-field,
+.fos-form-section .fos-field,
+.fos-clinical-field .fos-field {
+  background: #eef3f6;
+  border-color: rgba(15, 76, 92, 0.28);
+}
+
+.fos-surface-card .fos-field:hover,
+.fos-info-card .fos-field:hover,
+.fos-form-section .fos-field:hover {
+  background: #e8eef2;
+  border-color: rgba(15, 76, 92, 0.4);
+}
+
+.fos-surface-card .fos-field:focus-visible,
+.fos-info-card .fos-field:focus-visible,
+.fos-form-section .fos-field:focus-visible {
+  background: #ffffff;
+}
+
+.fos-clinical-dialog [cmdk-input-wrapper] .fos-field {
+  background: #eef3f6;
+}
+
+.fos-scale-form-row {
+  display: grid;
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+@media (min-width: 640px) {
+  .fos-scale-form-row {
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 18rem);
+  }
+}
+
+.fos-scale-form-row > label,
+.fos-scale-form-row > .fos-scale-form-label {
+  word-break: break-word;
+  line-height: 1.45;
+  padding-top: 0.625rem;
+}
+
+.fos-clinical-dialog__body {
+  scrollbar-gutter: stable;
 }
 

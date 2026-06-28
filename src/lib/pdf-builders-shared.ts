@@ -1,3 +1,16 @@
+/** Formata conselho + registro no padrão CREFITO nº 123456-F. */
+export function formatProfessionalRegistry(prof?: {
+  conselho?: string | null;
+  registro?: string | null;
+} | null): string {
+  if (!prof) return "—";
+  const num = String(prof.registro ?? "").trim();
+  const council = String(prof.conselho ?? "").trim() || "CREFITO";
+  if (!num) return "—";
+  if (/\d/.test(council) && !prof.registro) return council;
+  return `${council} nº ${num}`;
+}
+
 export function fmtYesNo(v: any) {
   if (v === true) return "Sim";
   if (v === false) return "Não";

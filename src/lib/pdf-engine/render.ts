@@ -12,12 +12,27 @@ import type {
   PdfSection,
   Professional,
 } from "./types";
-import { PDF_COLORS as C, PDF_SPACING as S, PDF_TYPOGRAPHY as T, applyClinicPalette } from "./tokens";
-import { cleanText, isEmptyText, wrapText } from "./text";
-import { prepareLogoForPdf } from "./logo";
-import { drawDocumentHeader, drawLeftBand, drawLegacyClinicHeader } from "./header-engine";
-import { drawDocumentFooter, drawValidationQr } from "./footer-engine";
+import { PDF_COLORS as C, PDF_SPACING as S, PDF_TYPOGRAPHY as T, PDF_QR, PDF_LOGO, applyClinicPalette } from "./tokens";
+import { cleanText, isEmptyText, wrapText, truncateLine } from "./text";
+import { prepareLogoInput } from "./logo";
+import { drawLogoBox } from "./images";
+import { drawDocumentHeader, drawLeftBand, drawLegacyClinicHeader, drawCompactRunningHeader, measureDocumentHeaderHeight } from "./header-engine";
+import { drawDocumentFooter, drawValidationQr, drawValidationHashFallback } from "./footer-engine";
 import { drawMiniIcon, fieldIconFor } from "./icons";
+import { computeLayoutFillRatio } from "@/lib/dossier/layout-composer";
+import {
+  composeAndBalance,
+  measurePublishingBlock,
+  renderPublishingPageContent,
+  drawPublishingCover,
+  drawPublishingToc,
+  drawPublishingPageHeader,
+  drawPublishingFooter,
+  drawPublishingConclusionPage,
+  PUBLISHING_HEADER_H,
+  PUBLISHING_FOOTER_H,
+  PUBLISHING_FRONT_PAGES,
+} from "./publishing";
 
 // ---------- Sanitização contrato ----------
 
@@ -44,11 +59,26 @@ type Atom =
   | { kind: "eva"; value: number | null; h: number; blockId: number }
   | { kind: "checks-row"; items: Array<{ label: string; checked: boolean }>; h: number; blockId: number }
   | { kind: "evolution"; item: EvolutionItem; lines: { label: string; text: string[] }[]; h: number; blockId: number }
-  | { kind: "badge"; label?: string; text: string; variant: "success" | "warning" | "danger" | "neutral"; h: number; blockId: number }
+  | { kind: "badge"; label?: string; text: string; variant: "success" | "warning" | "danger" | "neutral" | "info"; h: number; blockId: number }
+  | { kind: "timeline"; items: Array<{ date: string; title: string }>; h: number; blockId: number }
+  | {
+      kind: "dashboard";
+      columns: 2 | 3;
+      items: Array<{ label: string; value: string; variant?: "success" | "warning" | "info" | "neutral" | "danger" }>;
+      h: number;
+      blockId: number;
+    }
   | { kind: "compare-table"; rows: Array<{ label: string; inicial: string; anterior: string; atual: string; trend?: ClinicalTrend }>; h: number; blockId: number }
   | { kind: "block-gap"; h: number; blockId: number };
 
-type BlockGroup = { id: number; title: string; atoms: Atom[]; totalH: number };
+type BlockGroup = {
+  id: number;
+  title: string;
+  atoms: Atom[];
+  totalH: number;
+  pageBreakBefore?: boolean;
+  indexLabel?: string;
+};
 
 type Page = {
   atoms: Atom[];
@@ -59,19 +89,35 @@ type Page = {
 
 // ---------- Measurement ----------
 
-function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number, isContract: boolean): BlockGroup {
+function measureBlock(
+  doc: jsPDF,
+  block: PdfBlock,
+  id: number,
+  contentW: number,
+  isContract: boolean,
+  editorial = false,
+): BlockGroup {
   const atoms: Atom[] = [];
   const padX2 = S.PAD_X * 2;
   const innerW = contentW - padX2;
+  const compact = block.layout?.compact ?? editorial;
+  const barH = compact ? 26 : S.BAR_H;
+  const barGap = compact ? 4 : S.BAR_GAP;
+  const lineH = compact ? 14 : S.LINE_H;
 
-  atoms.push({ kind: "title", label: block.title, h: S.BAR_H + S.BAR_GAP, blockId: id });
+  atoms.push({ kind: "title", label: block.title, h: barH + barGap, blockId: id });
 
   for (const ch of block.children) {
     if (ch.kind === "paragraph") {
       let text = ch.text || "";
       if (isContract && isClosingClause(block.title)) text = sanitizeContractParagraph(text);
       const cleaned = cleanText(text);
-      if (!cleaned) continue;
+      if (!cleaned) {
+        if (ch.label) {
+          atoms.push({ kind: "label", text: ch.label, h: S.LABEL_H, blockId: id });
+        }
+        continue;
+      }
       if (ch.label) {
         atoms.push({ kind: "label", text: ch.label, h: S.LABEL_H, blockId: id });
       }
@@ -82,7 +128,7 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
         atoms.push({
           kind: "para-line",
           line: ln,
-          h: S.LINE_H,
+          h: lineH,
           blockId: id,
           splitMarker: i === 0 ? "first" : i === lines.length - 1 ? "last" : "mid",
         });
@@ -115,7 +161,7 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
       doc.setFont("helvetica", "normal");
       doc.setFontSize(T.body);
       const lines = wrapText(doc, text, innerW - 20);
-      const h = 14 + lines.length * S.LINE_H + 10;
+      const h = (compact ? 10 : 14) + lines.length * lineH + (compact ? 8 : 10);
       atoms.push({ kind: "highlight", label: ch.label, lines, h, blockId: id });
       continue;
     }
@@ -126,6 +172,9 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
     }
 
     if (ch.kind === "checks") {
+      if (ch.label) {
+        atoms.push({ kind: "label", text: ch.label, h: S.LABEL_H, blockId: id });
+      }
       const perRow = 3;
       for (let i = 0; i < ch.items.length; i += perRow) {
         atoms.push({
@@ -160,12 +209,43 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
     }
 
     if (ch.kind === "badge") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(T.body);
+      const lines = wrapText(doc, ch.text, innerW - 20).length;
+      const h = (ch.label ? 12 : 0) + Math.max(lines, 1) * lineH + (compact ? 10 : 14);
       atoms.push({
         kind: "badge",
         label: ch.label,
         text: ch.text,
         variant: ch.variant,
-        h: ch.label ? 28 : 22,
+        h,
+        blockId: id,
+      });
+      continue;
+    }
+
+    if (ch.kind === "dashboard") {
+      if (!ch.items.length) continue;
+      const cols = ch.columns;
+      const cellH = compact ? 34 : 40;
+      const rows = Math.ceil(ch.items.length / cols);
+      atoms.push({
+        kind: "dashboard",
+        columns: cols,
+        items: ch.items,
+        h: rows * cellH + 6,
+        blockId: id,
+      });
+      continue;
+    }
+
+    if (ch.kind === "timeline") {
+      if (!ch.items.length) continue;
+      const itemH = compact ? 24 : 32;
+      atoms.push({
+        kind: "timeline",
+        items: ch.items,
+        h: ch.items.length * itemH + 6,
         blockId: id,
       });
       continue;
@@ -184,16 +264,16 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
           wrapText(doc, row.anterior, colW - 4).length,
           wrapText(doc, row.atual, colW - 4).length,
         ];
-        tableH += Math.max(...heights, 1) * S.LINE_H + 8;
+        tableH += Math.max(...heights, 1) * S.LINE_H + 6;
       }
       atoms.push({ kind: "compare-table", rows: ch.rows, h: tableH, blockId: id });
       continue;
     }
   }
 
-  atoms.push({ kind: "block-gap", h: S.BLOCK_GAP, blockId: id });
+  atoms.push({ kind: "block-gap", h: compact ? 6 : S.BLOCK_GAP, blockId: id });
   const totalH = atoms.reduce((s, a) => s + a.h, 0);
-  return { id, title: block.title, atoms, totalH };
+  return { id, title: block.title, atoms, totalH, pageBreakBefore: block.pageBreakBefore, indexLabel: block.indexLabel };
 }
 
 // ---------- Composition ----------
@@ -205,6 +285,7 @@ function compose(
   bottomY: number,
   signatureReserveH: number,
   blockGap: number,
+  mode: "default" | "editorial" = "default",
 ): Page[] {
   const pages: Page[] = [];
   let cur: Page = { atoms: [], blockSegments: [], contentH: 0, topY: topYFirst };
@@ -223,8 +304,12 @@ function compose(
     const isLast = isLastGroup(gi);
     const localBottom = isLast ? bottomY - signatureReserveH : bottomY;
 
+    if (mode !== "editorial" && g.pageBreakBefore && cur.atoms.length > 0) {
+      flush();
+    }
+
     const firstParaLines = g.atoms.filter((a) => a.kind === "para-line" && a.blockId === g.id);
-    const headroomLines = Math.min(4, firstParaLines.length || 4);
+    const headroomLines = mode === "editorial" ? 3 : Math.min(4, firstParaLines.length || 4);
     const titleAtom = g.atoms[0];
     const headroom = titleAtom.h + headroomLines * S.LINE_H + 4;
 
@@ -309,9 +394,389 @@ function lastPageFill(pages: Page[], usableH: number, sigH: number): number {
   return Math.min(1, (last.contentH + sigH) / usableH);
 }
 
-// ---------- Render entry ----------
+const DOSSIER_FRONT_PAGES = 2;
+const DOSSIER_HEADER_H = 54;
+const DOSSIER_FOOTER_H = 36;
 
-export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<jsPDF> {
+function pageSectionForContentPage(page: Page, groups: BlockGroup[]): string {
+  for (const a of page.atoms) {
+    if (a.kind === "title" && !a.continuation) {
+      const g = groups[a.blockId];
+      return g?.indexLabel ?? g?.title ?? "";
+    }
+  }
+  if (page.blockSegments.length) {
+    const blockId = page.blockSegments[0].blockId;
+    const g = groups[blockId];
+    return g?.indexLabel ?? g?.title ?? "";
+  }
+  return "";
+}
+
+function drawDossierCover(
+  doc: jsPDF,
+  opts: BuildPdfOpts,
+  c: ClinicData,
+  logoDraw: Awaited<ReturnType<typeof prepareLogoInput>>,
+  W: number,
+  H: number,
+  M: number,
+) {
+  drawLeftBand(doc, H);
+  const clinicName = cleanText(c.nome_fantasia ?? "") || cleanText(c.razao_social ?? "") || "Clínica";
+  const meta = opts.dossier;
+  const docTitle = meta?.documentTitle ?? "HISTÓRICO CLÍNICO INTEGRADO";
+
+  drawLogoBox(doc, c, logoDraw, { x: W / 2 - PDF_LOGO.boxW / 2, y: H * 0.12, w: PDF_LOGO.boxW, h: PDF_LOGO.boxH });
+
+  doc.setDrawColor(...C.brand);
+  doc.setLineWidth(1.5);
+  doc.line(M + 40, H * 0.36, W - M - 40, H * 0.36);
+
+  doc.setTextColor(...C.brand);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text(clinicName.toUpperCase(), W / 2, H * 0.40, { align: "center" });
+
+  doc.setTextColor(...C.ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  const titleLines = wrapText(doc, docTitle, W - 2 * M - 48);
+  let titleY = H * 0.48;
+  for (const ln of titleLines) {
+    doc.text(ln, W / 2, titleY, { align: "center" });
+    titleY += 26;
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(15);
+  doc.setTextColor(...C.ink);
+  doc.text(meta?.patientName ?? opts.patientName ?? "Paciente", W / 2, titleY + 8, { align: "center" });
+
+  doc.setFontSize(T.docSubtitle);
+  doc.setTextColor(...C.meta);
+  if (meta?.generatedAt) {
+    doc.text(`Gerado em ${meta.generatedAt}`, W / 2, titleY + 32, { align: "center" });
+  }
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(...C.meta);
+  doc.text("Documento oficial e confidencial — uso exclusivo clínico", W / 2, H - M - 32, { align: "center" });
+}
+
+function drawDossierPageHeader(
+  doc: jsPDF,
+  opts: BuildPdfOpts,
+  W: number,
+  M: number,
+  sectionTitle: string,
+) {
+  const meta = opts.dossier;
+  const docTitle = meta?.documentTitle ?? "HISTÓRICO CLÍNICO INTEGRADO";
+  const patient = meta?.patientName ?? opts.patientName ?? "Paciente";
+  const y0 = M + 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.brand);
+  doc.text(docTitle, M, y0);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...C.meta);
+  const rightLine = sectionTitle ? `${patient}  ·  ${sectionTitle}` : patient;
+  doc.text(truncateLine(doc, rightLine, W - 2 * M), W - M, y0, { align: "right" });
+
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setLineWidth(0.4);
+  doc.line(M, y0 + 8, W - M, y0 + 8);
+}
+
+function drawDossierFooter(
+  doc: jsPDF,
+  c: ClinicData,
+  opts: BuildPdfOpts,
+  W: number,
+  H: number,
+  M: number,
+  page: number,
+  pageCount: number,
+) {
+  const fy = H - DOSSIER_FOOTER_H;
+  doc.setDrawColor(...C.hairlineSoft);
+  doc.setLineWidth(0.3);
+  doc.line(M, fy, W - M, fy);
+
+  const clinicName =
+    cleanText(c.nome_fantasia ?? "") || cleanText(c.razao_social ?? "") || "Clínica";
+  const generatedAt = opts.dossier?.generatedAt ?? "";
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.meta);
+  doc.text(clinicName, M, fy + 12);
+  doc.text(`Página ${page} de ${pageCount}`, W / 2, fy + 12, { align: "center" });
+  if (generatedAt) {
+    doc.text(`Gerado em ${generatedAt}`, W - M, fy + 12, { align: "right" });
+  }
+}
+
+async function drawDossierConclusionPage(
+  doc: jsPDF,
+  opts: BuildPdfOpts,
+  c: ClinicData,
+  W: number,
+  H: number,
+  M: number,
+  validationUrlBase?: string,
+) {
+  const meta = opts.dossier;
+  const conclusion = meta?.conclusion;
+  let y = M + DOSSIER_HEADER_H + 8;
+  const contentW = W - 2 * M;
+
+  drawDossierPageHeader(doc, opts, W, M, "Conclusão do tratamento");
+
+  doc.setTextColor(...C.ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.docTitle);
+  doc.text("CONCLUSÃO DO TRATAMENTO", M, y);
+  y += 26;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.label);
+  doc.setTextColor(...C.brand);
+  doc.text("RESUMO", M, y);
+  y += 14;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.body);
+  doc.setTextColor(...C.ink);
+  const summaryText = conclusion?.treatmentSummary ?? meta?.summary?.treatmentSummary ?? "";
+  for (const ln of wrapText(doc, summaryText, contentW)) {
+    doc.text(ln, M, y);
+    y += S.LINE_H;
+  }
+  y += 10;
+
+  const statRows: Array<[string, string]> = [
+    ["Período do tratamento", conclusion?.periodLabel ?? "—"],
+    ["Total de sessões", String(conclusion?.sessionCount ?? 0)],
+    ["Avaliações", String(conclusion?.assessmentCount ?? 0)],
+    ["Evoluções", String(conclusion?.evolutionCount ?? 0)],
+    ["Reavaliações", String(conclusion?.reassessmentCount ?? 0)],
+    [
+      "Alta registrada",
+      conclusion?.hasDischarge ? "Sim" : "Não",
+    ],
+  ];
+
+  for (const [label, value] of statRows) {
+    doc.setFillColor(...C.surface);
+    doc.roundedRect(M, y, contentW, 20, 4, 4, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...C.meta);
+    doc.text(label.toUpperCase(), M + 10, y + 13);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.body);
+    doc.setTextColor(...C.ink);
+    doc.text(value, W - M - 10, y + 13, { align: "right" });
+    y += 24;
+  }
+
+  if (conclusion?.objectivesAchieved?.length) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.label);
+    doc.setTextColor(...[5, 122, 85] as [number, number, number]);
+    doc.text("OBJETIVOS ALCANÇADOS", M, y);
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.body);
+    doc.setTextColor(...C.ink);
+    for (const ln of wrapText(doc, conclusion.objectivesAchieved.join(" · "), contentW)) {
+      doc.text(ln, M, y);
+      y += S.LINE_H;
+    }
+    y += 8;
+  }
+
+  if (conclusion?.objectivesPending?.length) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.label);
+    doc.setTextColor(...[180, 83, 9] as [number, number, number]);
+    doc.text("OBJETIVOS PENDENTES", M, y);
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.body);
+    doc.setTextColor(...C.ink);
+    for (const ln of wrapText(doc, conclusion.objectivesPending.join(" · "), contentW)) {
+      doc.text(ln, M, y);
+      y += S.LINE_H;
+    }
+    y += 8;
+  }
+
+  if (conclusion?.professionalNotes) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.label);
+    doc.setTextColor(...C.brand);
+    doc.text("CONSIDERAÇÕES DO PROFISSIONAL", M, y);
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.body);
+    doc.setTextColor(...C.ink);
+    for (const ln of wrapText(doc, conclusion.professionalNotes, contentW)) {
+      doc.text(ln, M, y);
+      y += S.LINE_H;
+    }
+    y += 10;
+  }
+
+  const prof = conclusion?.professional ?? opts.professional ?? null;
+  const profNome = cleanText(prof?.nome ?? "");
+  const profReg = prof
+    ? (() => {
+        const num = cleanText(prof.registro ?? "");
+        const council = cleanText(prof.conselho ?? "") || "CREFITO";
+        return num ? `${council} nº ${num}` : "";
+      })()
+    : "";
+
+  y += 6;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.label);
+  doc.setTextColor(...C.brand);
+  doc.text("RESPONSÁVEL PELO TRATAMENTO", M, y);
+  y += 20;
+
+  const sigX = W / 2;
+  doc.setDrawColor(...C.ink);
+  doc.setLineWidth(0.5);
+  doc.line(sigX - 120, y, sigX + 120, y);
+  y += 14;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.body);
+  doc.setTextColor(...C.ink);
+  doc.text(profNome || "Profissional responsável", sigX, y, { align: "center" });
+  y += 12;
+  if (profReg) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(T.sigMeta);
+    doc.text(profReg, sigX, y, { align: "center" });
+    y += 12;
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...C.meta);
+  doc.text("Assinatura", sigX, y, { align: "center" });
+  y += 24;
+
+  if (opts.validationHash) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.label);
+    doc.setTextColor(...C.brand);
+    doc.text("VALIDAÇÃO", M, y);
+    y += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...C.meta);
+    doc.text(`Hash: ${opts.validationHash.slice(0, 24)}…`, M, y);
+    if (meta?.generatedAt) {
+      doc.text(`Data da emissão: ${meta.generatedAt}`, M, y + 10);
+    }
+    const ok = await drawValidationQr(doc, opts.validationHash, W, H, validationUrlBase, M);
+    if (!ok) drawValidationHashFallback(doc, opts.validationHash, W, H, M);
+  }
+
+  const institutional =
+    meta?.institutionalMessage ||
+    cleanText(c.rodape_institucional ?? "") ||
+    "Este documento consolida o histórico clínico registrado durante o acompanhamento fisioterapêutico do paciente.";
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.meta);
+  const footY = H - DOSSIER_FOOTER_H - 28;
+  wrapText(doc, institutional, contentW).forEach((ln, i) => {
+    doc.text(ln, W / 2, footY + i * 9, { align: "center" });
+  });
+}
+
+function blockFirstPages(pages: Page[]): Map<number, number> {
+  const map = new Map<number, number>();
+  for (let pi = 0; pi < pages.length; pi++) {
+    for (const a of pages[pi].atoms) {
+      if (a.kind === "title" && !a.continuation && !map.has(a.blockId)) {
+        map.set(a.blockId, pi);
+      }
+    }
+  }
+  return map;
+}
+
+function drawDossierToc(
+  doc: jsPDF,
+  opts: BuildPdfOpts,
+  blockPages: Map<number, number>,
+  contentOffset: number,
+  conclusionPage: number,
+  W: number,
+  M: number,
+) {
+  drawLeftBand(doc, doc.internal.pageSize.getHeight());
+  drawDossierPageHeader(doc, opts, W, M, "Índice");
+  let y = M + DOSSIER_HEADER_H + 20;
+
+  doc.setTextColor(...C.ink);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.docTitle);
+  doc.text("Índice", M, y);
+  y += 28;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.body);
+  const lineH = S.LINE_H + 6;
+  const rightX = W - M;
+  const linkW = W - 2 * M;
+  const entries = opts.dossier?.indexEntries ?? [];
+
+  for (const entry of entries) {
+    const logicalPage = blockPages.get(entry.blockId) ?? 0;
+    const pdfPage = contentOffset + logicalPage + 1;
+    const pageLabel = String(pdfPage);
+
+    doc.setTextColor(...C.ink);
+    const titleW = doc.getTextWidth(entry.label);
+    const pageW = doc.getTextWidth(pageLabel);
+    const dotsW = Math.max(12, linkW - titleW - pageW - 16);
+    const dots = ".".repeat(Math.min(80, Math.floor(dotsW / doc.getTextWidth("."))));
+
+    doc.textWithLink(entry.label, M, y, { pageNumber: pdfPage });
+    doc.setTextColor(...C.meta);
+    doc.text(dots, M + titleW + 6, y);
+    doc.setTextColor(...C.brand);
+    doc.textWithLink(pageLabel, rightX - pageW, y, { pageNumber: pdfPage });
+    y += lineH;
+
+    if (y > doc.internal.pageSize.getHeight() - DOSSIER_FOOTER_H - 48) break;
+  }
+
+  const conclusionLabel = "Conclusão do tratamento";
+  doc.setTextColor(...C.ink);
+  doc.textWithLink(conclusionLabel, M, y, { pageNumber: conclusionPage });
+  doc.setTextColor(...C.brand);
+  doc.textWithLink(String(conclusionPage), rightX - doc.getTextWidth(String(conclusionPage)), y, {
+    pageNumber: conclusionPage,
+  });
+  y += lineH;
+
+  doc.setFontSize(8);
+  doc.setTextColor(...C.meta);
+  doc.text("Clique em um item para ir à seção correspondente.", M, y + 8);
+}
+
+async function renderClinicalDossierPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -320,8 +785,97 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const c = ctx.clinic;
   applyClinicPalette(c);
 
-  const preparedLogo = await prepareLogoForPdf(ctx.logo);
-  const logoDraw = preparedLogo ?? ctx.logo;
+  const preparedLogo = await prepareLogoInput(ctx.logo);
+  const logoDraw = preparedLogo;
+
+  const blocks: PdfBlock[] = opts.blocks ?? [];
+  const groups = blocks.map((b, i) => measurePublishingBlock(doc, b, i, contentW));
+
+  const topYFirst = M + PUBLISHING_HEADER_H + 6;
+  const topYRest = M + PUBLISHING_HEADER_H + 6;
+  const bottomY = H - PUBLISHING_FOOTER_H - 12;
+  const editorialGap = 5;
+
+  const { pages, densities, avgDensity, rebalancePasses } = composeAndBalance(
+    groups,
+    topYFirst,
+    topYRest,
+    bottomY,
+    editorialGap,
+    13,
+  );
+
+  if (opts.dossier) {
+    opts.dossier.layoutStats = {
+      contentPages: pages.length,
+      avgFillRatio: avgDensity,
+      estimatedPagesBefore: opts.dossier.layoutStats?.estimatedPagesBefore ?? pages.length,
+      estimatedPagesAfter: pages.length,
+      forcedBreaksRemoved: opts.dossier.layoutStats?.forcedBreaksRemoved ?? 0,
+      pageDensities: densities,
+      rebalancePasses,
+    };
+  }
+
+  const blockPages = blockFirstPages(pages as Page[]);
+  const conclusionPage = PUBLISHING_FRONT_PAGES + pages.length + 1;
+
+  await drawPublishingCover(doc, opts, c, logoDraw, W, H, M, opts.validationUrlBase);
+
+  doc.addPage();
+  drawPublishingToc(doc, opts, blockPages, PUBLISHING_FRONT_PAGES, conclusionPage, W, M);
+
+  for (let pi = 0; pi < pages.length; pi++) {
+    doc.addPage();
+    const section = pageSectionForContentPage(pages[pi] as Page[], groups as BlockGroup[]);
+    drawPublishingPageHeader(doc, opts, logoDraw, c, W, M, section || undefined);
+    renderPublishingPageContent(doc, pages[pi], pages[pi].topY, contentW, M);
+  }
+
+  doc.addPage();
+  await drawPublishingConclusionPage(doc, opts, c, logoDraw, W, H, M, opts.validationUrlBase);
+
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    drawLeftBand(doc, H);
+    if (i === 1) {
+      const clinicName =
+        cleanText(c.nome_fantasia ?? "") || cleanText(c.razao_social ?? "") || "Clínica";
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...C.meta);
+      doc.text(clinicName, W / 2, H - M - 10, { align: "center" });
+    } else {
+      drawPublishingFooter(doc, c, opts, W, H, M, i, pageCount);
+    }
+  }
+
+  return doc;
+}
+
+// ---------- Render entry ----------
+
+export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<jsPDF> {
+  if (opts.layout === "fisioos-ds") {
+    const { renderFisioosDsDocument } = await import("./design-system/render-document");
+    return renderFisioosDsDocument(opts, ctx);
+  }
+
+  if (opts.dossier) {
+    return renderClinicalDossierPdf(opts, ctx);
+  }
+
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = S.M;
+  const contentW = W - 2 * M;
+  const c = ctx.clinic;
+  applyClinicPalette(c);
+
+  const preparedLogo = await prepareLogoInput(ctx.logo);
+  const logoDraw = preparedLogo;
 
   const isContract = /contrato/i.test(opts.title || "");
   const isClinicalPremium = opts.layout === "clinical-premium";
@@ -336,16 +890,27 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
 
   const groups: BlockGroup[] = blocks.map((b, i) => measureBlock(doc, b, i, contentW, isContract));
 
+  const headerH = isClinicalPremium
+    ? measureDocumentHeaderHeight(doc, c, W, { showProfessional: true, professional: opts.professional ?? null }, true)
+    : measureDocumentHeaderHeight(doc, c, W, { showProfessional: false }, false);
+
   const topYFirst = isClinicalPremium
-    ? S.HEADER_H + 12
-    : S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
-  const topYRest = S.M + 28;
+    ? headerH + 12
+    : headerH + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYRest = isClinicalPremium ? S.M + 48 : S.M + 28;
   const bottomY = H - S.FOOTER_H - 16;
   const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
   const usableHRest = bottomY - topYRest;
 
-  const qrReserve = isContract ? 64 : 0;
-  const sigReserve = opts.hideSignature ? 0 : isContract ? sigDraw + qrReserve : 0;
+  const hasValidation = !!opts.validationHash;
+  const qrReserve = isContract || hasValidation ? PDF_QR.size + PDF_QR.marginBottom + 8 : 0;
+  const sigReserve = opts.hideSignature
+    ? hasValidation
+      ? qrReserve
+      : 0
+    : isContract
+      ? sigDraw + qrReserve
+      : sigDraw + qrReserve;
   const gapTiers: number[] = isContract
     ? [S.BLOCK_GAP_CONTRACT, S.BLOCK_GAP, S.BLOCK_GAP_COMPACT]
     : [S.BLOCK_GAP, S.BLOCK_GAP_COMPACT, S.BLOCK_GAP_TIGHT];
@@ -365,12 +930,13 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
       logo: logoDraw,
       includeDocumentCard: true,
       includeBottomRule: true,
-      isContract: false,
+      isContract,
+      professional: opts.professional ?? null,
     });
   } else {
     drawLegacyClinicHeader(doc, c, logoDraw, W);
 
-    let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
+    let titleY = headerH + S.TOP_AFTER_HEADER;
     doc.setTextColor(...C.ink);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(T.docTitle + 1);
@@ -386,10 +952,10 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
       doc.setFont("helvetica", "normal");
       doc.setFontSize(T.docSubtitle);
       doc.setTextColor(...C.meta);
-      doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
+      doc.text(opts.patientName, W - M, headerH + S.TOP_AFTER_HEADER, { align: "right" });
     }
 
-    const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
+    const dividerY = headerH + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
     doc.setDrawColor(...C.brand);
     doc.setLineWidth(0.8);
     doc.line(M, dividerY, W - M, dividerY);
@@ -399,7 +965,12 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   }
 
   for (let pi = 0; pi < pages.length; pi++) {
-    if (pi > 0) doc.addPage();
+    if (pi > 0) {
+      doc.addPage();
+      if (isClinicalPremium) {
+        drawCompactRunningHeader(doc, c, opts, W, M);
+      }
+    }
     renderPageContent(doc, pages[pi], pages[pi].topY, contentW, M, isContract, isClinicalPremium);
   }
 
@@ -425,7 +996,8 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
       validationHash: opts.validationHash ?? null,
     });
     if (i === pageCount && opts.validationHash) {
-      await drawValidationQr(doc, opts.validationHash, W, H, opts.validationUrlBase);
+      const ok = await drawValidationQr(doc, opts.validationHash, W, H, opts.validationUrlBase, M);
+      if (!ok) drawValidationHashFallback(doc, opts.validationHash, W, H, M);
     }
   }
 
@@ -462,7 +1034,7 @@ function renderPageContent(
       if (segOpenBlockId != null) closeSegment(y);
       segStartY = y;
       segOpenBlockId = a.blockId;
-      drawBlockTitle(doc, a.label, M, y, contentW, isContract || isClinicalPremium);
+      drawBlockTitle(doc, a.label, M, y, contentW, isContract, isClinicalPremium);
       y += S.BAR_H;
       y += S.BAR_GAP;
       continue;
@@ -538,8 +1110,10 @@ function renderPageContent(
         doc.setLineWidth(0.5);
         doc.rect(x, y + 2, 10, 10, "S");
         if (it.checked) {
-          doc.setFillColor(...C.brand);
-          doc.rect(x + 2, y + 4, 6, 6, "F");
+          doc.setDrawColor(...C.ink);
+          doc.setLineWidth(0.9);
+          doc.line(x + 2, y + 4, x + 8, y + 10);
+          doc.line(x + 8, y + 4, x + 2, y + 10);
         }
         doc.setFont("helvetica", "normal");
         doc.setFontSize(T.body);
@@ -579,6 +1153,16 @@ function renderPageContent(
       continue;
     }
 
+    if (a.kind === "dashboard") {
+      y = drawDashboard(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a);
+      continue;
+    }
+
+    if (a.kind === "timeline") {
+      y = drawTimeline(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a);
+      continue;
+    }
+
     if (a.kind === "compare-table") {
       drawCompareTable(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.rows);
       y += a.h;
@@ -598,13 +1182,14 @@ function sectionNumber(label: string): string | null {
   return label.match(/^\s*(\d+)/)?.[1] ?? null;
 }
 
-function badgeColors(variant: "success" | "warning" | "danger" | "neutral"): {
+function badgeColors(variant: "success" | "warning" | "danger" | "neutral" | "info"): {
   bg: [number, number, number];
   fg: [number, number, number];
 } {
   if (variant === "success") return { bg: [236, 253, 245], fg: [5, 122, 85] };
   if (variant === "warning") return { bg: [255, 251, 235], fg: [180, 83, 9] };
   if (variant === "danger") return { bg: [254, 242, 242], fg: [185, 28, 28] };
+  if (variant === "info") return { bg: [239, 246, 255], fg: [37, 99, 235] };
   return { bg: [248, 250, 252], fg: [71, 85, 105] };
 }
 
@@ -619,22 +1204,122 @@ function drawClinicalBadge(
   const h = atom.h;
   doc.setFillColor(...colors.bg);
   doc.roundedRect(x, y, w, h, 6, 6, "F");
+  let textY = y + 12;
   if (atom.label) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(T.label);
     doc.setTextColor(...C.meta);
-    doc.text(atom.label.toUpperCase(), x + 10, y + 11);
+    doc.text(atom.label.toUpperCase(), x + 10, textY);
+    textY += 14;
   }
-  doc.setFont("helvetica", "bold");
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(T.body);
   doc.setTextColor(...colors.fg);
-  doc.text(wrapText(doc, atom.text, w - 20), x + 10, y + (atom.label ? 24 : 14));
+  const lines = wrapText(doc, atom.text, w - 20);
+  lines.forEach((ln, i) => {
+    doc.text(ln, x + 10, textY + i * S.LINE_H);
+  });
+}
+
+function drawTimeline(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  atom: Extract<Atom, { kind: "timeline" }>,
+): number {
+  const lineX = x + 10;
+  let cy = y + 4;
+  const itemH = atom.items.length ? atom.h / atom.items.length : 24;
+
+  if (atom.items.length > 1) {
+    doc.setDrawColor(...C.hairlineSoft);
+    doc.setLineWidth(0.6);
+    doc.line(lineX, cy + 4, lineX, cy + atom.h - 10);
+  }
+
+  for (let i = 0; i < atom.items.length; i++) {
+    const item = atom.items[i];
+    doc.setFillColor(...C.brand);
+    doc.circle(lineX, cy + 5, 3.5, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.ink);
+    doc.text(item.date, x + 24, cy + 4);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.meta);
+    doc.text(item.title, x + 24, cy + 15);
+
+    if (i < atom.items.length - 1) {
+      doc.setFontSize(8);
+      doc.setTextColor(...C.hairlineSoft);
+      doc.text("↓", lineX - 2, cy + itemH - 6);
+    }
+
+    cy += itemH;
+  }
+
+  return y + atom.h;
+}
+
+function drawDashboard(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  atom: Extract<Atom, { kind: "dashboard" }>,
+): number {
+  const cols = atom.columns;
+  const gap = 8;
+  const cellW = (w - gap * (cols - 1)) / cols;
+  const cellH = atom.h / Math.ceil(atom.items.length / cols);
+
+  atom.items.forEach((item, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = x + col * (cellW + gap);
+    const cy = y + row * cellH;
+    const colors = badgeColors(
+      item.variant === "danger" ? "warning" : (item.variant ?? "neutral"),
+    );
+
+    doc.setFillColor(...colors.bg);
+    doc.roundedRect(cx, cy, cellW, cellH - 4, 5, 5, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...C.meta);
+    doc.text(item.label.toUpperCase(), cx + 8, cy + 11);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...colors.fg);
+    const valLines = wrapText(doc, item.value, cellW - 14);
+    doc.text(valLines[0] ?? item.value, cx + 8, cy + 22);
+    if (valLines.length > 1) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(valLines[1], cx + 8, cy + 30);
+    }
+  });
+
+  return y + atom.h;
 }
 
 function trendSymbol(trend?: ClinicalTrend): string {
-  if (trend === "melhorou") return "↑";
-  if (trend === "piorou") return "↓";
-  if (trend === "estavel") return "→";
+  if (trend === "melhorou") return " ↑";
+  if (trend === "piorou") return " ↓";
+  if (trend === "estavel") return " =";
+  return "";
+}
+
+function trendWord(trend?: ClinicalTrend): string {
+  if (trend === "melhorou") return " (melhorou)";
+  if (trend === "piorou") return " (piorou)";
+  if (trend === "estavel") return " (estável)";
   return "";
 }
 
@@ -658,16 +1343,21 @@ function drawCompareTable(
 
   let rowY = y + 22;
   rows.forEach((row, ri) => {
-    if (ri % 2 === 0) {
-      doc.setFillColor(...C.brandSoft);
-      doc.rect(x, rowY - 2, w, 18, "F");
-    }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(T.body);
     doc.setTextColor(...C.ink);
-    const cells = [row.label, row.inicial, row.anterior, `${row.atual}${trendSymbol(row.trend) ? ` ${trendSymbol(row.trend)}` : ""}`];
+    const cells = [
+      row.label,
+      row.inicial,
+      row.anterior,
+      `${row.atual}${trendSymbol(row.trend)}${trendWord(row.trend)}`,
+    ];
     const lineCounts = cells.map((cell, i) => wrapText(doc, cell, colW - 8).length);
     const rowH = Math.max(...lineCounts, 1) * S.LINE_H + 6;
+    if (ri % 2 === 0) {
+      doc.setFillColor(...C.brandSoft);
+      doc.rect(x, rowY - 2, w, rowH, "F");
+    }
     cells.forEach((cell, i) => {
       doc.setFont("helvetica", i === 0 ? "bold" : "normal");
       doc.setFontSize(T.body);
@@ -678,7 +1368,15 @@ function drawCompareTable(
   });
 }
 
-function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: number, isContract = false) {
+function drawBlockTitle(
+  doc: jsPDF,
+  label: string,
+  x: number,
+  y: number,
+  w: number,
+  isContract = false,
+  isClinicalPremium = false,
+) {
   const n = sectionNumber(label);
   const title = label.replace(/^\s*\d+[\.\s-]*/, "");
   doc.setFillColor(...C.paper);
@@ -690,7 +1388,7 @@ function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: numb
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.text(n, x + 18, y + 18, { align: "center" });
-  } else if (isContract) {
+  } else if (isContract && !isClinicalPremium) {
     drawMiniIcon(doc, "file", x + 13.5, y + 10.5, 9, [255, 255, 255] as [number, number, number]);
   }
   doc.setTextColor(...C.brand);
@@ -698,7 +1396,7 @@ function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: numb
   doc.setFontSize(T.blockTitle);
   doc.text(title.toUpperCase(), x + 34, y + 18);
 
-  if (isContract) {
+  if (isContract && !isClinicalPremium) {
     doc.setDrawColor(...C.hairlineSoft);
     doc.setLineWidth(0.4);
     doc.line(x + S.PAD_X, y + S.BAR_H + 2, x + w - S.PAD_X, y + S.BAR_H + 2);
@@ -829,7 +1527,7 @@ function drawSignatureArea(
   sigH: number,
   isContract: boolean,
 ) {
-  const qrReserve = isContract ? 64 : 0;
+  const qrReserve = isContract || opts.validationHash ? PDF_QR.size + PDF_QR.marginBottom + 8 : 0;
   const maxTop = H - S.FOOTER_H - 16 - sigH - qrReserve;
   const top = isContract ? maxTop : Math.min(contentEndY + 8, maxTop);
 
@@ -952,6 +1650,7 @@ function drawProfessionalSignature(
     label: "Profissional Responsável",
     lines: [
       profNome ? { text: profNome, bold: true, size: T.sigName } : { text: "Profissional responsável", muted: true, size: T.sigRole },
+      { text: profRole, size: T.sigRole },
       ...(profRegistry ? [{ text: profRegistry, bold: true, size: T.sigMeta } as const] : []),
     ],
   });

@@ -36,8 +36,14 @@ import {
   downloadReceiptPdf,
   previewReceiptPdf,
   printReceiptPdf,
+  downloadReceiptsBatchPdf,
+  previewReceiptsBatchPdf,
+  printReceiptsBatchPdf,
+  getStoredReceiptPrintMode,
   type ReceiptPdfData,
+  type ReceiptPrintMode,
 } from "@/lib/receipt-pdf";
+import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import type { Professional } from "@/lib/pdf-engine";
 
 export const Route = createFileRoute("/_authenticated/app/recibos")({
@@ -67,6 +73,7 @@ function RecibosPage() {
   const qc = useQueryClient();
   const [pagamentoId, setPagamentoId] = useState<string>("");
   const [visibilidade, setVisibilidade] = useState<VisibilidadeRecibo>("pendentes");
+  const [printMode, setPrintMode] = useState<ReceiptPrintMode>(() => getStoredReceiptPrintMode());
   const [ultimaGeracao, setUltimaGeracao] = useState<UltimaGeracao | null>(() =>
     loadUltimaGeracao(clinicId),
   );
@@ -123,6 +130,23 @@ function RecibosPage() {
     return `${fmtDate(p.data_pagamento)}${ref}`;
   }, [pagamentos.data, pagamentoAtivo]);
 
+  function rowToPdfData(r: Awaited<ReturnType<typeof fetchRecibosByIds>>[number]): ReceiptPdfData {
+    return {
+      numero: r.numero ?? 0,
+      patientName: r.professionals?.nome ?? "Profissional",
+      description: r.description ?? "Extras — pagamento semanal",
+      serviceLabel: r.description ?? "extras",
+      amount: Number(r.valor),
+      payment_method: "transferencia",
+      payment_date: r.data ?? new Date().toISOString().slice(0, 10),
+      issued_at: r.created_at,
+      professional: (r.professionals as Professional | null | undefined) ?? null,
+      cancelled: r.status === "cancelado",
+      clinicId,
+      printMode,
+    };
+  }
+
   async function renderRecibosLote(ids: string[], mode: "preview" | "download" | "print") {
     if (!clinicId || !ids.length) return;
     const rows = await fetchRecibosByIds(clinicId, ids);
@@ -130,24 +154,10 @@ function RecibosPage() {
       toast.error("Nenhum recibo encontrado para a última geração.");
       return;
     }
-    for (const r of rows) {
-      const pdfData: ReceiptPdfData = {
-        numero: r.numero ?? 0,
-        patientName: r.professionals?.nome ?? "Profissional",
-        description: r.description ?? "Extras — pagamento semanal",
-        serviceLabel: r.description ?? "extras",
-        amount: Number(r.valor),
-        payment_method: "transferencia",
-        payment_date: r.data ?? new Date().toISOString().slice(0, 10),
-        issued_at: r.created_at,
-        professional: (r.professionals as Professional | null | undefined) ?? null,
-        cancelled: r.status === "cancelado",
-        clinicId,
-      };
-      if (mode === "preview") await previewReceiptPdf(pdfData);
-      else if (mode === "print") await printReceiptPdf(pdfData);
-      else await downloadReceiptPdf(pdfData);
-    }
+    const items = rows.map(rowToPdfData);
+    if (mode === "preview") await previewReceiptsBatchPdf(items);
+    else if (mode === "print") await printReceiptsBatchPdf(items);
+    else await downloadReceiptsBatchPdf(items, `Recibos_${items.length}.pdf`);
     toast.success(`${rows.length} recibo(s) processado(s).`);
   }
 
@@ -165,6 +175,7 @@ function RecibosPage() {
       professional: (r.professionals as Professional | null | undefined) ?? null,
       cancelled: r.status === "cancelado",
       clinicId,
+      printMode,
     };
     if (mode === "preview") await previewReceiptPdf(pdfData);
     else if (mode === "print") await printReceiptPdf(pdfData);
@@ -191,8 +202,8 @@ function RecibosPage() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Fechamento
           </span>
@@ -211,13 +222,21 @@ function RecibosPage() {
           </Select>
         </div>
 
-        <Tabs value={visibilidade} onValueChange={(v) => setVisibilidade(v as VisibilidadeRecibo)}>
-          <TabsList>
-            <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
-            <TabsTrigger value="arquivados">Arquivados</TabsTrigger>
-            <TabsTrigger value="todos">Todos</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <ReceiptPrintModeSelector
+            value={printMode}
+            onChange={setPrintMode}
+            className="rounded-lg border bg-muted/30 p-3"
+            compact
+          />
+          <Tabs value={visibilidade} onValueChange={(v) => setVisibilidade(v as VisibilidadeRecibo)}>
+            <TabsList>
+              <TabsTrigger value="pendentes">Pendentes</TabsTrigger>
+              <TabsTrigger value="arquivados">Arquivados</TabsTrigger>
+              <TabsTrigger value="todos">Todos</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {ultimaGeracao && ultimaGeracao.reciboIds.length > 0 && (

@@ -18,11 +18,10 @@ import {
 } from "@/components/discharge-premium/discharge-utils";
 import type { BuildPdfOpts, PdfBlock, PdfContent } from "@/lib/pdf-engine";
 import { calcAge, fmtDate } from "./format";
-import { fmtYesNo, buildGeriatricChildren } from "./pdf-builders-shared";
+import { fmtYesNo, buildGeriatricChildren, formatProfessionalRegistry } from "./pdf-builders-shared";
 
 const PREMIUM = {
   layout: "clinical-premium" as const,
-  documentVersion: "8B.1",
 };
 
 // ---------- Shared helpers ----------
@@ -89,7 +88,7 @@ function identificationGrid(p: any, a: any, extra: Array<[string, string]> = [])
           ["Sexo", p?.sexo ?? "—"],
           ["Telefone", p?.telefone ?? "—"],
           ["Profissional", a.professionals?.nome ?? "—"],
-          ["Registro", [a.professionals?.conselho, a.professionals?.registro].filter(Boolean).join(" ") || "—"],
+          ["Registro", formatProfessionalRegistry(a.professionals)],
           ...extra,
         ],
       },
@@ -338,7 +337,6 @@ export function buildEvolutionPdfOpts(e: any, p: any) {
   return {
     ...PREMIUM,
     title: "Evolução Clínica",
-    subtitle: sessionLabel,
     referenceLabel: "Data / hora da sessão",
     referenceValue: sessionLabel,
     patientName: p?.nome_completo,
@@ -357,6 +355,7 @@ export function buildEvolutionPdfOpts(e: any, p: any) {
               ["Data / Hora", sessionLabel],
               ["Sessão nº", e.sessao_numero != null && e.sessao_numero !== "" ? String(e.sessao_numero) : "—"],
               ["Profissional", e.professionals?.nome ?? "—"],
+              ["Registro", formatProfessionalRegistry(e.professionals)],
             ],
           },
           ...(indicator ? [indicator] : []),
@@ -455,6 +454,7 @@ export function buildDischargePdfOpts(
             ["Paciente", p?.nome_completo ?? "—"],
             ["Data da alta", fmtDate(d.data_alta)],
             ["Profissional", d.professionals?.nome ?? "—"],
+            ["Registro", formatProfessionalRegistry(d.professionals)],
             ["Motivo", d.motivo ?? "—"],
           ],
         }],

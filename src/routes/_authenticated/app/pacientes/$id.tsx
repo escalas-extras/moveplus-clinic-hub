@@ -5,7 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import {
+  ClinicalDialogBody,
+  ClinicalDialogContent,
+  ClinicalDialogHeader,
+  ClinicalDialogTitle,
+} from "@/components/layout";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2, Trash2, Pencil } from "lucide-react";
 import { calcAge, fmtDate } from "@/lib/format";
@@ -25,6 +31,7 @@ import { PatientTimeline } from "@/components/clinical/patient-timeline";
 import { DischargePanel } from "@/components/clinical/discharge-panel";
 import { ReassessmentComparator } from "@/components/clinical/reassessment-comparator";
 import { PatientDocumentsTab } from "@/components/clinical/patient-documents-tab";
+import { GenerateDossierButton } from "@/components/clinical/generate-dossier-button";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -187,12 +194,21 @@ function PatientPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <GenerateDossierButton
+            patient={p as Record<string, unknown>}
+            assessments={(assessments.data ?? []) as Record<string, unknown>[]}
+            evolutions={(evolutions.data ?? []) as Record<string, unknown>[]}
+          />
           <Dialog open={editOpen} onOpenChange={setEditOpen}>
             <DialogTrigger asChild><Button variant="outline">Editar dados</Button></DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-              <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
-            </DialogContent>
+            <ClinicalDialogContent>
+              <ClinicalDialogHeader>
+                <ClinicalDialogTitle>Editar paciente</ClinicalDialogTitle>
+              </ClinicalDialogHeader>
+              <ClinicalDialogBody>
+                <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
+              </ClinicalDialogBody>
+            </ClinicalDialogContent>
           </Dialog>
           {isAdmin && (
             <AlertDialog>
@@ -273,30 +289,32 @@ function PatientPage() {
           <div className="flex justify-end mb-3">
             <Dialog open={avalOpen} onOpenChange={(o) => { setAvalOpen(o); if (o) setEditMode("wizard"); }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova avaliação</Button></DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
+              <ClinicalDialogContent>
+                <ClinicalDialogHeader>
+                  <ClinicalDialogTitle className="flex flex-wrap items-center justify-between gap-3">
                     <span>Nova avaliação fisioterapêutica</span>
                     <div className="flex gap-1 text-xs">
                       <button
                         type="button"
                         onClick={() => setEditMode("wizard")}
-                        className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
+                        className={`rounded-md border px-2 py-1 ${editMode === "wizard" ? "border-primary bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                       >Wizard</button>
                       <button
                         type="button"
                         onClick={() => setEditMode("classic")}
-                        className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
+                        className={`rounded-md border px-2 py-1 ${editMode === "classic" ? "border-primary bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                       >Modo clássico</button>
                     </div>
-                  </DialogTitle>
-                </DialogHeader>
-                {editMode === "wizard" ? (
-                  <AssessmentWizard patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
-                ) : (
-                  <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
-                )}
-              </DialogContent>
+                  </ClinicalDialogTitle>
+                </ClinicalDialogHeader>
+                <ClinicalDialogBody>
+                  {editMode === "wizard" ? (
+                    <AssessmentWizard patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
+                  ) : (
+                    <AssessmentForm patientId={p.id} patient={p} onDone={() => { setAvalOpen(false); qc.invalidateQueries({ queryKey: ["assessments", clinicId, id] }); }} />
+                  )}
+                </ClinicalDialogBody>
+              </ClinicalDialogContent>
             </Dialog>
           </div>
           <div className="space-y-3">
@@ -389,8 +407,11 @@ function PatientPage() {
           </div>
 
           <Dialog open={!!linkedEvoFor} onOpenChange={(o) => !o && setLinkedEvoFor(null)}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Nova evolução vinculada à avaliação</DialogTitle></DialogHeader>
+            <ClinicalDialogContent className="h-[min(88vh,920px)] w-[min(90vw,960px)]">
+              <ClinicalDialogHeader>
+                <ClinicalDialogTitle>Nova evolução vinculada à avaliação</ClinicalDialogTitle>
+              </ClinicalDialogHeader>
+              <ClinicalDialogBody>
               {linkedEvoFor && (
               <EvolutionForm
                 patientId={p.id}
@@ -399,28 +420,30 @@ function PatientPage() {
                 onDone={() => { setLinkedEvoFor(null); qc.invalidateQueries({ queryKey: ["evolutions", clinicId, id] }); }}
               />
               )}
-            </DialogContent>
+              </ClinicalDialogBody>
+            </ClinicalDialogContent>
           </Dialog>
 
           <Dialog open={!!editAssessment} onOpenChange={(o) => !o && setEditAssessment(null)}>
-            <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center justify-between gap-3 flex-wrap">
+            <ClinicalDialogContent>
+              <ClinicalDialogHeader>
+                <ClinicalDialogTitle className="flex flex-wrap items-center justify-between gap-3">
                   <span>Editar avaliação {editAssessment?.status === "finalizada" ? "(finalizada · admin)" : ""}</span>
                   <div className="flex gap-1 text-xs">
                     <button
                       type="button"
                       onClick={() => setEditMode("wizard")}
-                      className={`px-2 py-1 rounded-md border ${editMode === "wizard" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
+                      className={`rounded-md border px-2 py-1 ${editMode === "wizard" ? "border-primary bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                     >Wizard</button>
                     <button
                       type="button"
                       onClick={() => setEditMode("classic")}
-                      className={`px-2 py-1 rounded-md border ${editMode === "classic" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground"}`}
+                      className={`rounded-md border px-2 py-1 ${editMode === "classic" ? "border-primary bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                     >Modo clássico</button>
                   </div>
-                </DialogTitle>
-              </DialogHeader>
+                </ClinicalDialogTitle>
+              </ClinicalDialogHeader>
+              <ClinicalDialogBody>
               {editAssessment && (
                 editMode === "wizard" ? (
                   <AssessmentWizard
@@ -438,7 +461,8 @@ function PatientPage() {
                   />
                 )
               )}
-            </DialogContent>
+              </ClinicalDialogBody>
+            </ClinicalDialogContent>
           </Dialog>
         </TabsContent>
 
@@ -446,10 +470,14 @@ function PatientPage() {
           <div className="flex justify-end mb-3">
             <Dialog open={evoOpen} onOpenChange={setEvoOpen}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Nova evolução</Button></DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Nova evolução</DialogTitle></DialogHeader>
+              <ClinicalDialogContent>
+                <ClinicalDialogHeader>
+                  <ClinicalDialogTitle>Nova evolução</ClinicalDialogTitle>
+                </ClinicalDialogHeader>
+                <ClinicalDialogBody>
                 <EvolutionForm patientId={p.id} patient={p} onDone={() => { setEvoOpen(false); qc.invalidateQueries({ queryKey: ["evolutions", clinicId, id] }); }} />
-              </DialogContent>
+                </ClinicalDialogBody>
+              </ClinicalDialogContent>
             </Dialog>
           </div>
           <div className="space-y-3">

@@ -1,7 +1,9 @@
+import { memo } from "react";
 import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PrimaryActionButton } from "./PageActions";
+import { clinical } from "./clinical-classes";
 
 type EmptyStateProps = {
   icon: LucideIcon;
@@ -15,49 +17,33 @@ type EmptyStateProps = {
   className?: string;
 };
 
-export function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
-  className,
-}: EmptyStateProps) {
+function EmptyStateInner({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
     <div
       role="status"
       aria-live="polite"
-      className={cn(
-        "flex flex-col items-center justify-center px-6 py-16 text-center",
-        className,
-      )}
+      className={cn(clinical.emptyState, "flex flex-col items-center justify-center px-8 py-16 text-center", className)}
     >
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-primary ring-1 ring-emerald-100">
-        <Icon className="h-8 w-8" />
+      <div className="fos-empty-state__icon mb-6 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl">
+        <Icon className="h-9 w-9 text-primary" strokeWidth={1.75} />
       </div>
-      <h3 className="max-w-sm text-lg font-semibold tracking-tight text-slate-950">
-        {title}
-      </h3>
+      <h3 className="max-w-sm text-xl font-bold tracking-tight text-slate-950">{title}</h3>
       {description && (
-        <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600 sm:text-[15px]">{description}</p>
       )}
       {action && (
-        <div className="mt-6">
+        <div className="mt-8">
           {action.to ? (
-            <Button asChild className="rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-soft hover:bg-primary/90">
+            <PrimaryActionButton asChild>
               <Link to={action.to}>{action.label}</Link>
-            </Button>
+            </PrimaryActionButton>
           ) : (
-            <Button
-              onClick={action.onClick}
-              className="rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-soft hover:bg-primary/90"
-            >
-              {action.label}
-            </Button>
+            <PrimaryActionButton onClick={action.onClick}>{action.label}</PrimaryActionButton>
           )}
         </div>
       )}
     </div>
   );
 }
+
+export const EmptyState = memo(EmptyStateInner);

@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Lock, Plus } from "lucide-react";
+import { FileText, Lock, Plus } from "lucide-react";
 import { fmtDateTime } from "@/lib/format";
+import { useActiveClinic } from "@/lib/active-clinic";
+import { ClinicalDocumentPdfActions } from "@/components/clinical-document-pdf-actions";
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   avaliacao: "Avaliação",
@@ -22,10 +24,22 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   recibo: "Recibo",
 };
 
-import { useActiveClinic } from "@/lib/active-clinic";
-
 export function PatientDocumentsTab({ patientId }: { patientId: string }) {
   const { clinicId } = useActiveClinic();
+
+  const { data: patient } = useQuery({
+    queryKey: ["patient-doc-tab-name", patientId],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("patients")
+        .select("nome_completo")
+        .eq("id", patientId)
+        .maybeSingle();
+      return data;
+    },
+  });
+
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ["patient-clinical-documents", clinicId, patientId],
     enabled: !!clinicId && !!patientId,
@@ -51,7 +65,9 @@ export function PatientDocumentsTab({ patientId }: { patientId: string }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-semibold">Documentos do paciente</h2>
-          <p className="text-xs text-muted-foreground">Todos os documentos emitidos para este paciente.</p>
+          <p className="text-xs text-muted-foreground">
+            PDF arquivado preserva o layout da emissão; a pré-visualização usa o layout atual.
+          </p>
         </div>
         <Button asChild size="sm">
           <Link to="/app/documentos" search={{ patient: patientId }}>
@@ -73,12 +89,16 @@ export function PatientDocumentsTab({ patientId }: { patientId: string }) {
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{cat}</h3>
           <div className="space-y-2">
             {list.map((d: any) => (
-              <div key={d.id} className="border rounded p-3 flex items-center justify-between gap-2">
+              <div key={d.id} className="border rounded p-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 font-medium text-sm">
-                    <FileText className="h-4 w-4 text-primary" />
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
                     <span className="truncate">{d.title}</span>
-                    {d.locked_at && <Badge variant="secondary" className="text-[10px]"><Lock className="h-3 w-3 mr-1" /> Assinado</Badge>}
+                    {d.locked_at && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        <Lock className="h-3 w-3 mr-1" /> Assinado
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     {fmtDateTime(d.issued_at)}
@@ -90,16 +110,10 @@ export function PatientDocumentsTab({ patientId }: { patientId: string }) {
                   </div>
                 </div>
                 {d.pdf_url && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      const { data } = await supabase.storage.from("documents").createSignedUrl(d.pdf_url, 300);
-                      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" /> Abrir
-                  </Button>
+                  <ClinicalDocumentPdfActions
+                    document={d}
+                    patientName={patient?.nome_completo}
+                  />
                 )}
               </div>
             ))}

@@ -27,7 +27,7 @@ export function PageHeader({
       <div className="min-w-0">
         {breadcrumbs && breadcrumbs.length > 0 && <PageBreadcrumb items={breadcrumbs} />}
         {(eyebrow || Icon) && (
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-primary shadow-[0_10px_24px_-20px_rgba(15,23,42,0.45)]">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.04] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-primary shadow-[0_10px_24px_-20px_rgba(15,23,42,0.45)]">
             {Icon && <Icon className="h-3.5 w-3.5" aria-hidden />}
             {eyebrow}
           </div>
@@ -36,7 +36,7 @@ export function PageHeader({
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
             {description}
           </p>
         )}

@@ -5,6 +5,7 @@ import { useActiveClinic } from "@/lib/active-clinic";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
+import { appointmentStatusLabel, appointmentStatusVariant } from "@/lib/appointment-status";
 import {
   AppShell,
   ClinicalSkeleton,
@@ -12,13 +13,14 @@ import {
   InfoCard,
   KpiCard,
   KpiGrid,
-  PageHeader,
   PageSection,
   PrimaryActionButton,
+  QueryErrorState,
   SecondaryActionButton,
   StatusBadge,
   clinical,
 } from "@/components/layout";
+import { AgendaTimeline, DashboardHero, sparkFromTrend } from "@/components/dashboard";
 import {
   Users,
   CalendarDays,
@@ -107,25 +109,8 @@ type PatientRow = {
   created_at: string;
 };
 
-const STATUS_VARIANT: Record<string, "success" | "warning" | "danger" | "neutral"> = {
-  agendado: "warning",
-  pendente: "warning",
-  confirmado: "success",
-  realizado: "success",
-  concluido: "success",
-  cancelado: "danger",
-  faltou: "danger",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  agendado: "Pendente",
-  pendente: "Pendente",
-  confirmado: "Confirmado",
-  realizado: "Confirmado",
-  concluido: "Confirmado",
-  cancelado: "Cancelado",
-  faltou: "Cancelado",
-};
+const STATUS_VARIANT = appointmentStatusVariant;
+const STATUS_LABEL = appointmentStatusLabel;
 
 function PainelClinico() {
   const { clinicId } = useActiveClinic();
@@ -143,12 +128,11 @@ function PainelClinico() {
 
   const greeting = getGreeting(today.getHours());
   const displayName = getDisplayName(user);
-  const headerTitle = displayName ? `${greeting}, ${displayName}` : greeting;
-  const headerDescription = `${brand.clinicName} · ${today.toLocaleDateString("pt-BR", {
+  const dateLabel = today.toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "numeric",
     month: "long",
-  })}`;
+  });
 
   const stats = useQuery({
     queryKey: [
@@ -299,22 +283,37 @@ function PainelClinico() {
   const loading = stats.isLoading;
 
   return (
-    <AppShell clinical>
-      <PageHeader
-        icon={Sparkles}
-        eyebrow={brand.clinicName}
-        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Painel" }]}
-        title={headerTitle}
-        description={headerDescription}
+    <AppShell clinical className="space-y-7 sm:space-y-8">
+      <DashboardHero
+        greeting={greeting}
+        displayName={displayName || undefined}
+        clinicName={brand.clinicName}
+        dateLabel={dateLabel}
+        primaryColor={brand.primaryColor}
+        secondaryColor={brand.secondaryColor}
+        dayMetric={
+          !loading && s
+            ? {
+                label: "Atendimentos hoje",
+                value: s.atendHoje,
+                hint:
+                  reavalCount > 0
+                    ? `${reavalCount} reavaliação(ões) pendente(s) · ${s.agendaSemana} na semana`
+                    : s.atendHoje > 0
+                      ? `${s.agendaSemana} agendamento(s) nesta semana`
+                      : "Sua agenda está livre hoje",
+              }
+            : undefined
+        }
         actions={
           <>
-            <PrimaryActionButton asChild style={{ background: brand.primaryColor }}>
+            <PrimaryActionButton asChild className="h-11 px-5 shadow-soft" style={{ background: brand.primaryColor }}>
               <Link to="/app/pacientes">
                 <Plus className="h-4 w-4" />
                 Novo paciente
               </Link>
             </PrimaryActionButton>
-            <SecondaryActionButton asChild>
+            <SecondaryActionButton asChild className="h-11 px-5 bg-white/90">
               <Link to="/app/agenda">
                 <CalendarDays className="h-4 w-4" />
                 Agendar
@@ -324,20 +323,19 @@ function PainelClinico() {
         }
       />
 
-      {loading ? (
+      {stats.isError ? (
+        <QueryErrorState onRetry={() => void stats.refetch()} />
+      ) : loading ? (
         <ClinicalSkeleton variant="dashboard" kpiCount={6} />
       ) : (
         <>
           {isNewClinic && (
             <InfoCard
+              variant="highlight"
+              hoverable
               icon={Sparkles}
               title="Sua clínica está pronta para iniciar"
               description="Cadastre o primeiro paciente, configure sua agenda e emita seu primeiro documento."
-              className="border-dashed"
-              style={{
-                borderColor: `${brand.primaryColor}66`,
-                background: `linear-gradient(135deg, ${brand.primaryColor}10, ${brand.secondaryColor}08)`,
-              }}
             >
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                 <Link
@@ -364,15 +362,18 @@ function PainelClinico() {
 
           <KpiGrid columns={6}>
             <KpiCard
+              variant="premium"
               icon={Users}
               label="Pacientes ativos"
               value={s?.pacientesAtivos ?? 0}
               previous={s?.pacientesAntes ?? 0}
               period="vs início do mês"
+              sparkline={sparkFromTrend(s?.pacientesAntes ?? 0, s?.pacientesAtivos ?? 0)}
               to="/app/pacientes"
               accent={brand.primaryColor}
             />
             <KpiCard
+              variant="premium"
               icon={Clock}
               label="Atendimentos hoje"
               value={s?.atendHoje ?? 0}
@@ -382,6 +383,7 @@ function PainelClinico() {
               subtitle={s?.atendHoje ? "Agendados para hoje" : "Nenhum hoje"}
             />
             <KpiCard
+              variant="premium"
               icon={CalendarRange}
               label="Agenda desta semana"
               value={s?.agendaSemana ?? 0}
@@ -391,6 +393,7 @@ function PainelClinico() {
               subtitle="Seg — Dom"
             />
             <KpiCard
+              variant="premium"
               icon={RefreshCw}
               label="Reavaliações pendentes"
               value={reavalCount}
@@ -401,15 +404,18 @@ function PainelClinico() {
               subtitle={reavalCount > 0 ? "Requer atenção" : "Em dia"}
             />
             <KpiCard
+              variant="premium"
               icon={FileText}
               label="Documentos emitidos"
               value={s?.docsMes ?? 0}
               previous={s?.docsPrev ?? 0}
               period="vs mês anterior"
+              sparkline={sparkFromTrend(s?.docsPrev ?? 0, s?.docsMes ?? 0)}
               to="/app/documentos"
               accent={brand.secondaryColor}
             />
             <KpiCard
+              variant="premium"
               icon={DollarSign}
               label="Receita do mês"
               value="—"
@@ -444,25 +450,7 @@ function PainelClinico() {
                   className="py-10"
                 />
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                  <table className="w-full min-w-[480px] text-sm">
-                    <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-semibold">Horário</th>
-                        <th className="px-4 py-3 text-left font-semibold">Paciente</th>
-                        <th className="hidden px-4 py-3 text-left font-semibold sm:table-cell">
-                          Atendimento
-                        </th>
-                        <th className="px-4 py-3 text-right font-semibold">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {s.hoje.map((a) => (
-                        <AgendaRow key={a.id} appt={a} accent={brand.primaryColor} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <AgendaTimeline items={s.hoje} accent={brand.primaryColor} />
               )}
             </PageSection>
 
@@ -488,30 +476,30 @@ function PainelClinico() {
                   className="py-10"
                 />
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-2.5">
                   {s.proximos.map((a) => (
                     <li key={a.id}>
                       <Link
                         to="/app/agenda"
-                        className="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 transition-colors hover:border-slate-200 hover:bg-slate-50"
+                        className="dashboard-upcoming-card group flex items-center gap-3 rounded-2xl px-3.5 py-3.5 sm:px-4"
                       >
                         <div
-                          className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg text-[10px] font-bold leading-tight"
+                          className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-[10px] font-bold leading-tight shadow-sm ring-1 ring-black/[0.04]"
                           style={{ background: `${brand.primaryColor}14`, color: brand.primaryColor }}
                         >
                           <span>{fmtDate(a.data).slice(0, 5)}</span>
-                          <span className="tabular-nums">{String(a.horario).slice(0, 5)}</span>
+                          <span className="tabular-nums text-xs">{String(a.horario).slice(0, 5)}</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">
+                          <div className="truncate font-semibold text-slate-900 group-hover:text-primary">
                             {a.patients?.nome_completo ?? "—"}
                           </div>
-                          <div className="truncate text-xs text-muted-foreground">
+                          <div className="truncate text-xs text-slate-600 sm:text-sm">
                             {a.observacao || a.professionals?.nome || "Consulta"}
                           </div>
                         </div>
-                        <StatusBadge variant={STATUS_VARIANT[a.status ?? ""] ?? "neutral"}>
-                          {STATUS_LABEL[a.status ?? ""] ?? a.status ?? "—"}
+                        <StatusBadge variant={STATUS_VARIANT(a.status ?? "")} className="shrink-0">
+                          {STATUS_LABEL(a.status ?? "")}
                         </StatusBadge>
                       </Link>
                     </li>
@@ -573,13 +561,13 @@ function PainelClinico() {
               title="Ações rápidas"
               description="Atalhos e pendências operacionais"
             >
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <QuickAction icon={UserPlus} label="Novo paciente" to="/app/pacientes" />
-                <QuickAction icon={CalendarDays} label="Agendar" to="/app/agenda" />
-                <QuickAction icon={FileText} label="Documentos" to="/app/documentos" />
-                <QuickAction icon={Stethoscope} label="Evoluções" to="/app/evolucoes" />
-                <QuickAction icon={RefreshCw} label="Reavaliações" to="/app/reavaliacoes" />
-                <QuickAction icon={Settings} label="Configurações" to="/app/configuracoes" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <QuickAction icon={UserPlus} label="Novo paciente" to="/app/pacientes" accent={brand.primaryColor} />
+                <QuickAction icon={CalendarDays} label="Agendar" to="/app/agenda" accent={brand.secondaryColor} />
+                <QuickAction icon={FileText} label="Documentos" to="/app/documentos" accent={brand.primaryColor} />
+                <QuickAction icon={Stethoscope} label="Evoluções" to="/app/evolucoes" accent={brand.secondaryColor} />
+                <QuickAction icon={RefreshCw} label="Reavaliações" to="/app/reavaliacoes" accent={brand.primaryColor} />
+                <QuickAction icon={Settings} label="Configurações" to="/app/configuracoes" accent={brand.primaryColor} />
               </div>
 
               <div className="mt-5 space-y-1.5 border-t border-slate-100 pt-5">
@@ -634,45 +622,29 @@ function PainelClinico() {
 }
 
 
-function AgendaRow({ appt, accent }: { appt: ApptRow; accent: string }) {
-  return (
-    <tr className="transition-colors hover:bg-slate-50">
-      <td className="px-4 py-3.5 tabular-nums font-semibold" style={{ color: accent }}>
-        {String(appt.horario).slice(0, 5)}
-      </td>
-      <td className="max-w-[140px] truncate px-4 py-3.5 font-medium sm:max-w-none">
-        {appt.patients?.nome_completo ?? "—"}
-      </td>
-      <td className="hidden truncate px-4 py-3.5 text-muted-foreground sm:table-cell">
-        {appt.observacao || appt.professionals?.nome || "Consulta"}
-      </td>
-      <td className="px-4 py-3.5 text-right">
-        <StatusBadge variant={STATUS_VARIANT[appt.status ?? ""] ?? "neutral"}>
-          {STATUS_LABEL[appt.status ?? ""] ?? appt.status ?? "—"}
-        </StatusBadge>
-      </td>
-    </tr>
-  );
-}
-
 function QuickAction({
   icon: Icon,
   label,
   to,
+  accent = "var(--primary)",
 }: {
   icon: LucideIcon;
   label: string;
   to: string;
+  accent?: string;
 }) {
   return (
     <Link
       to={to}
-      className="flex flex-col items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/50 px-3 py-4 text-center transition-colors hover:border-primary/30 hover:bg-primary/5"
+      className="dashboard-quick-action group flex flex-col items-center gap-3 rounded-2xl px-3 py-5 text-center"
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-soft">
-        <Icon className="h-4 w-4" />
+      <div
+        className="flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-soft transition-transform duration-200 group-hover:scale-105"
+        style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in oklab, ${accent} 72%, #2bb673))` }}
+      >
+        <Icon className="h-5 w-5" strokeWidth={2} />
       </div>
-      <span className="text-xs font-semibold leading-tight text-slate-800">{label}</span>
+      <span className="text-xs font-semibold leading-tight text-slate-800 sm:text-[13px]">{label}</span>
     </Link>
   );
 }
@@ -699,7 +671,7 @@ function ActivityRow({
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 transition-colors hover:border-slate-200 hover:bg-slate-50"
+      className="group flex items-center gap-3 rounded-2xl border border-transparent px-3 py-3 transition-all duration-200 hover:border-[rgba(15,76,92,0.12)] hover:bg-white/80 hover:shadow-sm"
     >
       <div className={cn("rounded-lg p-1.5 ring-1", cls)}>
         <Icon className="h-[18px] w-[18px]" strokeWidth={2} />

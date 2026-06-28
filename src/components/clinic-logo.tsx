@@ -1,86 +1,88 @@
-import { useState, useEffect } from "react";
 import { Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Branding } from "@/lib/branding";
+import { LogoBox, type LogoBoxSize, type LogoBoxVariant } from "@/components/logo-box";
+
+export type ClinicLogoVariant = LogoBoxVariant | "banner" | "mark";
 
 type Props = {
   brand: Branding;
   isLoading?: boolean;
+  /** @deprecated Use variant="sidebar-mark" */
   compact?: boolean;
+  size?: LogoBoxSize;
+  /** sidebar-brand = faixa sidebar expandida; sidebar-mark = colapsado; inline = topbar; document = preview upload */
+  variant?: ClinicLogoVariant;
+  className?: string;
 };
 
-/**
- * Single source of truth for rendering the clinic logo.
- * Behavior:
- *  - While branding is loading: render a neutral placeholder (same footprint,
- *    no monograma) so navegação não causa flash.
- *  - Após carregar: se houver logo válida, mostra a imagem; só cai para o
- *    monograma se a imagem realmente falhar ou se não houver logo.
- *  - O estado "broken" é resetado quando a URL da logo muda (nova clínica /
- *    nova logo), evitando que um erro antigo persista.
- */
-export function ClinicLogo({ brand, isLoading = false, compact = false }: Props) {
-  const size = compact ? "h-9 w-9" : "h-11 w-11";
+function normalizeVariant(compact: boolean, variant?: ClinicLogoVariant): LogoBoxVariant {
+  if (variant === "banner") return "sidebar-brand";
+  if (variant === "mark") return "sidebar-mark";
+  if (variant) return variant;
+  return compact ? "sidebar-mark" : "sidebar-brand";
+}
+
+function resolveFixedSize(variant: LogoBoxVariant, size?: LogoBoxSize): LogoBoxSize | undefined {
+  if (size && size !== "sidebar-banner" && size !== "mark") return size;
+  if (variant === "sidebar-brand" || variant === "sidebar-mark" || variant === "inline" || variant === "document") {
+    return undefined;
+  }
+  return size ?? "md";
+}
+
+export function ClinicLogo({
+  brand,
+  isLoading = false,
+  compact = false,
+  size,
+  variant: variantProp,
+  className,
+}: Props) {
+  const variant = normalizeVariant(compact, variantProp);
+  const fixedSize = resolveFixedSize(variant, size);
   const rawLogo = brand.logoUrl?.trim() || null;
-  const [broken, setBroken] = useState(false);
-
-  // Resetar estado de "broken" sempre que a URL da logo mudar.
-  useEffect(() => {
-    setBroken(false);
-  }, [rawLogo]);
-
-  // Enquanto branding carrega, mostrar placeholder neutro (sem monograma).
-  if (isLoading && !rawLogo) {
-    return (
-      <div
-        className={cn(size, "rounded-xl bg-white/60 shadow-soft")}
-        aria-hidden="true"
-      />
-    );
-  }
-
-  const showImage = brand.hasOwnLogo && !!rawLogo && !broken;
-
-  if (showImage) {
-    return (
-      <div
-        className={cn(
-          size,
-          "rounded-xl overflow-hidden bg-white shadow-soft ring-1 ring-black/5",
-        )}
-      >
-        <img
-          src={rawLogo!}
-          alt={brand.clinicName}
-          className="h-full w-full object-cover"
-          referrerPolicy="no-referrer"
-          loading="eager"
-          decoding="async"
-          onError={() => setBroken(true)}
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            if (!img.naturalWidth || !img.naturalHeight) setBroken(true);
-          }}
-        />
-      </div>
-    );
-  }
+  const showImage = brand.hasOwnLogo && !!rawLogo;
 
   const initial = (brand.clinicName || "C").trim().charAt(0).toUpperCase();
-  return (
+  const isFisioDefault = !brand.clinicName || brand.clinicName === brand.appName;
+
+  const monogram = (
     <div
       className={cn(
-        size,
-        "rounded-2xl flex items-center justify-center shadow-soft text-white font-semibold",
+        "h-full w-full flex items-center justify-center text-white font-semibold",
+        variant === "sidebar-mark" ? "text-sm" : variant === "sidebar-brand" ? "text-xl" : "text-base",
       )}
-      style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}
+      style={{
+        background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})`,
+      }}
       aria-label={brand.clinicName}
     >
-      {brand.clinicName && brand.clinicName !== brand.appName ? (
-        <span className={cn(compact ? "text-sm" : "text-base")}>{initial}</span>
+      {!isFisioDefault ? (
+        <span>{initial}</span>
       ) : (
-        <Stethoscope className={cn(compact ? "h-5 w-5" : "h-6 w-6")} />
+        <Stethoscope
+          className={cn(
+            variant === "sidebar-mark" ? "h-5 w-5" : variant === "sidebar-brand" ? "h-8 w-8" : "h-6 w-6",
+          )}
+        />
       )}
     </div>
+  );
+
+  const isSidebar = variant === "sidebar-brand" || variant === "sidebar-mark";
+
+  return (
+    <LogoBox
+      src={showImage ? rawLogo : null}
+      alt={brand.clinicName}
+      variant={fixedSize ? undefined : variant}
+      size={fixedSize ?? "md"}
+      loading={isLoading}
+      rounded={isSidebar ? "xl" : showImage && !isLoading ? "xl" : "2xl"}
+      framed={variant !== "inline"}
+      fallback={monogram}
+      className={className}
+    />
   );
 }

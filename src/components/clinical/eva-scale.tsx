@@ -142,12 +142,12 @@ export function EvaScale({
       </div>
 
       {/* Zone labels */}
-      <div className="grid grid-cols-[3fr_5fr_3fr] text-[10px] font-semibold uppercase tracking-wider mb-1.5">
+      <div className="mb-2 grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-wider sm:grid-cols-[3fr_5fr_3fr]">
         {ZONES.map((z) => (
           <span
             key={z.key}
             className={cn(
-              "transition-opacity",
+              "text-center sm:text-left leading-snug transition-opacity",
               zone.key === z.key ? "opacity-100" : "opacity-40",
             )}
             style={{ color: z.color }}
@@ -161,7 +161,7 @@ export function EvaScale({
       <div
         ref={trackRef}
         className={cn(
-          "relative h-10 rounded-md border border-border bg-muted/40 cursor-pointer touch-none",
+          "relative h-11 rounded-xl border border-[rgba(15,76,92,0.22)] bg-[#eef3f6] cursor-pointer touch-none sm:h-10",
           disabled && "opacity-50 pointer-events-none",
         )}
         onPointerDown={handlePointerDown}
@@ -184,7 +184,7 @@ export function EvaScale({
         </div>
 
         {/* tick numbers */}
-        <div className="absolute inset-0 flex items-center justify-between px-[calc(0.625rem-1px)] pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-between gap-0.5 px-1 pointer-events-none sm:px-[calc(0.625rem-1px)]">
           {STEPS.map((n) => {
             const active = n === safeValue;
             const z = zoneFor(n);
@@ -198,7 +198,7 @@ export function EvaScale({
                   if (!disabled) onChange(n);
                 }}
                 className={cn(
-                  "pointer-events-auto w-6 h-6 grid place-items-center rounded-full text-[11px] font-semibold tabular-nums transition-all",
+                  "pointer-events-auto grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold tabular-nums transition-all sm:h-6 sm:w-6 sm:text-[11px]",
                   active
                     ? "text-white shadow-sm scale-110"
                     : "text-foreground/70 hover:text-foreground",

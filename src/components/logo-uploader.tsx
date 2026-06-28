@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { invalidateSignedClinicLogoUrl, resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import { cn } from "@/lib/utils";
+import { clinical } from "@/components/layout/clinical-classes";
+import { LogoBox } from "@/components/logo-box";
 
 export const LOGO_MAX = 5 * 1024 * 1024;
 export const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
@@ -30,7 +33,6 @@ export function LogoUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [previewBroken, setPreviewBroken] = useState(false);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const { data: previewUrl } = useQuery({
     queryKey: ["logo-preview", clinicId, value],
@@ -39,7 +41,6 @@ export function LogoUploader({
   });
   const visiblePreviewUrl = localPreviewUrl ?? previewUrl;
   useEffect(() => {
-    setPreviewBroken(false);
     setLocalPreviewUrl(null);
   }, [clinicId, value]);
 
@@ -89,22 +90,20 @@ export function LogoUploader({
         const f = e.dataTransfer.files?.[0];
         if (f) handleFile(f);
       }}
-      className={`mt-1 border-2 border-dashed rounded-lg p-4 flex items-center gap-4 transition-colors ${
-        dragOver ? "border-primary bg-primary/5" : "border-muted"
-      }`}
+      className={cn(
+        clinical.uploadZone,
+        "mt-1 flex items-center gap-4 p-4",
+        dragOver && "border-primary/40 bg-primary/5",
+      )}
     >
-      <div className="w-24 h-24 rounded border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-        {visiblePreviewUrl && !previewBroken ? (
-          <img
-            src={visiblePreviewUrl}
-            alt="Logo"
-            className="max-w-full max-h-full object-contain"
-            onError={() => setPreviewBroken(true)}
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground">Sem logo</span>
-        )}
-      </div>
+      <LogoBox
+        src={visiblePreviewUrl}
+        alt="Logo"
+        variant="document"
+        rounded="lg"
+        framed
+        fallback={<span className="text-xs text-muted-foreground px-2 text-center">Sem logo</span>}
+      />
       <div className="flex-1 space-y-2">
         <p className="text-xs text-muted-foreground">
           Arraste um arquivo ou selecione. JPG, PNG ou SVG. Máximo 5 MB.

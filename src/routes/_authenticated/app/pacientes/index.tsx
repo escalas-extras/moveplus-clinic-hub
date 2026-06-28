@@ -50,6 +50,11 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   AppShell,
+  ClinicalDataTable,
+  ClinicalDialogBody,
+  ClinicalDialogContent,
+  ClinicalDialogHeader,
+  ClinicalDialogTitle,
   ClinicalSkeleton,
   EmptyState,
   FilterField,
@@ -59,11 +64,12 @@ import {
   PageHeader,
   PageSection,
   PrimaryActionButton,
+  QueryErrorState,
   SearchField,
   StatusBadge,
   clinical,
 } from "@/components/layout";
-import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
@@ -382,17 +388,26 @@ function PacientesPage() {
                 Novo paciente
               </PrimaryActionButton>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Novo paciente</DialogTitle>
-              </DialogHeader>
-              <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
-            </DialogContent>
+            <ClinicalDialogContent>
+              <ClinicalDialogHeader>
+                <ClinicalDialogTitle>Novo paciente</ClinicalDialogTitle>
+              </ClinicalDialogHeader>
+              <ClinicalDialogBody>
+                <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
+              </ClinicalDialogBody>
+            </ClinicalDialogContent>
           </Dialog>
         }
       />
 
-      {loading ? (
+      {list.isError || kpis.isError ? (
+        <QueryErrorState
+          onRetry={() => {
+            void list.refetch();
+            void kpis.refetch();
+          }}
+        />
+      ) : loading ? (
         <ClinicalSkeleton variant="split" kpiCount={4} />
       ) : (
         <>
@@ -540,8 +555,8 @@ function PacientesPage() {
                   ))}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-sm">
+                <ClinicalDataTable minWidth={720}>
+                  <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                       <tr className="text-left">
                         <th className="px-5 py-3 font-bold">Paciente</th>
@@ -557,7 +572,7 @@ function PacientesPage() {
                         <tr
                           key={p.id}
                           className={cn(
-                            "cursor-pointer transition-colors hover:bg-emerald-50/40",
+                            "cursor-pointer transition-colors hover:bg-primary/[0.03]",
                             selectedId === p.id && "bg-primary/5",
                           )}
                           onClick={() => setSelectedId(p.id)}
@@ -641,7 +656,7 @@ function PacientesPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </ClinicalDataTable>
               )}
             </PageSection>
 

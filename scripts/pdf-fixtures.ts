@@ -6,8 +6,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderPdf, type BuildPdfOpts, type ClinicData, type Professional, type PdfBlock } from "../src/lib/pdf-engine";
+import { prepareLogoInputNode } from "./lib/logo-node";
 
-const OUT = "/mnt/documents/pdf-fixtures";
+const OUT = resolve(process.cwd(), "pdf-fixtures");
 mkdirSync(OUT, { recursive: true });
 
 // --- Fixtures de domínio ---
@@ -128,6 +129,7 @@ const contractBase: BuildPdfOpts = {
   patientName: "Maria Aparecida da Silva",
   professional: PROFESSIONAL,
   blocks: contractClauses,
+  layout: "fisioos-ds",
   validationHash: HASH,
   validationUrlBase: "https://fisioos.app",
 };
@@ -491,7 +493,8 @@ const fixtures: Fixture[] = [
 
 async function main() {
   for (const f of fixtures) {
-    const doc = await renderPdf(f.opts, { clinic: f.clinic, logo: f.logo ?? null });
+    const logo = f.logo != null ? await prepareLogoInputNode(f.logo) : null;
+    const doc = await renderPdf(f.opts, { clinic: f.clinic, logo });
     const ab = doc.output("arraybuffer") as ArrayBuffer;
     const file = resolve(OUT, `${f.name}.pdf`);
     writeFileSync(file, Buffer.from(ab));

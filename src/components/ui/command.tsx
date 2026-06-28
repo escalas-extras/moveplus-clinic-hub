@@ -6,6 +6,7 @@ import { Command as CommandPrimitive } from "cmdk";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { clinical } from "@/components/layout/clinical-classes";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const Command = React.forwardRef<
@@ -15,7 +16,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      "flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground",
+      "fos-command flex h-full w-full flex-col overflow-hidden rounded-xl border border-[rgba(15,76,92,0.12)] bg-popover text-popover-foreground shadow-[var(--fos-card-shadow)]",
       className,
     )}
     {...props}
@@ -39,12 +40,13 @@ const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
-  <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+  <div className="flex items-center border-b border-[rgba(15,76,92,0.1)] px-3.5" cmdk-input-wrapper="">
+    <Search className="mr-2.5 h-4 w-4 shrink-0 text-primary/60" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        clinical.input,
+        "h-11 border-0 bg-[#eef3f6] shadow-none ring-0 focus-visible:bg-white focus-visible:ring-0 focus-visible:border-transparent",
         className,
       )}
       {...props}
@@ -111,7 +113,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex cursor-default select-none items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-none transition-colors duration-150 data-[disabled=true]:pointer-events-none data-[selected=true]:bg-[rgba(15,76,92,0.06)] data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       className,
     )}
     {...props}

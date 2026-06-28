@@ -26,7 +26,7 @@ import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { EvaScale } from "@/components/clinical/eva-scale";
-import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton } from "@/components/layout";
+import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton, FormHeaderField, FieldLabel } from "@/components/layout";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -351,11 +351,11 @@ export function EvolutionForm({
     <div className="dashboard-premium clinical-module space-y-4">
       <InfoCard icon={Stethoscope} title="Evolução clínica" description="Prontuário evolutivo premium da sessão.">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <HeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
-          <HeaderField label="Sessão" value={formValues.sessao_numero ? `#${formValues.sessao_numero}` : "—"} />
-          <HeaderField label="Diagnóstico" value={diagnosis} className="sm:col-span-2 lg:col-span-1" />
-          <HeaderField label="Data" value={fmtDate(formValues.data)} />
-          <HeaderField label="Profissional" value={profName} />
+          <FormHeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
+          <FormHeaderField label="Sessão" value={formValues.sessao_numero ? `#${formValues.sessao_numero}` : "—"} />
+          <FormHeaderField label="Diagnóstico" value={diagnosis} className="sm:col-span-2 lg:col-span-1" />
+          <FormHeaderField label="Data" value={fmtDate(formValues.data)} />
+          <FormHeaderField label="Profissional" value={profName} />
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4">
           <IndicatorPicker value={indicator} onChange={setIndicator} />
@@ -378,7 +378,7 @@ export function EvolutionForm({
           <InfoCard icon={Activity} title="Identificação da sessão">
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <RequiredLabel filled={!!professional_id}>Profissional</RequiredLabel>
+                <FieldLabel required filled={!!professional_id}>Profissional</FieldLabel>
                 <Select value={professional_id ?? ""} onValueChange={(v) => setValue("professional_id", v)}>
                   <SelectTrigger className={cn("mt-1.5 rounded-xl", !professional_id && "border-destructive")}>
                     <SelectValue placeholder="Selecione" />
@@ -393,11 +393,11 @@ export function EvolutionForm({
                 </Select>
               </div>
               <div>
-                <RequiredLabel filled={!!formValues.data}>Data</RequiredLabel>
+                <FieldLabel required filled={!!formValues.data}>Data</FieldLabel>
                 <Input type="date" required className="mt-1.5 rounded-xl" {...register("data")} />
               </div>
               <div>
-                <RequiredLabel filled={!!formValues.hora}>Hora</RequiredLabel>
+                <FieldLabel required filled={!!formValues.hora}>Hora</FieldLabel>
                 <Input type="time" required className="mt-1.5 rounded-xl" {...register("hora")} />
               </div>
             </div>
@@ -693,24 +693,6 @@ export function EvolutionForm({
   );
 }
 
-function HeaderField({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className={className}>
-      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate text-sm font-semibold text-slate-950">{value}</div>
-    </div>
-  );
-}
-
-function RequiredLabel({ children, filled }: { children: ReactNode; filled?: boolean }) {
-  return (
-    <Label className={cn("text-xs font-semibold uppercase tracking-wider", !filled && "text-destructive")}>
-      {children}
-      <span className="ml-0.5 text-destructive">*</span>
-    </Label>
-  );
-}
-
 function IndicatorPicker({
   value,
   onChange,
@@ -823,14 +805,14 @@ function FavoriteField({
   onFavorite: () => void;
 }) {
   return (
-    <div>
+    <div className="w-full min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
         <Button type="button" variant="ghost" size="sm" className="h-7 rounded-lg px-2" onClick={onFavorite} title="Favoritar">
           <Star className="h-3.5 w-3.5" />
         </Button>
       </div>
-      <Textarea rows={rows} className="rounded-xl" {...register(field)} />
+      <Textarea rows={rows} className="w-full min-w-0 max-w-full rounded-xl" {...register(field)} />
     </div>
   );
 }

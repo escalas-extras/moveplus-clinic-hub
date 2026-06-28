@@ -42,7 +42,7 @@ export type PdfContent =
       kind: "badge";
       label?: string;
       text: string;
-      variant: "success" | "warning" | "danger" | "neutral";
+      variant: "success" | "warning" | "danger" | "neutral" | "info";
     }
   | {
       kind: "compare-table";
@@ -53,9 +53,69 @@ export type PdfContent =
         atual: string;
         trend?: ClinicalTrend;
       }>;
+    }
+  | { kind: "timeline"; items: Array<{ date: string; title: string }> }
+  | {
+      kind: "dashboard";
+      columns: 2 | 3;
+      items: Array<{
+        label: string;
+        value: string;
+        variant?: "success" | "warning" | "info" | "neutral" | "danger";
+        /** Sprint D3.2 — valor para mini gráfico de barras (SVG via jsPDF). */
+        barValue?: number;
+        barMax?: number;
+      }>;
+    }
+  | {
+      kind: "objective";
+      label?: string;
+      text: string;
+      status: "achieved" | "pending" | "progress";
+    }
+  | {
+      kind: "document-cards";
+      items: Array<{
+        docType: string;
+        quantity: number;
+        lastIssued: string;
+        hash: string;
+      }>;
+    }
+  | {
+      kind: "compare-bars";
+      rows: Array<{
+        label: string;
+        inicial: number;
+        atual: number;
+        max?: number;
+        trend?: ClinicalTrend;
+      }>;
     };
 
-export type PdfBlock = { title: string; children: PdfContent[] };
+export type PdfBlock = {
+  title: string;
+  children: PdfContent[];
+  /** Dossiê: força nova página antes desta seção. */
+  pageBreakBefore?: boolean;
+  /** Dossiê: incluir no índice (padrão true). */
+  includeInIndex?: boolean;
+  /** Dossiê: rótulo no índice. */
+  indexLabel?: string;
+  /** Sprint D3 — layout editorial (somente Histórico Clínico Integrado). */
+  layout?: {
+    compact?: boolean;
+    editorial?: boolean;
+    estimatedHeight?: number;
+    /** Sprint D3.2 — limites de altura para composição inteligente. */
+    minHeight?: number;
+    idealHeight?: number;
+    maxHeight?: number;
+    dashboardColumns?: 2 | 3;
+    packWithNext?: boolean;
+    packWithPrevious?: boolean;
+  };
+};
 export type PdfSection = { title: string; body: string };
 
 export type BuildPdfOpts = {
@@ -77,16 +137,65 @@ export type BuildPdfOpts = {
   /** Versão interna do template — exibida no rodapé quando informada. */
   documentVersion?: string;
   /** Layout premium clínico (Sprint 8B) — usa drawDocumentHeader completo. */
-  layout?: "legacy" | "clinical-premium";
+  layout?: "legacy" | "clinical-premium" | "fisioos-ds";
   /** Rótulo do campo de referência no card do cabeçalho (ex.: "Data da sessão"). */
   referenceLabel?: string;
   /** Valor exibido no card do cabeçalho; padrão derivado do subtitle. */
   referenceValue?: string;
+  /** Metadados do Histórico Clínico Integrado (capa, índice, encerramento). */
+  dossier?: {
+    patientName: string;
+    generatedAt?: string;
+    clinicLabel?: string;
+    documentTitle?: string;
+    institutionalMessage?: string;
+    summary?: {
+      treatmentSummary: string;
+      assessmentCount: number;
+      evolutionCount: number;
+      reassessmentCount: number;
+      hasDischarge: boolean;
+      documentCount: number;
+    };
+    conclusion?: {
+      treatmentSummary: string;
+      periodLabel: string;
+      sessionCount: number;
+      assessmentCount: number;
+      evolutionCount: number;
+      reassessmentCount: number;
+      objectivesAchieved: string[];
+      objectivesPending: string[];
+      hasDischarge: boolean;
+      professionalNotes?: string;
+      professional?: Professional | null;
+    };
+    indexEntries?: Array<{ label: string; blockId: number }>;
+    /** Sprint D4 — metadados de capa institucional (somente apresentação). */
+    cover?: {
+      professionalName?: string;
+      periodLabel?: string;
+      clinicName?: string;
+    };
+    layoutStats?: {
+      contentPages: number;
+      avgFillRatio: number;
+      estimatedPagesBefore: number;
+      estimatedPagesAfter: number;
+      forcedBreaksRemoved: number;
+      /** Sprint D3.2 — densidade por página de conteúdo (0–1). */
+      pageDensities?: number[];
+      rebalancePasses?: number;
+    };
+  };
+  /** Pula validação de profissional (ex.: dossiê consolidado). */
+  skipProfessionalValidation?: boolean;
 };
 
 export type PdfRenderCtx = {
   clinic: ClinicData;
-  logo: string | null;
+  /** Logo normalizada (PNG transparente) — strings são re-normalizadas em renderPdf. */
+  logo: string | PreparedLogo | null;
 };
 
 export type PreparedLogo = {

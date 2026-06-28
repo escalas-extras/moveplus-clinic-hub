@@ -39,14 +39,26 @@ import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
 import {
   AppShell,
+  ClinicalField,
   ClinicalSkeleton,
+  ClinicalDialogBody,
+  ClinicalDialogContent,
+  ClinicalDialogFooter,
+  ClinicalDialogHeader,
+  ClinicalDialogTitle,
   EmptyState,
   FilterField,
+  FormFooter,
+  FormGrid,
   InfoCard,
   KpiCard,
   KpiGrid,
   PageHeader,
   PageSection,
+  PrimaryActionButton,
+  QueryErrorState,
+  SearchField,
+  SecondaryActionButton,
   StatusBadge,
   clinical,
 } from "@/components/layout";
@@ -432,7 +444,9 @@ function AgendaPage() {
         disabled={supportMode}
       />
 
-      {list.isLoading ? (
+      {list.isError ? (
+        <QueryErrorState onRetry={() => void list.refetch()} />
+      ) : list.isLoading ? (
         <ClinicalSkeleton variant="split" kpiCount={4} />
       ) : (
         <>
@@ -490,15 +504,12 @@ function AgendaPage() {
                 </Button>
               </div>
 
-              <div className="relative min-w-[180px] flex-1 sm:max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Pesquisa rápida…"
-                  className="rounded-xl pl-9"
-                />
-              </div>
+              <SearchField
+                className="min-w-[180px] flex-1 sm:max-w-xs"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Pesquisa rápida…"
+              />
 
               <Button
                 variant="outline"
@@ -1435,60 +1446,56 @@ function NewAppointmentDialog({
         if (!o) reset();
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Novo agendamento</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
-          <div>
-            <Label className="text-xs uppercase">Paciente</Label>
-            <Select
-              value={patient_id ?? ""}
-              onValueChange={(v) => setValue("patient_id", v)}
-              disabled={disabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {patients.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nome_completo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs uppercase">Profissional</Label>
-            <Select
-              value={professional_id ?? ""}
-              onValueChange={(v) => setValue("professional_id", v)}
-              disabled={disabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {profs.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-xs uppercase">Data</Label>
+      <ClinicalDialogContent>
+        <ClinicalDialogHeader>
+          <ClinicalDialogTitle>Novo agendamento</ClinicalDialogTitle>
+        </ClinicalDialogHeader>
+        <ClinicalDialogBody>
+        <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-4">
+          <FormGrid>
+            <ClinicalField label="Paciente" required filled={!!patient_id} className="sm:col-span-2">
+              <Select
+                value={patient_id ?? ""}
+                onValueChange={(v) => setValue("patient_id", v)}
+                disabled={disabled}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ClinicalField>
+            <ClinicalField label="Profissional" required filled={!!professional_id} className="sm:col-span-2">
+              <Select
+                value={professional_id ?? ""}
+                onValueChange={(v) => setValue("professional_id", v)}
+                disabled={disabled}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profs.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ClinicalField>
+            <ClinicalField label="Data" required filled={!!watch("data")}>
               <Input type="date" required {...register("data")} disabled={disabled} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Hora</Label>
+            </ClinicalField>
+            <ClinicalField label="Hora" required filled={!!watch("horario")}>
               <Input type="time" required {...register("horario")} disabled={disabled} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Duração</Label>
+            </ClinicalField>
+            <ClinicalField label="Duração (min)" hint="Intervalos de 15 minutos.">
               <Input
                 type="number"
                 min={15}
@@ -1496,15 +1503,11 @@ function NewAppointmentDialog({
                 {...register("duracao_min", { valueAsNumber: true })}
                 disabled={disabled}
               />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs uppercase">Tipo</Label>
+            </ClinicalField>
+            <ClinicalField label="Tipo">
               <Input {...register("tipo")} disabled={disabled} placeholder="Atendimento" />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Status</Label>
+            </ClinicalField>
+            <ClinicalField label="Status">
               <Select
                 value={status}
                 onValueChange={(v) => setValue("status", v as Status)}
@@ -1521,22 +1524,23 @@ function NewAppointmentDialog({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs uppercase">Observação</Label>
-            <Textarea rows={2} {...register("observacao")} disabled={disabled} />
-          </div>
-          <div className="flex justify-end">
-            <Button
+            </ClinicalField>
+            <ClinicalField label="Observação" optional className="sm:col-span-2">
+              <Textarea rows={2} {...register("observacao")} disabled={disabled} />
+            </ClinicalField>
+          </FormGrid>
+          <ClinicalDialogFooter>
+            <PrimaryActionButton
               type="submit"
-              disabled={disabled || create.isPending || !patient_id || !professional_id}
+              loading={create.isPending}
+              disabled={disabled || !patient_id || !professional_id}
             >
               Agendar
-            </Button>
-          </div>
+            </PrimaryActionButton>
+          </ClinicalDialogFooter>
         </form>
-      </DialogContent>
+        </ClinicalDialogBody>
+      </ClinicalDialogContent>
     </Dialog>
   );
 }
@@ -1599,108 +1603,104 @@ function EditAppointmentDialog({
         if (!o && !update.isPending) onClose();
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar agendamento</DialogTitle>
-        </DialogHeader>
+      <ClinicalDialogContent className="h-[min(85vh,760px)] w-[min(90vw,720px)]">
+        <ClinicalDialogHeader>
+          <ClinicalDialogTitle>Editar agendamento</ClinicalDialogTitle>
+        </ClinicalDialogHeader>
+        <ClinicalDialogBody>
         {disabled && (
-          <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+          <div className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
             Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.
           </div>
         )}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-          <div>
-            <Label className="text-xs uppercase">Paciente</Label>
-            <Select
-              value={patient_id ?? ""}
-              onValueChange={(v) => setValue("patient_id", v)}
-              disabled={disabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {patients.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nome_completo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs uppercase">Profissional</Label>
-            <Select
-              value={professional_id ?? ""}
-              onValueChange={(v) => setValue("professional_id", v)}
-              disabled={disabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {profs.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-xs uppercase">Data</Label>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <FormGrid>
+            <ClinicalField label="Paciente" required filled={!!patient_id} className="sm:col-span-2">
+              <Select
+                value={patient_id ?? ""}
+                onValueChange={(v) => setValue("patient_id", v)}
+                disabled={disabled}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome_completo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ClinicalField>
+            <ClinicalField label="Profissional" required filled={!!professional_id} className="sm:col-span-2">
+              <Select
+                value={professional_id ?? ""}
+                onValueChange={(v) => setValue("professional_id", v)}
+                disabled={disabled}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profs.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ClinicalField>
+            <ClinicalField label="Data" required filled={!!watch("data")}>
               <Input type="date" required {...register("data")} disabled={disabled} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Hora</Label>
+            </ClinicalField>
+            <ClinicalField label="Hora" required filled={!!watch("horario")}>
               <Input type="time" required {...register("horario")} disabled={disabled} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Duração</Label>
+            </ClinicalField>
+            <ClinicalField label="Duração (min)">
               <Input
                 type="number"
                 {...register("duracao_min", { valueAsNumber: true })}
                 disabled={disabled}
               />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs uppercase">Status</Label>
-            <Select
-              value={status}
-              onValueChange={(v) => setValue("status", v as Status)}
-              disabled={disabled}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(["agendado", "confirmado", "realizado", "cancelado"] as Status[]).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs uppercase">Observação</Label>
-            <Textarea rows={2} {...register("observacao")} disabled={disabled} />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={update.isPending}>
+            </ClinicalField>
+            <ClinicalField label="Status" className="sm:col-span-2">
+              <Select
+                value={status}
+                onValueChange={(v) => setValue("status", v as Status)}
+                disabled={disabled}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["agendado", "confirmado", "realizado", "cancelado"] as Status[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABEL[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </ClinicalField>
+            <ClinicalField label="Observação" optional className="sm:col-span-2">
+              <Textarea rows={2} {...register("observacao")} disabled={disabled} />
+            </ClinicalField>
+          </FormGrid>
+          <ClinicalDialogFooter className="justify-end">
+            <SecondaryActionButton type="button" onClick={onClose} disabled={update.isPending}>
               Cancelar
-            </Button>
-            <Button
+            </SecondaryActionButton>
+            <PrimaryActionButton
               type="submit"
-              disabled={disabled || update.isPending || !patient_id || !professional_id}
+              loading={update.isPending}
+              disabled={disabled || !patient_id || !professional_id}
             >
-              {update.isPending ? "Salvando…" : "Salvar alterações"}
-            </Button>
-          </div>
+              Salvar alterações
+            </PrimaryActionButton>
+          </ClinicalDialogFooter>
         </form>
-      </DialogContent>
+        </ClinicalDialogBody>
+      </ClinicalDialogContent>
     </Dialog>
   );
 }

@@ -53,26 +53,42 @@ export function drawDocumentFooter(
   }
 }
 
+export function drawValidationHashFallback(
+  doc: jsPDF,
+  hash: string,
+  pageW: number,
+  pageH: number,
+  M: number,
+) {
+  const y = pageH - S.FOOTER_H - PDF_QR.size - PDF_QR.marginBottom;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(T.footerSmall);
+  doc.setTextColor(...C.meta);
+  doc.text("Hash de verificação:", M, y - 4);
+  doc.text(hash, M, y + 6, { maxWidth: pageW / 2 - M });
+}
+
 export async function drawValidationQr(
   doc: jsPDF,
   hash: string,
   pageW: number,
   pageH: number,
   base?: string,
+  M = 40,
 ): Promise<boolean> {
   try {
     const origin = base || (typeof window !== "undefined" ? window.location.origin : "https://fisioos.app");
     const url = `${origin}/validar/${hash}`;
     const dataUrl = await QRCode.toDataURL(url, { margin: 0, width: PDF_QR.renderWidth });
     const size = PDF_QR.size;
-    const x = pageW / 2 - size / 2;
+    const x = M;
     const y = pageH - S.FOOTER_H - size - PDF_QR.marginBottom;
     doc.addImage(dataUrl, "PNG", x, y, size, size);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(T.footerSmall);
     doc.setTextColor(...C.meta);
-    doc.text("Verifique a autenticidade", x + size + PDF_QR.labelOffsetX, y + 14);
-    doc.text("deste documento", x + size + PDF_QR.labelOffsetX, y + 24);
+    doc.text("Autenticidade", x, y - 4);
+    doc.text("Verifique em fisioos.app/validar", x, y + size + 8);
     return true;
   } catch {
     return false;

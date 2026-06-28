@@ -7,18 +7,24 @@ type FilterFieldProps = {
   htmlFor?: string;
   children: ReactNode;
   className?: string;
+  hint?: string;
+  error?: string;
+  success?: string;
 };
 
-export function FilterField({ label, htmlFor, children, className }: FilterFieldProps) {
+export function FilterField({ label, htmlFor, children, className, hint, error, success }: FilterFieldProps) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       <Label
         htmlFor={htmlFor}
-        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+        className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500"
       >
         {label}
       </Label>
       {children}
+      {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+      {!error && success && <p className="text-xs font-medium text-emerald-700">{success}</p>}
+      {!error && !success && hint && <p className="text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }

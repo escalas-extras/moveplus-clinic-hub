@@ -3,17 +3,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
-import { Stethoscope, Palette, UserCircle2 } from "lucide-react";
+import { Palette, UserCircle2, Building2 } from "lucide-react";
 import { LogoUploader, signedLogoUrl } from "@/components/logo-uploader";
+import { ClinicLogo } from "@/components/clinic-logo";
+import { FISIOOS_DEFAULTS } from "@/lib/branding";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { useAuth } from "@/lib/auth";
 import { pcSet } from "@/lib/persistent-cache";
+import {
+  ClinicalField,
+  FormFooter,
+  FormGrid,
+  FormSection,
+  InfoCard,
+  PrimaryActionButton,
+} from "@/components/layout";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfigPage,
@@ -42,7 +50,6 @@ type Form = {
 function ConfigPage() {
   const qc = useQueryClient();
   const [clinicId, setClinicId] = useState<string | null>(null);
-  const [logoBroken, setLogoBroken] = useState(false);
 
   async function resolveActiveClinicId(): Promise<string | null> {
     const { data: support } = await supabase.rpc("current_support_session_clinic");
@@ -81,8 +88,6 @@ function ConfigPage() {
     queryFn: () => signedLogoUrl(logoPath ?? null),
     enabled: !!logoPath,
   });
-
-  useEffect(() => setLogoBroken(false), [logoPath]);
 
   useEffect(() => {
     if (settings.data) {
@@ -169,113 +174,151 @@ function ConfigPage() {
 
 
 
-      {/* Preview ao vivo da identidade */}
-      <Card className="p-6 border-2" style={{ borderColor: primary }}>
-        <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Pré-visualização da identidade</div>
-        <div className="flex items-center gap-4">
-          {logoPreview && !logoBroken ? (
-            <img src={logoPreview} alt="Logo" className="h-16 w-auto object-contain" onError={() => setLogoBroken(true)} />
-          ) : (
-            <div className="h-16 w-16 rounded-2xl flex items-center justify-center shadow" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
-              <Stethoscope className="h-8 w-8 text-white" />
+      <InfoCard
+        icon={Palette}
+        title="Pré-visualização da identidade"
+        description="Como sua marca aparece no sistema e nos documentos."
+        className="border-2"
+        style={{ borderColor: primary }}
+      >
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <ClinicLogo
+            brand={{
+              ...FISIOOS_DEFAULTS,
+              clinicName,
+              name: clinicName,
+              primaryColor: primary,
+              secondaryColor: secondary,
+              logoUrl: logoPreview ?? null,
+              logo: logoPreview ?? null,
+              hasOwnLogo: !!logoPreview,
+            }}
+            size="lg"
+          />
+          <div className="min-w-0">
+            <div className="truncate text-2xl font-semibold" style={{ color: primary }}>
+              {clinicName}
             </div>
-          )}
-          <div>
-            <div className="text-2xl font-semibold" style={{ color: primary }}>{clinicName}</div>
-            <div className="text-sm" style={{ color: secondary }}>{slogan}</div>
+            <div className="truncate text-sm" style={{ color: secondary }}>
+              {slogan}
+            </div>
           </div>
         </div>
         {!logoPreview && (
-          <p className="text-xs text-muted-foreground mt-3">
-            Sem logo: usamos um monograma com a inicial e suas cores da marca em todo o sistema (sidebar, PDFs, login).
+          <p className="mt-4 text-xs text-slate-500">
+            Sem logo: usamos um monograma com a inicial e suas cores da marca em todo o sistema.
           </p>
         )}
-      </Card>
+      </InfoCard>
 
-      <Card className="p-6">
-        <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-6">
-          <section className="space-y-3">
-            <h2 className="font-semibold flex items-center gap-2"><Palette className="h-4 w-4" />Identidade visual</h2>
-
-            {/* Upload de logo */}
-            <div>
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5 block">Logo da clínica</Label>
-              {clinicId ? (
-                <LogoUploader
-                  clinicId={clinicId}
-                  value={logoPath ?? null}
-                  onChange={(v) => setValue("logo_url", v, { shouldDirty: true })}
+      <form onSubmit={handleSubmit((v) => save.mutate(v))} className="space-y-5">
+        <FormSection
+          icon={Palette}
+          title="Identidade visual"
+          description="Logo, cores e nome da clínica."
+        >
+          <ClinicalField label="Logo da clínica" hint="JPG, PNG ou SVG — até 5 MB.">
+            {clinicId ? (
+              <LogoUploader
+                clinicId={clinicId}
+                value={logoPath ?? null}
+                onChange={(v) => setValue("logo_url", v, { shouldDirty: true })}
+              />
+            ) : (
+              <p className="text-xs text-slate-500">Carregando…</p>
+            )}
+          </ClinicalField>
+          <FormGrid>
+            <ClinicalField label="Nome fantasia" required filled={!!watch("nome_fantasia")?.trim()}>
+              <Input required {...register("nome_fantasia")} placeholder="Ex.: Clínica Vida" />
+            </ClinicalField>
+            <ClinicalField label="Slogan" optional>
+              <Input {...register("slogan")} placeholder="Transformando atendimentos em resultados" />
+            </ClinicalField>
+            <ClinicalField label="Cor primária">
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={primary}
+                  onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
+                  className="h-11 w-16 cursor-pointer rounded-xl border border-[rgba(15,76,92,0.16)] bg-transparent p-1"
+                  aria-label="Selecionar cor primária"
                 />
-              ) : (
-                <p className="text-xs text-muted-foreground">Carregando…</p>
-              )}
-            </div>
+                <Input
+                  value={primaryRaw ?? ""}
+                  onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
+                  placeholder="#2f5d3a"
+                />
+              </div>
+            </ClinicalField>
+            <ClinicalField label="Cor secundária">
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={secondary}
+                  onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
+                  className="h-11 w-16 cursor-pointer rounded-xl border border-[rgba(15,76,92,0.16)] bg-transparent p-1"
+                  aria-label="Selecionar cor secundária"
+                />
+                <Input
+                  value={secondaryRaw ?? ""}
+                  onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
+                  placeholder="#c75c3a"
+                />
+              </div>
+            </ClinicalField>
+            <ClinicalField label="CREFITO padrão" optional className="sm:col-span-2">
+              <Input {...register("crefito_default")} placeholder="CREFITO-8 12345-F" />
+            </ClinicalField>
+          </FormGrid>
+        </FormSection>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="Nome fantasia *"><Input required {...register("nome_fantasia")} placeholder="Ex.: Clínica Vida" /></Field>
-              <Field label="Slogan"><Input {...register("slogan")} placeholder="Transformando atendimentos em resultados" /></Field>
-              <Field label="Cor primária">
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={primary}
-                    onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
-                    className="h-10 w-16 rounded-md border border-input bg-transparent p-1 cursor-pointer"
-                    aria-label="Selecionar cor primária"
-                  />
-                  <Input
-                    value={primaryRaw ?? ""}
-                    onChange={(e) => setValue("primary_color", e.target.value, { shouldDirty: true })}
-                    placeholder="#2f5d3a"
-                  />
-                </div>
-              </Field>
-              <Field label="Cor secundária">
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={secondary}
-                    onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
-                    className="h-10 w-16 rounded-md border border-input bg-transparent p-1 cursor-pointer"
-                    aria-label="Selecionar cor secundária"
-                  />
-                  <Input
-                    value={secondaryRaw ?? ""}
-                    onChange={(e) => setValue("secondary_color", e.target.value, { shouldDirty: true })}
-                    placeholder="#c75c3a"
-                  />
-                </div>
-              </Field>
-              <Field label="CREFITO padrão" className="sm:col-span-2">
-                <Input {...register("crefito_default")} placeholder="CREFITO-8 12345-F" />
-              </Field>
-            </div>
-          </section>
+        <FormSection
+          icon={Building2}
+          title="Dados institucionais"
+          description="Informações legais e de contato da clínica."
+        >
+          <FormGrid>
+            <ClinicalField label="Razão social" optional>
+              <Input {...register("razao_social")} />
+            </ClinicalField>
+            <ClinicalField label="CNPJ" optional>
+              <Input {...register("cnpj")} />
+            </ClinicalField>
+            <ClinicalField label="Telefones" optional hint="Separar por vírgula.">
+              <Input {...register("telefones")} />
+            </ClinicalField>
+            <ClinicalField label="E-mails" optional hint="Separar por vírgula.">
+              <Input {...register("emails")} />
+            </ClinicalField>
+            <ClinicalField label="Endereço" optional className="sm:col-span-2">
+              <Input {...register("endereco")} />
+            </ClinicalField>
+            <ClinicalField label="Cidade" optional>
+              <Input {...register("cidade")} />
+            </ClinicalField>
+            <ClinicalField label="Estado" optional>
+              <Input maxLength={2} {...register("estado")} />
+            </ClinicalField>
+            <ClinicalField label="CEP" optional>
+              <Input {...register("cep")} />
+            </ClinicalField>
+          </FormGrid>
+          <ClinicalField label="Rodapé institucional dos documentos" optional>
+            <Textarea
+              rows={2}
+              {...register("rodape_institucional")}
+              placeholder="Ex.: Clínica Vida · Av. Brasil 100 · contato@clinicavida.com"
+            />
+          </ClinicalField>
+        </FormSection>
 
-          <section className="space-y-3 border-t pt-6">
-            <h2 className="font-semibold">Dados institucionais</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="Razão social"><Input {...register("razao_social")} /></Field>
-              <Field label="CNPJ"><Input {...register("cnpj")} /></Field>
-              <Field label="Telefones (separar por vírgula)"><Input {...register("telefones")} /></Field>
-              <Field label="E-mails (separar por vírgula)"><Input {...register("emails")} /></Field>
-              <Field label="Endereço" className="sm:col-span-2"><Input {...register("endereco")} /></Field>
-              <Field label="Cidade"><Input {...register("cidade")} /></Field>
-              <Field label="Estado"><Input maxLength={2} {...register("estado")} /></Field>
-              <Field label="CEP"><Input {...register("cep")} /></Field>
-            </div>
-            <Field label="Rodapé institucional dos documentos">
-              <Textarea rows={2} {...register("rodape_institucional")} placeholder="Ex.: Clínica Vida · Av. Brasil 100 · contato@clinicavida.com" />
-            </Field>
-          </section>
-
-          <div className="flex justify-end border-t pt-4">
-            <Button type="submit" disabled={save.isPending} style={{ backgroundColor: primary }}>
-              {save.isPending ? "Salvando…" : "Salvar configurações"}
-            </Button>
-          </div>
-        </form>
-      </Card>
+        <FormFooter>
+          <PrimaryActionButton type="submit" loading={save.isPending}>
+            Salvar configurações
+          </PrimaryActionButton>
+        </FormFooter>
+      </form>
     </div>
   );
 }
@@ -309,15 +352,6 @@ function MyAccountCard() {
         {(profileQ.data as any)?.full_name ?? user.email}
       </div>
     </Card>
-  );
-}
-
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={className}>
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5 block">{label}</Label>
-      {children}
-    </div>
   );
 }
 

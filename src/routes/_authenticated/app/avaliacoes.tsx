@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
-import { ClipboardList, Search, ArrowRight, Lock, Clock, CheckCircle2, FileEdit } from "lucide-react";
+import { ClipboardList, Search, Lock, Clock, CheckCircle2, FileEdit } from "lucide-react";
 import {
   AppShell,
+  ClinicalDataTable,
   ClinicalSkeleton,
   EmptyState,
   InfoCard,
@@ -12,6 +13,8 @@ import {
   KpiGrid,
   PageHeader,
   PageSection,
+  PatientRecordLink,
+  QueryErrorState,
   SearchField,
   StatusBadge,
 } from "@/components/layout";
@@ -26,7 +29,7 @@ function AvaliacoesPage() {
   const { clinicId } = useActiveClinic();
   const [q, setQ] = useState("");
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["avaliacoes-list", clinicId],
     enabled: !!clinicId,
     queryFn: async () => {
@@ -71,7 +74,9 @@ function AvaliacoesPage() {
         description="Avaliações fisioterapêuticas registradas em todos os prontuários da clínica."
       />
 
-      {isLoading ? (
+      {isError ? (
+        <QueryErrorState onRetry={() => void refetch()} />
+      ) : isLoading ? (
         <ClinicalSkeleton variant="list" kpiCount={3} />
       ) : (
         <>
@@ -109,8 +114,8 @@ function AvaliacoesPage() {
                 className="py-12"
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-sm">
+              <ClinicalDataTable>
+                <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                     <tr>
                       <th className="px-5 py-3 text-left font-bold">Data</th>
@@ -123,19 +128,15 @@ function AvaliacoesPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {(filtered as any[]).map((a) => (
-                      <tr key={a.id} className="transition-colors hover:bg-emerald-50/40">
+                        <tr key={a.id} className="transition-colors hover:bg-primary/[0.03]">
                         <td className="whitespace-nowrap px-5 py-3.5 tabular-nums font-medium">
                           {a.data ? fmtDate(a.data) : "—"}
                         </td>
                         <td className="px-5 py-3.5">
-                          <Link
-                            to="/app/pacientes/$id"
-                            params={{ id: a.patient_id }}
-                            className="inline-flex items-center gap-1 font-semibold text-slate-950 hover:underline"
-                          >
-                            {a.patients?.nome_completo ?? "—"}
-                            <ArrowRight className="h-3 w-3 opacity-60" />
-                          </Link>
+                          <PatientRecordLink
+                            patientId={a.patient_id}
+                            name={a.patients?.nome_completo ?? "—"}
+                          />
                         </td>
                         <td className="hidden px-5 py-3.5 text-muted-foreground md:table-cell">
                           {a.professionals?.nome ?? "—"}
@@ -161,7 +162,7 @@ function AvaliacoesPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ClinicalDataTable>
             )}
           </PageSection>
         </>

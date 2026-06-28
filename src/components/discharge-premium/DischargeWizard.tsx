@@ -28,6 +28,8 @@ import {
   AutosaveIndicator,
   InfoCard,
   clinical,
+  ClinicalField,
+  FormSection,
 } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { DischargeChecklistPanel, isChecklistComplete } from "./DischargeChecklist";
@@ -413,9 +415,9 @@ function StepCard({
   children: React.ReactNode;
 }) {
   return (
-    <InfoCard title={title} description={description}>
+    <FormSection title={title} description={description}>
       {children}
-    </InfoCard>
+    </FormSection>
   );
 }
 
@@ -431,15 +433,14 @@ function FieldText({
   rows?: number;
 }) {
   return (
-    <div>
-      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
+    <ClinicalField label={label} optional>
       <Textarea
         rows={rows}
-        className={cn("mt-1.5 rounded-xl", clinical.input)}
+        className={cn(clinical.textarea)}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
-    </div>
+    </ClinicalField>
   );
 }
 

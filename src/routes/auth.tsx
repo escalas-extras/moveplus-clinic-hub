@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useBranding } from "@/lib/branding";
-import { Stethoscope } from "lucide-react";
+import { ClinicLogo } from "@/components/clinic-logo";
 import type { Branding } from "@/lib/branding";
 
 
@@ -78,7 +78,7 @@ function AuthPage() {
       <div className="hidden lg:flex flex-col justify-between p-12" style={{ background: gradient }}>
         <div>
           <div className="flex items-center gap-3">
-            <LogoMark brand={brand} />
+            <ClinicLogo brand={brand} size="xl" />
             <div className="leading-tight">
               <div className="text-2xl font-semibold tracking-tight" style={{ color: brand.primaryColor }}>{brand.clinicName}</div>
               <div className="text-xs uppercase tracking-widest" style={{ color: brand.secondaryColor }}>
@@ -99,7 +99,7 @@ function AuthPage() {
       <div className="flex items-center justify-center p-6 sm:p-12">
         <Card className="w-full max-w-md p-8">
           <div className="lg:hidden mb-6 flex items-center gap-3">
-            <LogoMark brand={brand} />
+            <ClinicLogo brand={brand} size="xl" />
             <div>
               <div className="text-xl font-semibold" style={{ color: brand.primaryColor }}>{brand.clinicName}</div>
               <div className="text-[10px] uppercase tracking-widest" style={{ color: brand.secondaryColor }}>{brand.appName}</div>
@@ -160,14 +160,3 @@ function AuthPage() {
   );
 }
 
-function LogoMark({ brand }: { brand: Branding }) {
-  const [broken, setBroken] = useState(false);
-  if (brand.hasOwnLogo && brand.logoUrl && !broken) {
-    return <img src={brand.logoUrl} alt={brand.clinicName} className="h-[72px] w-auto object-contain" onError={() => setBroken(true)} />;
-  }
-  return (
-    <div className="h-[72px] w-[72px] rounded-2xl flex items-center justify-center shadow-md" style={{ background: `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})` }}>
-      <Stethoscope className="h-9 w-9 text-white" />
-    </div>
-  );
-}

@@ -15,7 +15,15 @@ import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye } from "lucide-re
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
-import { downloadReceiptPdf, previewReceiptPdf, printReceiptPdf, type ReceiptPdfData } from "@/lib/receipt-pdf";
+import {
+  downloadReceiptPdf,
+  previewReceiptPdf,
+  printReceiptPdf,
+  getStoredReceiptPrintMode,
+  type ReceiptPdfData,
+  type ReceiptPrintMode,
+} from "@/lib/receipt-pdf";
+import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
 
@@ -310,6 +318,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [cancelOf, setCancelOf] = useState<any | null>(null);
+  const [printMode, setPrintMode] = useState<ReceiptPrintMode>(() => getStoredReceiptPrintMode());
 
   const list = useQuery({
     queryKey: ["receipts", clinicId],
@@ -368,6 +377,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
         payment_date: v.payment_date,
         issued_at: new Date().toISOString(),
         clinicId,
+        printMode,
       }, "download");
       qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
     },
@@ -407,25 +417,29 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
       cancelled: r.status === "cancelado",
       cancellation_reason: r.cancellation_reason,
       clinicId,
+      printMode,
     }, mode);
   }
 
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <ReceiptPrintModeSelector value={printMode} onChange={setPrintMode} className="rounded-lg border bg-muted/30 p-4" />
         <SupportGuardButton supportMode={supportMode} onClick={() => setOpen(true)} tooltip="Novo recibo bloqueado no Modo Suporte">
           <Plus className="h-4 w-4 mr-2" />Novo recibo
         </SupportGuardButton>
-        <NewReceiptDialog
-          open={open}
-          setOpen={setOpen}
-          create={create}
-          patients={patients.data ?? []}
-          disabled={supportMode}
-          clinicId={clinicId}
-        />
       </div>
+      <NewReceiptDialog
+        open={open}
+        setOpen={setOpen}
+        create={create}
+        patients={patients.data ?? []}
+        disabled={supportMode}
+        clinicId={clinicId}
+        printMode={printMode}
+        onPrintModeChange={setPrintMode}
+      />
 
       <Card className="overflow-hidden">
         <table className="w-full text-sm">
@@ -482,7 +496,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
   );
 }
 
-function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId }: any) {
+function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId, printMode, onPrintModeChange }: any) {
   const { register, handleSubmit, setValue, watch, reset } = useForm<ReceiptForm>({
     defaultValues: {
       payment_date: new Date().toISOString().slice(0, 10),
@@ -562,6 +576,8 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId 
             </div>
           </div>
 
+          <ReceiptPrintModeSelector value={printMode} onChange={onPrintModeChange} compact />
+
           <DialogFooter>
             <Button type="submit" disabled={disabled || create.isPending || !patient_id}>Emitir recibo</Button>
           </DialogFooter>
@@ -610,8 +626,12 @@ async function renderReceiptPdf(
   opts: ReceiptPdfData,
   mode: "preview" | "download" | "print" = "download",
 ) {
-  if (mode === "preview") await previewReceiptPdf(opts);
-  else if (mode === "print") await printReceiptPdf(opts);
-  else await downloadReceiptPdf(opts);
+  const data: ReceiptPdfData = {
+    ...opts,
+    printMode: opts.printMode ?? getStoredReceiptPrintMode(),
+  };
+  if (mode === "preview") await previewReceiptPdf(data);
+  else if (mode === "print") await printReceiptPdf(data);
+  else await downloadReceiptPdf(data);
 }
 
