@@ -214,11 +214,11 @@ export function FinanceDelinquencyPanel({ clinicId, supportMode }: FinanceDelinq
     );
   }
 
-  if (delinquency.isError) {
+  if (delinquency.isError || lookups.isError) {
     return (
       <Card className="p-8 text-center">
         <p className="text-sm text-destructive">Não foi possível carregar os recebíveis vencidos.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => delinquency.refetch()}>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => { delinquency.refetch(); lookups.refetch(); }}>
           Tentar novamente
         </Button>
       </Card>

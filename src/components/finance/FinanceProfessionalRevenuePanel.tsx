@@ -152,11 +152,11 @@ export function FinanceProfessionalRevenuePanel({ clinicId }: FinanceProfessiona
     );
   }
 
-  if (revenue.isError) {
+  if (revenue.isError || lookups.isError) {
     return (
       <Card className="p-8 text-center">
         <p className="text-sm text-destructive">Não foi possível carregar a receita por profissional.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => revenue.refetch()}>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => { revenue.refetch(); lookups.refetch(); }}>
           Tentar novamente
         </Button>
       </Card>

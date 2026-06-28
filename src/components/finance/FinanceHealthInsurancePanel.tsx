@@ -344,6 +344,17 @@ export function FinanceHealthInsurancePanel({ clinicId, supportMode }: FinanceHe
     );
   }
 
+  if (providers.isError || lookups.isError) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-sm text-destructive">Não foi possível carregar os convênios.</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => { providers.refetch(); lookups.refetch(); }}>
+          Tentar novamente
+        </Button>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <PageSection
@@ -471,6 +482,13 @@ export function FinanceHealthInsurancePanel({ clinicId, supportMode }: FinanceHe
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Carregando vínculos…
           </div>
+        ) : links.isError ? (
+          <Card className="p-8 text-center">
+            <p className="text-sm text-destructive">Não foi possível carregar os vínculos paciente x convênio.</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => links.refetch()}>
+              Tentar novamente
+            </Button>
+          </Card>
         ) : !filteredLinks.length ? (
           <EmptyState
             icon={UserPlus}

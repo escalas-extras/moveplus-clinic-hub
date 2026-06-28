@@ -639,6 +639,13 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Carregando contratos…
           </div>
+        ) : contracts.isError ? (
+          <Card className="p-8 text-center">
+            <p className="text-sm text-destructive">Não foi possível carregar os contratos de pacote.</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => contracts.refetch()}>
+              Tentar novamente
+            </Button>
+          </Card>
         ) : !filteredContracts.length ? (
           <EmptyState
             icon={Package}
