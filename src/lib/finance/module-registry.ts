@@ -72,6 +72,14 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     sprint: "G2.3",
   },
   {
+    id: "health_insurance",
+    title: "Convênios",
+    description: "Operadoras, vínculos paciente x convênio e recebíveis originados.",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
+    sprint: "G2.4",
+  },
+  {
     id: "legacy_entries",
     title: "Lançamentos v1",
     description: "Registro operacional atual (financial_entries + recibos).",

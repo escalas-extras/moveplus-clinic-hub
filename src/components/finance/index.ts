@@ -8,3 +8,4 @@ export { FinanceCashFlowPanel } from "./FinanceCashFlowPanel";
 export { FinancePackagesPanel } from "./FinancePackagesPanel";
 export { FinancePackageContractUsageDialog } from "./FinancePackageContractUsageDialog";
 export { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
+export { FinanceHealthInsurancePanel } from "./FinanceHealthInsurancePanel";

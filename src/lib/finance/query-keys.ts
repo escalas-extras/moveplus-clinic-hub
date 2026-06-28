@@ -38,4 +38,10 @@ export const financeQueryKeys = {
     ["finance", clinicId, "patient-package", contractId] as const,
   installmentPlan: (clinicId: string | null | undefined, planId: string) =>
     ["finance", clinicId, "installment-plan", planId] as const,
+  healthInsuranceProviders: (clinicId: string | null | undefined) =>
+    ["finance", clinicId, "health-insurance-providers"] as const,
+  patientHealthInsurances: (clinicId: string | null | undefined, filtersKey: string) =>
+    ["finance", clinicId, "patient-health-insurances", filtersKey] as const,
+  healthInsuranceLookups: (clinicId: string | null | undefined) =>
+    ["finance", clinicId, "health-insurance-lookups"] as const,
 } as const;

@@ -26,6 +26,10 @@ export type PatientPackageUsageStatus = Database["public"]["Enums"]["patient_pac
 export type FinancialInstallmentPlanRow = Database["public"]["Tables"]["financial_installment_plans"]["Row"];
 export type InstallmentPlanStatus = Database["public"]["Enums"]["installment_plan_status"];
 export type InstallmentSourceType = FinancialInstallmentPlanRow["source_type"];
+export type HealthInsuranceProviderRow = Database["public"]["Tables"]["health_insurance_providers"]["Row"];
+export type HealthInsuranceProviderInsert = Database["public"]["Tables"]["health_insurance_providers"]["Insert"];
+export type PatientHealthInsuranceRow = Database["public"]["Tables"]["patient_health_insurances"]["Row"];
+export type PatientHealthInsuranceInsert = Database["public"]["Tables"]["patient_health_insurances"]["Insert"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
 export type FinancialEntryType = FinancialEntryRow["entry_type"];
@@ -40,7 +44,8 @@ export type FinanceModuleId =
   | "cash_flow"
   | "legacy_entries"
   | "packages"
-  | "installments";
+  | "installments"
+  | "health_insurance";
 
 export type FinanceModuleStatus = "active" | "planned" | "legacy";
 

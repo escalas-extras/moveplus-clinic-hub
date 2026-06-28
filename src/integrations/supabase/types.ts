@@ -2159,11 +2159,13 @@ export type Database = {
           documento: string | null
           entry_type: string
           forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
+          health_insurance_provider_id: string | null
           id: string
           installment_number: number | null
           installment_plan_id: string | null
           installment_total: number | null
           observacoes: string | null
+          patient_health_insurance_id: string | null
           patient_id: string | null
           professional_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
@@ -2183,11 +2185,13 @@ export type Database = {
           documento?: string | null
           entry_type?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          health_insurance_provider_id?: string | null
           id?: string
           installment_number?: number | null
           installment_plan_id?: string | null
           installment_total?: number | null
           observacoes?: string | null
+          patient_health_insurance_id?: string | null
           patient_id: string | null
           professional_id: string | null
           status?: Database["public"]["Enums"]["payment_status"]
@@ -2207,11 +2211,13 @@ export type Database = {
           documento?: string | null
           entry_type?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          health_insurance_provider_id?: string | null
           id?: string
           installment_number?: number | null
           installment_plan_id?: string | null
           installment_total?: number | null
           observacoes?: string | null
+          patient_health_insurance_id?: string | null
           patient_id?: string
           professional_id?: string
           status?: Database["public"]["Enums"]["payment_status"]
@@ -2245,6 +2251,20 @@ export type Database = {
             columns: ["installment_plan_id"]
             isOneToOne: false
             referencedRelation: "financial_installment_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_health_insurance_provider_id_fkey"
+            columns: ["health_insurance_provider_id"]
+            isOneToOne: false
+            referencedRelation: "health_insurance_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_patient_health_insurance_id_fkey"
+            columns: ["patient_health_insurance_id"]
+            isOneToOne: false
+            referencedRelation: "patient_health_insurances"
             referencedColumns: ["id"]
           },
           {
@@ -2339,6 +2359,56 @@ export type Database = {
             columns: ["professional_id"]
             isOneToOne: false
             referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_insurance_providers: {
+        Row: {
+          clinic_id: string
+          contact_name: string | null
+          created_at: string
+          document: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          contact_name?: string | null
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          contact_name?: string | null
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_insurance_providers_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]
@@ -2793,6 +2863,73 @@ export type Database = {
             columns: ["professional_id"]
             isOneToOne: false
             referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_health_insurances: {
+        Row: {
+          authorization_number: string | null
+          card_number: string | null
+          clinic_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          patient_id: string
+          plan_name: string | null
+          provider_id: string
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          authorization_number?: string | null
+          card_number?: string | null
+          clinic_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          patient_id: string
+          plan_name?: string | null
+          provider_id: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          authorization_number?: string | null
+          card_number?: string | null
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          patient_id?: string
+          plan_name?: string | null
+          provider_id?: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_health_insurances_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_health_insurances_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_health_insurances_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "health_insurance_providers"
             referencedColumns: ["id"]
           },
         ]

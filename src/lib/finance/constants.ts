@@ -11,8 +11,8 @@ export const FINANCE_FEATURE_KEY = "financeiro" as const;
 /** Versão congelada do Financeiro Base MVP (Sprint G1.8). */
 export const FINANCE_BASE_VERSION = "G1.8" as const;
 
-/** Trilha G2 — Parcelamentos (Sprint G2.3). */
-export const FINANCE_G2_VERSION = "G2.3" as const;
+/** Trilha G2 — Convênios (Sprint G2.4). */
+export const FINANCE_G2_VERSION = "G2.4" as const;
 
 export const INSTALLMENT_PLAN_STATUS_LABELS: Record<InstallmentPlanStatus, string> = {
   active: "Ativo",
