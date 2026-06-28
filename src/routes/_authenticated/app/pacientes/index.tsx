@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,63 +10,54 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import {
   Plus,
-  Search,
-  Trash2,
-  Eye,
   Users,
-  UserPlus,
   Activity,
-  LogOut,
-  LayoutGrid,
-  List,
-  Phone,
-  CalendarDays,
-  Clock,
   ClipboardList,
   FileText,
   RefreshCw,
   DollarSign,
   Stethoscope,
   X,
+  CalendarDays,
+  Phone,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   AppShell,
-  ClinicalDataTable,
   ClinicalDialogBody,
   ClinicalDialogContent,
   ClinicalDialogHeader,
   ClinicalDialogTitle,
   ClinicalSkeleton,
   EmptyState,
-  FilterField,
   PageSection,
   PrimaryActionButton,
   QueryErrorState,
   SearchField,
   StatusBadge,
-  clinical,
 } from "@/components/layout";
-import { OpsFiltersPanel, OpsKpiCard, OpsKpiStrip, OpsPageHero } from "@/components/ops";
+import { OpsModuleStack } from "@/components/ops";
+import { HomeHeroV2 } from "@/components/dashboard";
+import {
+  PatientCrmCard,
+  PatientAvatar,
+  patientStatusLabel,
+  patientStatusVariant,
+  contactOf,
+  type ApptSummary,
+} from "@/components/patients/PatientCrmCard";
+import { PatientCrmFilters, type SortMode, type StatusFilter } from "@/components/patients/PatientCrmFilters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
-import { calcAge, fmtDate } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { useBranding } from "@/lib/branding";
 import { safeDeletePatient } from "@/lib/patient-delete";
 import { cn } from "@/lib/utils";
 
@@ -90,14 +79,7 @@ type PatientRow = {
   updated_at: string;
 };
 
-type ViewMode = "lista" | "cards";
-type SortMode = "nome_asc" | "nome_desc" | "recentes" | "atualizados";
-type StatusFilter = "all" | "ativo" | "inativo" | "tratamento" | "alta";
-
-type ApptSummary = {
-  last: { data: string; horario: string } | null;
-  next: { data: string; horario: string } | null;
-};
+type ViewMode = "cards" | "lista";
 
 type TimelineEntry = {
   id: string;
@@ -115,24 +97,16 @@ function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-function contactOf(p: PatientRow) {
-  return p.telefone ?? p.whatsapp ?? "—";
-}
-
-function patientStatusLabel(p: PatientRow) {
-  if (p.situacao === "inativo" || p.data_alta) return "Alta";
-  return "Em tratamento";
-}
-
-function patientStatusVariant(p: PatientRow): "success" | "neutral" | "info" {
-  if (p.situacao === "inativo" || p.data_alta) return "neutral";
-  return "success";
-}
-
 function PacientesPage() {
   const qc = useQueryClient();
   const navigate = useNavigate({ from: "/app/pacientes" });
   const { clinicId, isAdmin } = useActiveClinic();
+  const brand = useBranding();
+  const dateLabel = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -142,7 +116,6 @@ function PacientesPage() {
   const [filterConvenio, setFilterConvenio] = useState("all");
   const [sort, setSort] = useState<SortMode>("nome_asc");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const monthIso = ymd(startOfMonth(new Date()));
   const todayIso = ymd(new Date());
@@ -370,31 +343,41 @@ function PacientesPage() {
 
   return (
     <AppShell clinical>
-      <OpsPageHero
-        icon={Users}
-        eyebrow="CRM clínico"
-        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Pacientes" }]}
-        title="Pacientes"
-        description="Gestão premium de cadastros, histórico clínico e ações rápidas."
-        actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <PrimaryActionButton>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo paciente
-              </PrimaryActionButton>
-            </DialogTrigger>
-            <ClinicalDialogContent>
-              <ClinicalDialogHeader>
-                <ClinicalDialogTitle>Novo paciente</ClinicalDialogTitle>
-              </ClinicalDialogHeader>
-              <ClinicalDialogBody>
-                <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
-              </ClinicalDialogBody>
-            </ClinicalDialogContent>
-          </Dialog>
-        }
-      />
+      <OpsModuleStack className="patients-crm space-y-3 sm:space-y-4">
+        <HomeHeroV2
+          title="Pacientes"
+          clinicName={brand.clinicName}
+          dateLabel={dateLabel}
+          primaryColor={brand.primaryColor}
+          secondaryColor={brand.secondaryColor}
+          daySummary={
+            !loading && kpis.data
+              ? [
+                  { label: "ativos", value: kpis.data.emTratamento },
+                  { label: "novos este mês", value: kpis.data.novos },
+                  { label: "altas recentes", value: kpis.data.altas },
+                ]
+              : undefined
+          }
+          actions={
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <PrimaryActionButton className="h-10 gap-2 px-4 text-sm" style={{ background: brand.primaryColor }}>
+                  <Plus className="h-4 w-4" />
+                  Novo paciente
+                </PrimaryActionButton>
+              </DialogTrigger>
+              <ClinicalDialogContent>
+                <ClinicalDialogHeader>
+                  <ClinicalDialogTitle>Novo paciente</ClinicalDialogTitle>
+                </ClinicalDialogHeader>
+                <ClinicalDialogBody>
+                  <PatientForm onSubmit={(v) => create.mutate(v)} submitting={create.isPending} />
+                </ClinicalDialogBody>
+              </ClinicalDialogContent>
+            </Dialog>
+          }
+        />
 
       {list.isError || kpis.isError ? (
         <QueryErrorState
@@ -404,31 +387,24 @@ function PacientesPage() {
           }}
         />
       ) : loading ? (
-        <ClinicalSkeleton variant="split" kpiCount={4} />
+        <ClinicalSkeleton variant="split" kpiCount={3} />
       ) : (
         <>
-          <OpsKpiStrip>
-            <OpsKpiCard accentKey="primary" icon={Users} label="Total de pacientes" value={kpis.data?.total ?? 0} hideDelta />
-            <OpsKpiCard accentKey="success" icon={UserPlus} label="Novos no mês" value={kpis.data?.novos ?? 0} hideDelta />
-            <OpsKpiCard accentKey="info" icon={Activity} label="Em tratamento" value={kpis.data?.emTratamento ?? 0} hideDelta />
-            <OpsKpiCard accentKey="neutral" icon={LogOut} label="Altas" value={kpis.data?.altas ?? 0} hideDelta />
-          </OpsKpiStrip>
-
-          <OpsFiltersPanel
-            icon={Search}
-            title="Busca e filtros"
-            description="Pesquisa instantânea e refinamento da lista."
-            showMobileFilters={showMobileFilters}
-            onToggleMobileFilters={() => setShowMobileFilters((v) => !v)}
-            hasActiveFilters={hasActiveFilters}
-            toolbar={
-              <>
-                <SearchField
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Buscar nome, CPF, telefone ou convênio…"
-                  wrapperClassName="min-w-[200px]"
-                />
+          <section className="patients-crm-search rounded-2xl border border-[rgba(15,76,92,0.12)] bg-white/90 px-4 py-3.5 shadow-[var(--fos-card-shadow)] sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <SearchField
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar nome, CPF, telefone ou convênio…"
+                wrapperClassName="w-full sm:max-w-none sm:flex-[2]"
+                className="h-11 border-[rgba(15,76,92,0.12)] bg-white pl-10 text-base shadow-sm"
+                autoFocus
+              />
+              <div className="flex items-center justify-between gap-3 sm:flex-1 sm:justify-end">
+                <p className="text-sm text-slate-600">
+                  <span className="font-bold tabular-nums text-[var(--fos-primary)]">{filtered.length}</span>{" "}
+                  paciente{filtered.length === 1 ? "" : "s"}
+                </p>
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
                   <TabsList className="rounded-xl">
                     <TabsTrigger value="cards" className="gap-1.5 rounded-lg">
@@ -441,76 +417,25 @@ function PacientesPage() {
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
-              </>
-            }
-          >
-                <FilterField label="Status">
-                  <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
-                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ativo">Ativos</SelectItem>
-                      <SelectItem value="tratamento">Em tratamento</SelectItem>
-                      <SelectItem value="alta">Altas / inativos</SelectItem>
-                      <SelectItem value="inativo">Inativos</SelectItem>
-                      <SelectItem value="all">Todos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FilterField>
-                <FilterField label="Profissional">
-                  <Select value={filterProf} onValueChange={setFilterProf}>
-                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {(profs.data ?? []).map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FilterField>
-                <FilterField label="Convênio">
-                  <Select value={filterConvenio} onValueChange={setFilterConvenio}>
-                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="particular">Particular (sem convênio)</SelectItem>
-                      {convenioOptions.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FilterField>
-                <FilterField label="Ordenação">
-                  <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
-                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nome_asc">Nome A → Z</SelectItem>
-                      <SelectItem value="nome_desc">Nome Z → A</SelectItem>
-                      <SelectItem value="recentes">Mais recentes</SelectItem>
-                      <SelectItem value="atualizados">Última atualização</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FilterField>
-          </OpsFiltersPanel>
+              </div>
+            </div>
+          </section>
 
-          <div className={clinical.splitLayout}>
-            <PageSection
-              icon={Users}
-              title={viewMode === "cards" ? "Pacientes" : "Lista de pacientes"}
-              description={`${filtered.length} registro${filtered.length === 1 ? "" : "s"} encontrado${filtered.length === 1 ? "" : "s"}`}
-              contentClassName={viewMode === "lista" ? "p-0" : undefined}
-            >
+          <PatientCrmFilters
+            filterStatus={filterStatus}
+            onFilterStatus={setFilterStatus}
+            filterProf={filterProf}
+            onFilterProf={setFilterProf}
+            profs={profs.data ?? []}
+            filterConvenio={filterConvenio}
+            onFilterConvenio={setFilterConvenio}
+            convenioOptions={convenioOptions}
+            sort={sort}
+            onSort={setSort}
+          />
+
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px] xl:gap-4">
+            <div className="min-w-0">
               {!filtered.length ? (
                 <EmptyState
                   icon={Users}
@@ -525,12 +450,12 @@ function PacientesPage() {
                       ? { label: "Cadastrar primeiro paciente", onClick: () => setOpen(true) }
                       : undefined
                   }
-                  className="py-10"
+                  className="rounded-2xl border border-[rgba(15,76,92,0.08)] bg-white/80 py-12"
                 />
               ) : viewMode === "cards" ? (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {filtered.map((p) => (
-                    <PatientCard
+                    <PatientCrmCard
                       key={p.id}
                       patient={p}
                       summary={apptSummary.data?.get(p.id)}
@@ -543,112 +468,25 @@ function PacientesPage() {
                   ))}
                 </div>
               ) : (
-                <ClinicalDataTable minWidth={720}>
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                      <tr className="text-left">
-                        <th className="px-5 py-3 font-bold">Paciente</th>
-                        <th className="hidden px-5 py-3 font-bold md:table-cell">Contato</th>
-                        <th className="hidden px-5 py-3 font-bold lg:table-cell">Convênio</th>
-                        <th className="px-5 py-3 font-bold">Status</th>
-                        <th className="hidden px-5 py-3 font-bold xl:table-cell">Próximo</th>
-                        <th className="w-24 px-5 py-3 text-center font-bold">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filtered.map((p) => (
-                        <tr
-                          key={p.id}
-                          className={cn(
-                            "cursor-pointer transition-colors hover:bg-primary/[0.03]",
-                            selectedId === p.id && "bg-primary/5",
-                          )}
-                          onClick={() => setSelectedId(p.id)}
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <PatientAvatar name={p.nome_completo} />
-                              <div>
-                                <span className="font-semibold text-slate-950">{p.nome_completo}</span>
-                                <div className="text-xs text-muted-foreground">
-                                  {calcAge(p.data_nascimento) ?? "—"} anos · {p.cpf ?? "Sem CPF"}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="hidden px-5 py-4 md:table-cell">{contactOf(p)}</td>
-                          <td className="hidden px-5 py-4 lg:table-cell">
-                            {p.convenio_nome ?? "Particular"}
-                          </td>
-                          <td className="px-5 py-4">
-                            <StatusBadge variant={patientStatusVariant(p)}>
-                              {patientStatusLabel(p)}
-                            </StatusBadge>
-                          </td>
-                          <td className="hidden px-5 py-4 tabular-nums xl:table-cell">
-                            {apptSummary.data?.get(p.id)?.next
-                              ? `${fmtDate(apptSummary.data.get(p.id)!.next!.data)} ${String(apptSummary.data.get(p.id)!.next!.horario).slice(0, 5)}`
-                              : "—"}
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="rounded-xl"
-                                title="Abrir prontuário"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate({ to: "/app/pacientes/$id", params: { id: p.id } });
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {isAdmin && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="rounded-xl text-destructive hover:text-destructive"
-                                      title="Excluir paciente"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Se o paciente possuir histórico clínico, financeiro ou de agenda, ele
-                                        será <strong>inativado</strong> (dados preservados). Caso contrário,
-                                        será excluído definitivamente.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => remove.mutate(p.id)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        Confirmar
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </ClinicalDataTable>
+                <div className="space-y-2.5">
+                  {filtered.map((p) => (
+                    <PatientCrmCard
+                      key={p.id}
+                      layout="row"
+                      patient={p}
+                      summary={apptSummary.data?.get(p.id)}
+                      selected={selectedId === p.id}
+                      isAdmin={isAdmin}
+                      onSelect={() => setSelectedId(p.id)}
+                      onOpen={() => navigate({ to: "/app/pacientes/$id", params: { id: p.id } })}
+                      onDelete={() => remove.mutate(p.id)}
+                    />
+                  ))}
+                </div>
               )}
-            </PageSection>
+            </div>
 
-            <aside className="space-y-4">
+            <aside className="min-w-0 space-y-3">
               {selected ? (
                 <SelectedPatientPanel
                   patient={selected}
@@ -661,13 +499,13 @@ function PacientesPage() {
                   icon={Users}
                   title="Detalhes do paciente"
                   description="Selecione um paciente para ver timeline e atalhos."
-                  contentClassName="py-8"
+                  contentClassName="py-6"
                 >
                   <EmptyState
                     icon={Users}
                     title="Nenhum paciente selecionado"
-                    description="Clique em um card ou linha da lista para visualizar o resumo clínico."
-                    className="py-6"
+                    description="Clique em um card da lista para visualizar o resumo clínico e ações rápidas."
+                    className="py-4"
                   />
                 </PageSection>
               )}
@@ -675,137 +513,8 @@ function PacientesPage() {
           </div>
         </>
       )}
+      </OpsModuleStack>
     </AppShell>
-  );
-}
-
-function PatientAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-  const cls =
-    size === "lg" ? "h-14 w-14 text-lg" : size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
-  return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-2xl bg-primary/10 font-bold text-primary ring-1 ring-primary/15",
-        cls,
-      )}
-    >
-      {initials || "?"}
-    </div>
-  );
-}
-
-function PatientCard({
-  patient: p,
-  summary,
-  selected,
-  isAdmin,
-  onSelect,
-  onOpen,
-  onDelete,
-}: {
-  patient: PatientRow;
-  summary?: ApptSummary;
-  selected?: boolean;
-  isAdmin: boolean;
-  onSelect: () => void;
-  onOpen: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] transition-all sm:p-5",
-        selected ? "border-primary ring-2 ring-primary/20" : "border-slate-200/80 hover:border-primary/30",
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <PatientAvatar name={p.nome_completo} size="lg" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <button type="button" onClick={onSelect} className="min-w-0 text-left">
-              <h3 className="truncate font-bold tracking-tight text-slate-950">{p.nome_completo}</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {calcAge(p.data_nascimento) ?? "—"} anos · {p.convenio_nome ?? "Particular"}
-              </p>
-            </button>
-            <StatusBadge variant={patientStatusVariant(p)}>{patientStatusLabel(p)}</StatusBadge>
-          </div>
-
-          <div className="mt-3 space-y-1.5 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{contactOf(p)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                Último:{" "}
-                {summary?.last
-                  ? `${fmtDate(summary.last.data)} ${String(summary.last.horario).slice(0, 5)}`
-                  : "—"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                Próximo:{" "}
-                {summary?.next
-                  ? `${fmtDate(summary.next.data)} ${String(summary.next.horario).slice(0, 5)}`
-                  : "—"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="rounded-lg" onClick={onSelect}>
-              Detalhes
-            </Button>
-            <Button size="sm" className="rounded-lg" onClick={onOpen}>
-              <Eye className="mr-1.5 h-3.5 w-3.5" />
-              Prontuário
-            </Button>
-            {isAdmin && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="rounded-lg text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Se o paciente possuir histórico clínico, financeiro ou de agenda, ele será{" "}
-                      <strong>inativado</strong> (dados preservados). Caso contrário, será excluído
-                      definitivamente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={onDelete}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Confirmar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -965,7 +674,6 @@ function SelectedPatientPanel({
         </dl>
 
         <Button className="w-full rounded-xl" onClick={onOpen}>
-          <Eye className="mr-2 h-4 w-4" />
           Abrir prontuário completo
         </Button>
       </PageSection>
@@ -994,13 +702,12 @@ function SelectedPatientPanel({
         )}
       </PageSection>
 
-      <PageSection icon={Stethoscope} title="Atalhos rápidos" contentClassName="py-4">
+      <PageSection icon={Stethoscope} title="Ações rápidas" contentClassName="py-4">
         <div className="grid grid-cols-2 gap-2">
-          <QuickLink icon={ClipboardList} label="Nova avaliação" to="/app/pacientes/$id" params={{ id: p.id }} />
-          <QuickLink icon={Activity} label="Evolução" to="/app/pacientes/$id" params={{ id: p.id }} />
-          <QuickLink icon={CalendarDays} label="Agendar" to="/app/agenda" />
-          <QuickLink icon={FileText} label="Documentos" to="/app/pacientes/$id" params={{ id: p.id }} />
-          <QuickLink icon={DollarSign} label="Financeiro" to="/app/financeiro" className="col-span-2 sm:col-span-1" />
+          <QuickLink icon={ClipboardList} label="Prontuário" to="/app/pacientes/$id" params={{ id: p.id }} />
+          <QuickLink icon={CalendarDays} label="Agenda" to="/app/agenda" />
+          <QuickLink icon={Activity} label="Avaliação" to="/app/pacientes/$id" params={{ id: p.id }} />
+          <QuickLink icon={DollarSign} label="Financeiro" to="/app/financeiro" />
         </div>
       </PageSection>
     </div>

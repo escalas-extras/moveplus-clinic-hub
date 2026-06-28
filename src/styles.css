@@ -1071,3 +1071,22 @@ textarea.fos-field,
   }
 }
 
+/* ── UX-08 — Pacientes CRM ── */
+
+.patients-crm {
+  min-width: 0;
+}
+
+.patients-crm-search {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
+.patient-crm-card {
+  cursor: pointer;
+}
+
+.patient-crm-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--fos-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
