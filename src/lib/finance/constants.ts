@@ -2,7 +2,7 @@
  * Sprint G1.1 — constantes do Financeiro Base.
  */
 
-import type { FinancialCategoryType, PaymentMethod, PaymentStatus, PatientPackageStatus, PatientPackageUsageStatus } from "./types";
+import type { FinancialCategoryType, InstallmentPlanStatus, PaymentMethod, PaymentStatus, PatientPackageStatus, PatientPackageUsageStatus } from "./types";
 
 export const FINANCE_ROUTE_BASE = "/app/financeiro" as const;
 
@@ -11,8 +11,14 @@ export const FINANCE_FEATURE_KEY = "financeiro" as const;
 /** Versão congelada do Financeiro Base MVP (Sprint G1.8). */
 export const FINANCE_BASE_VERSION = "G1.8" as const;
 
-/** Trilha G2 — Pacotes clínico-financeiros (Sprint G2.2). */
-export const FINANCE_G2_VERSION = "G2.2" as const;
+/** Trilha G2 — Parcelamentos (Sprint G2.3). */
+export const FINANCE_G2_VERSION = "G2.3" as const;
+
+export const INSTALLMENT_PLAN_STATUS_LABELS: Record<InstallmentPlanStatus, string> = {
+  active: "Ativo",
+  canceled: "Cancelado",
+  completed: "Concluído",
+};
 
 export const PATIENT_PACKAGE_STATUS_LABELS: Record<PatientPackageStatus, string> = {
   ativo: "Ativo",

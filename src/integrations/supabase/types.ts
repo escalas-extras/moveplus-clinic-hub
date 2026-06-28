@@ -2085,6 +2085,66 @@ export type Database = {
           },
         ]
       }
+      financial_installment_plans: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          first_due_date: string
+          id: string
+          installments_count: number
+          patient_id: string
+          source_id: string | null
+          source_type: string
+          status: Database["public"]["Enums"]["installment_plan_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          first_due_date: string
+          id?: string
+          installments_count: number
+          patient_id: string
+          source_id?: string | null
+          source_type: string
+          status?: Database["public"]["Enums"]["installment_plan_status"]
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          first_due_date?: string
+          id?: string
+          installments_count?: number
+          patient_id?: string
+          source_id?: string | null
+          source_type?: string
+          status?: Database["public"]["Enums"]["installment_plan_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_installment_plans_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_installment_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_entries: {
         Row: {
           appointment_id: string | null
@@ -2100,6 +2160,9 @@ export type Database = {
           entry_type: string
           forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
           id: string
+          installment_number: number | null
+          installment_plan_id: string | null
+          installment_total: number | null
           observacoes: string | null
           patient_id: string | null
           professional_id: string | null
@@ -2121,6 +2184,9 @@ export type Database = {
           entry_type?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
+          installment_number?: number | null
+          installment_plan_id?: string | null
+          installment_total?: number | null
           observacoes?: string | null
           patient_id: string | null
           professional_id: string | null
@@ -2142,6 +2208,9 @@ export type Database = {
           entry_type?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
+          installment_number?: number | null
+          installment_plan_id?: string | null
+          installment_total?: number | null
           observacoes?: string | null
           patient_id?: string
           professional_id?: string
@@ -2169,6 +2238,13 @@ export type Database = {
             columns: ["cost_center_id"]
             isOneToOne: false
             referencedRelation: "financial_cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_installment_plan_id_fkey"
+            columns: ["installment_plan_id"]
+            isOneToOne: false
+            referencedRelation: "financial_installment_plans"
             referencedColumns: ["id"]
           },
           {
@@ -3770,6 +3846,7 @@ export type Database = {
       payment_status: "pago" | "pendente" | "cancelado"
       patient_package_status: "ativo" | "encerrado" | "cancelado"
       patient_package_usage_status: "active" | "reversed"
+      installment_plan_status: "active" | "canceled" | "completed"
       risk_level: "baixo" | "moderado" | "alto" | "muito_alto"
       scale_type: "barthel" | "katz" | "berg" | "tinetti" | "braden"
       signer_role: "paciente" | "responsavel" | "profissional"
@@ -3969,6 +4046,7 @@ export const Constants = {
       payment_status: ["pago", "pendente", "cancelado"],
       patient_package_status: ["ativo", "encerrado", "cancelado"],
       patient_package_usage_status: ["active", "reversed"],
+      installment_plan_status: ["active", "canceled", "completed"],
       risk_level: ["baixo", "moderado", "alto", "muito_alto"],
       scale_type: ["barthel", "katz", "berg", "tinetti", "braden"],
       signer_role: ["paciente", "responsavel", "profissional"],

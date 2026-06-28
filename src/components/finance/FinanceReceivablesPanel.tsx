@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ import {
   PAYMENT_METHOD_LABELS,
   RECEIVABLE_STATUS_LABELS,
   assertFinanceClinicId,
+  createFinancialInstallmentPlan,
   computeReceivableSummary,
   defaultReceivableFilters,
   filterActiveCategories,
@@ -49,6 +51,7 @@ import {
   invalidateFinanceModuleQueries,
   isReceivableOverdue,
   parseReceivableForm,
+  parseInstallmentOptions,
   receivableStatusVariant,
   type PaymentMethod,
   type PaymentStatus,
@@ -57,6 +60,7 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
 
 type FinanceReceivablesPanelProps = {
   clinicId: string | null;
@@ -73,6 +77,9 @@ type ReceivableFormState = {
   cost_center_id: string;
   documento: string;
   observacoes: string;
+  parcelar: boolean;
+  installments_count: string;
+  first_due_date: string;
 };
 
 const SELECT_ALL = "all";
@@ -90,6 +97,9 @@ function emptyForm(): ReceivableFormState {
     cost_center_id: "",
     documento: "",
     observacoes: "",
+    parcelar: false,
+    installments_count: "2",
+    first_due_date: today,
   };
 }
 
@@ -108,6 +118,7 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
   const [form, setForm] = useState<ReceivableFormState>(emptyForm);
   const [receiveDate, setReceiveDate] = useState(todayIso());
   const [receiveMethod, setReceiveMethod] = useState<PaymentMethod>("pix");
+  const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const lookups = useQuery({
     queryKey: financeQueryKeys.receivableLookups(clinicId),
@@ -213,6 +224,34 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
         return;
       }
 
+      const installmentOpts = parseInstallmentOptions({
+        enabled: form.parcelar,
+        installments_count: form.installments_count,
+        first_due_date: form.first_due_date,
+        totalAmount: parsed.valor,
+      });
+
+      if (installmentOpts) {
+        if (!parsed.category_id) throw new Error("Categoria de receita é obrigatória para parcelamento.");
+        await createFinancialInstallmentPlan(supabase, {
+          clinicId,
+          sourceType: "manual",
+          sourceId: null,
+          patientId: parsed.patient_id,
+          professionalId: parsed.professional_id,
+          totalAmount: parsed.valor,
+          installmentsCount: installmentOpts.installmentsCount,
+          firstDueDate: installmentOpts.firstDueDate,
+          issueDate: parsed.data,
+          categoryId: parsed.category_id,
+          costCenterId: parsed.cost_center_id,
+          documentoBase: parsed.documento,
+          observacoesBase: parsed.observacoes ?? "Parcelamento",
+          createdBy: u.user?.id ?? null,
+        });
+        return;
+      }
+
       const { error } = await supabase.from("financial_entries").insert({
         ...payload,
         status: "pendente",
@@ -221,7 +260,9 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(editing ? "Conta atualizada" : "Conta a receber cadastrada");
+      toast.success(
+        editing ? "Conta atualizada" : form.parcelar ? "Parcelamento gerado" : "Conta a receber cadastrada",
+      );
       setDialogOpen(false);
       setEditing(null);
       setForm(emptyForm());
@@ -317,6 +358,9 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
       cost_center_id: row.cost_center_id ?? "",
       documento: row.documento ?? "",
       observacoes: row.observacoes ?? "",
+      parcelar: false,
+      installments_count: "2",
+      first_due_date: row.data_vencimento ?? row.data,
     });
     setDialogOpen(true);
   }
@@ -492,6 +536,11 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
                         {row.documento && (
                           <div className="text-xs text-muted-foreground">Doc: {row.documento}</div>
                         )}
+                        {row.installment_plan_id && row.installment_number && row.installment_total && (
+                          <div className="text-xs text-primary">
+                            Parcela {row.installment_number}/{row.installment_total}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2 hidden lg:table-cell">{row.professionals?.nome ?? "—"}</td>
                       <td className="px-4 py-2 hidden md:table-cell text-muted-foreground">
@@ -505,7 +554,16 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex justify-end flex-wrap gap-1">
-                          {row.status !== "cancelado" && (
+                          {row.installment_plan_id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setViewPlanId(row.installment_plan_id!)}
+                            >
+                              Ver parcelas
+                            </Button>
+                          )}
+                          {row.status !== "cancelado" && !row.installment_plan_id && (
                             <SupportGuardButton
                               size="sm"
                               variant="outline"
@@ -568,6 +626,14 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
           </div>
         </Card>
       )}
+
+      <FinanceInstallmentPlanDialog
+        open={!!viewPlanId}
+        onOpenChange={(o) => !o && setViewPlanId(null)}
+        planId={viewPlanId}
+        clinicId={clinicId}
+        supportMode={supportMode}
+      />
 
       <ReceivableFormDialog
         open={dialogOpen}
@@ -783,12 +849,62 @@ function ReceivableFormDialog({
               <Label className="text-xs uppercase">Vencimento</Label>
               <Input
                 type="date"
-                value={form.data_vencimento}
-                onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
+                value={form.parcelar ? form.first_due_date : form.data_vencimento}
+                onChange={(e) =>
+                  setForm(
+                    form.parcelar
+                      ? { ...form, first_due_date: e.target.value }
+                      : { ...form, data_vencimento: e.target.value },
+                  )
+                }
                 disabled={readOnly}
               />
+              {form.parcelar && !editing && (
+                <p className="mt-1 text-[10px] text-muted-foreground">1ª parcela — demais vencimentos mensais</p>
+              )}
             </div>
           </div>
+          {!editing && (
+            <div className="rounded-lg border p-3 space-y-3">
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Parcelar receita</span>
+                <Switch
+                  checked={form.parcelar}
+                  disabled={readOnly}
+                  onCheckedChange={(checked) =>
+                    setForm({
+                      ...form,
+                      parcelar: checked,
+                      first_due_date: form.first_due_date || form.data_vencimento || form.data,
+                    })
+                  }
+                />
+              </label>
+              {form.parcelar && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs uppercase">Nº parcelas</Label>
+                    <Input
+                      type="number"
+                      min={2}
+                      value={form.installments_count}
+                      onChange={(e) => setForm({ ...form, installments_count: e.target.value })}
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase">1º vencimento</Label>
+                    <Input
+                      type="date"
+                      value={form.first_due_date}
+                      onChange={(e) => setForm({ ...form, first_due_date: e.target.value })}
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs uppercase">Categoria</Label>

@@ -23,6 +23,9 @@ export type PatientPackageUsageRow = Database["public"]["Tables"]["patient_packa
 export type PatientPackageUsageInsert = Database["public"]["Tables"]["patient_package_usages"]["Insert"];
 export type PatientPackageStatus = Database["public"]["Enums"]["patient_package_status"];
 export type PatientPackageUsageStatus = Database["public"]["Enums"]["patient_package_usage_status"];
+export type FinancialInstallmentPlanRow = Database["public"]["Tables"]["financial_installment_plans"]["Row"];
+export type InstallmentPlanStatus = Database["public"]["Enums"]["installment_plan_status"];
+export type InstallmentSourceType = FinancialInstallmentPlanRow["source_type"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
 export type FinancialEntryType = FinancialEntryRow["entry_type"];
@@ -36,7 +39,8 @@ export type FinanceModuleId =
   | "payables"
   | "cash_flow"
   | "legacy_entries"
-  | "packages";
+  | "packages"
+  | "installments";
 
 export type FinanceModuleStatus = "active" | "planned" | "legacy";
 

@@ -49,6 +49,10 @@ import {
   financeQueryKeys,
   invalidateFinanceModuleQueries,
   isDuplicatePackageTemplateError,
+  createFinancialInstallmentPlan,
+  cancelFinancialInstallmentPlan,
+  findInstallmentPlanBySource,
+  parseInstallmentOptions,
   parseContractPackageForm,
   parsePackageTemplateForm,
   patientPackageStatusVariant,
@@ -59,6 +63,7 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { FinancePackageContractUsageDialog } from "./FinancePackageContractUsageDialog";
+import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
 
 type FinancePackagesPanelProps = {
   clinicId: string | null;
@@ -82,6 +87,9 @@ type ContractForm = {
   contracted_at: string;
   contracted_value: string;
   sessions_total: string;
+  parcelar: boolean;
+  installments_count: string;
+  first_due_date: string;
 };
 
 const SELECT_ALL = "all";
@@ -105,6 +113,9 @@ function emptyContractForm(): ContractForm {
     contracted_at: todayIso(),
     contracted_value: "",
     sessions_total: "",
+    parcelar: false,
+    installments_count: "2",
+    first_due_date: todayIso(),
   };
 }
 
@@ -126,6 +137,7 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
     row: PatientPackageRow;
   } | null>(null);
   const [usageContract, setUsageContract] = useState<PatientPackageRow | null>(null);
+  const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const templates = useQuery({
     queryKey: financeQueryKeys.packageTemplates(clinicId),
@@ -287,6 +299,60 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
       const parsed = parseContractPackageForm(contractForm, template);
       const { data: u } = await supabase.auth.getUser();
 
+      const installmentOpts = parseInstallmentOptions({
+        enabled: contractForm.parcelar,
+        installments_count: contractForm.installments_count,
+        first_due_date: contractForm.first_due_date,
+        totalAmount: parsed.contracted_value,
+      });
+
+      const { data: contractRow, error: contractError } = await supabase
+        .from("patient_package_contracts")
+        .insert({
+          clinic_id: clinicId,
+          package_template_id: parsed.package_template_id,
+          patient_id: parsed.patient_id,
+          professional_id: parsed.professional_id,
+          financial_entry_id: null,
+          contracted_at: parsed.contracted_at,
+          valid_until: parsed.valid_until,
+          sessions_total: parsed.sessions_total,
+          sessions_used: 0,
+          contracted_value: parsed.contracted_value,
+          status: "ativo",
+        })
+        .select("id")
+        .single();
+      if (contractError) throw contractError;
+
+      if (installmentOpts) {
+        const { entryIds } = await createFinancialInstallmentPlan(supabase, {
+          clinicId,
+          sourceType: "package_contract",
+          sourceId: contractRow.id,
+          patientId: parsed.patient_id,
+          professionalId: parsed.professional_id,
+          totalAmount: parsed.contracted_value,
+          installmentsCount: installmentOpts.installmentsCount,
+          firstDueDate: installmentOpts.firstDueDate,
+          issueDate: parsed.contracted_at,
+          categoryId: parsed.category_id,
+          costCenterId: parsed.cost_center_id,
+          documentoBase: parsed.documento,
+          observacoesBase: parsed.observacoes,
+          createdBy: u.user?.id ?? null,
+        });
+
+        if (entryIds[0]) {
+          await supabase
+            .from("patient_package_contracts")
+            .update({ financial_entry_id: entryIds[0] })
+            .eq("id", contractRow.id)
+            .eq("clinic_id", clinicId);
+        }
+        return;
+      }
+
       const { data: entry, error: entryError } = await supabase
         .from("financial_entries")
         .insert({
@@ -308,23 +374,15 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
         .single();
       if (entryError) throw entryError;
 
-      const { error: contractError } = await supabase.from("patient_package_contracts").insert({
-        clinic_id: clinicId,
-        package_template_id: parsed.package_template_id,
-        patient_id: parsed.patient_id,
-        professional_id: parsed.professional_id,
-        financial_entry_id: entry.id,
-        contracted_at: parsed.contracted_at,
-        valid_until: parsed.valid_until,
-        sessions_total: parsed.sessions_total,
-        sessions_used: 0,
-        contracted_value: parsed.contracted_value,
-        status: "ativo",
-      });
-      if (contractError) throw contractError;
+      const { error: linkError } = await supabase
+        .from("patient_package_contracts")
+        .update({ financial_entry_id: entry.id })
+        .eq("id", contractRow.id)
+        .eq("clinic_id", clinicId);
+      if (linkError) throw linkError;
     },
     onSuccess: () => {
-      toast.success("Pacote contratado e conta a receber gerada");
+      toast.success(contractForm.parcelar ? "Pacote contratado com parcelamento" : "Pacote contratado e conta a receber gerada");
       setContractDialogOpen(false);
       setContractForm(emptyContractForm());
       invalidateAll();
@@ -352,14 +410,24 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
         .eq("clinic_id", clinicId);
       if (error) throw error;
 
-      if (cancelReceivable && row.financial_entry_id) {
-        const { error: finError } = await supabase
-          .from("financial_entries")
-          .update({ status: "cancelado" })
-          .eq("id", row.financial_entry_id)
-          .eq("clinic_id", clinicId)
-          .eq("status", "pendente");
-        if (finError) throw finError;
+      if (cancelReceivable) {
+        const plan = await findInstallmentPlanBySource(
+          supabase,
+          clinicId,
+          "package_contract",
+          row.id,
+        );
+        if (plan) {
+          await cancelFinancialInstallmentPlan(supabase, clinicId, plan.id);
+        } else if (row.financial_entry_id) {
+          const { error: finError } = await supabase
+            .from("financial_entries")
+            .update({ status: "cancelado" })
+            .eq("id", row.financial_entry_id)
+            .eq("clinic_id", clinicId)
+            .eq("status", "pendente");
+          if (finError) throw finError;
+        }
       }
     },
     onSuccess: (_, { status }) => {
@@ -369,6 +437,20 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar contrato"),
   });
+
+  async function openContractInstallmentPlan(row: PatientPackageRow) {
+    if (!clinicId) return;
+    try {
+      const plan = await findInstallmentPlanBySource(supabase, clinicId, "package_contract", row.id);
+      if (!plan) {
+        toast.error("Este contrato não possui parcelamento.");
+        return;
+      }
+      setViewPlanId(plan.id);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Erro ao carregar parcelamento");
+    }
+  }
 
   function openCreateTemplate() {
     setEditingTemplate(null);
@@ -611,6 +693,13 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
                             <History className="mr-1 h-3.5 w-3.5" />
                             Consumo
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openContractInstallmentPlan(row)}
+                          >
+                            Parcelas
+                          </Button>
                           {row.status === "ativo" && (
                             <>
                               <SupportGuardButton
@@ -826,8 +915,46 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
                 onChange={(e) => setContractForm((f) => ({ ...f, contracted_value: e.target.value }))}
               />
             </div>
+            <div className="rounded-lg border p-3 space-y-3">
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Parcelar valor</span>
+                <Switch
+                  checked={contractForm.parcelar}
+                  onCheckedChange={(checked) =>
+                    setContractForm((f) => ({
+                      ...f,
+                      parcelar: checked,
+                      first_due_date: f.first_due_date || f.contracted_at,
+                    }))
+                  }
+                />
+              </label>
+              {contractForm.parcelar && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Nº parcelas</Label>
+                    <Input
+                      type="number"
+                      min={2}
+                      value={contractForm.installments_count}
+                      onChange={(e) => setContractForm((f) => ({ ...f, installments_count: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>1º vencimento</Label>
+                    <Input
+                      type="date"
+                      value={contractForm.first_due_date}
+                      onChange={(e) => setContractForm((f) => ({ ...f, first_due_date: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Será gerada uma conta a receber pendente vinculada a este contrato.
+              {contractForm.parcelar
+                ? "Serão geradas parcelas em Contas a Receber vinculadas a este contrato."
+                : "Será gerada uma conta a receber pendente vinculada a este contrato."}
             </p>
           </div>
           <DialogFooter>
@@ -853,6 +980,14 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
         professionals={lookups.data?.professionals ?? []}
       />
 
+      <FinanceInstallmentPlanDialog
+        open={!!viewPlanId}
+        onOpenChange={(o) => !o && setViewPlanId(null)}
+        planId={viewPlanId}
+        clinicId={clinicId}
+        supportMode={supportMode}
+      />
+
       <Dialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -862,7 +997,7 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             {confirmAction?.type === "cancel"
-              ? "O contrato será marcado como cancelado. A conta a receber pendente também será cancelada. Os dados permanecem no histórico."
+              ? "O contrato será marcado como cancelado. Parcelas pendentes ou conta a receber também serão canceladas. Os dados permanecem no histórico."
               : "O contrato será marcado como encerrado. A conta a receber não será alterada."}
           </p>
           <DialogFooter>
