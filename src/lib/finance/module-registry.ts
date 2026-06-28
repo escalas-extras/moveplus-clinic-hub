@@ -1,5 +1,6 @@
 /**
  * Sprint G1.1 — registro de módulos do Financeiro Base (roadmap G1).
+ * Congelado em G1.8 — novos módulos financeiros exigem nova trilha de sprint.
  */
 
 import { FINANCE_ROUTE_BASE } from "./constants";

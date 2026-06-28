@@ -46,6 +46,7 @@ import {
   filterActiveCategories,
   filterPayablesClient,
   financeQueryKeys,
+  invalidateFinanceModuleQueries,
   isPayableOverdue,
   parsePayableForm,
   payableStatusVariant,
@@ -167,8 +168,7 @@ export function FinancePayablesPanel({ clinicId, supportMode }: FinancePayablesP
   const summary = useMemo(() => computePayableSummary(filteredRows), [filteredRows]);
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["finance", clinicId, "payables"] });
-    qc.invalidateQueries({ queryKey: ["report-financial", clinicId] });
+    invalidateFinanceModuleQueries(qc, clinicId);
   };
 
   const validateExpenseCategory = (categoryId: string | null) => {

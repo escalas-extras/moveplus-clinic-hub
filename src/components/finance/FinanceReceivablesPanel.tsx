@@ -46,6 +46,7 @@ import {
   filterActiveCategories,
   filterReceivablesClient,
   financeQueryKeys,
+  invalidateFinanceModuleQueries,
   isReceivableOverdue,
   parseReceivableForm,
   receivableStatusVariant,
@@ -173,10 +174,7 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
   const summary = useMemo(() => computeReceivableSummary(filteredRows), [filteredRows]);
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["finance", clinicId, "receivables"] });
-    qc.invalidateQueries({ queryKey: financeQueryKeys.entryTotals(clinicId, "") });
-    qc.invalidateQueries({ queryKey: ["fin", clinicId] });
-    qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] });
+    invalidateFinanceModuleQueries(qc, clinicId);
   };
 
   const save = useMutation({

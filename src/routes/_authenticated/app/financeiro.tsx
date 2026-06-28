@@ -25,6 +25,7 @@ import {
 } from "@/lib/receipt-pdf";
 import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { invalidateFinanceModuleQueries } from "@/lib/finance";
 import { SupportGuardButton } from "@/components/support-guard";
 import { AppShell, PageHeader } from "@/components/layout";
 import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel } from "@/components/finance";
@@ -156,6 +157,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
         .from("financial_entries")
         .select("*, patients(nome_completo, cpf), professionals(nome, conselho, registro, profissao)")
         .eq("clinic_id", clinicId!)
+        .eq("entry_type", "receivable")
         .order("data", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -167,8 +169,19 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     queryKey: ["fin-totals", clinicId, monthIso],
     enabled: !!clinicId,
     queryFn: async () => {
-      const { data: pagos } = await supabase.from("financial_entries").select("valor").eq("clinic_id", clinicId!).eq("status", "pago").gte("data", monthIso);
-      const { data: pend } = await supabase.from("financial_entries").select("valor").eq("clinic_id", clinicId!).eq("status", "pendente");
+      const { data: pagos } = await supabase
+        .from("financial_entries")
+        .select("valor")
+        .eq("clinic_id", clinicId!)
+        .eq("entry_type", "receivable")
+        .eq("status", "pago")
+        .gte("data", monthIso);
+      const { data: pend } = await supabase
+        .from("financial_entries")
+        .select("valor")
+        .eq("clinic_id", clinicId!)
+        .eq("entry_type", "receivable")
+        .eq("status", "pendente");
       const totalMes = (pagos ?? []).reduce((s, r) => s + Number(r.valor), 0);
       const totalPend = (pend ?? []).reduce((s, r) => s + Number(r.valor), 0);
       return { totalMes, totalPend };
@@ -201,7 +214,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
       const { error } = await supabase.from("financial_entries").insert(payload);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Lançamento criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },
+    onSuccess: () => { toast.success("Lançamento criado"); setOpen(false); invalidateFinanceModuleQueries(qc, clinicId); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -209,10 +222,15 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     mutationFn: async (id: string) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
       if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
-      const { error } = await supabase.from("financial_entries").update({ status: "pago", data_recebimento: new Date().toISOString().slice(0, 10) }).eq("id", id).eq("clinic_id", clinicId);
+      const { error } = await supabase
+        .from("financial_entries")
+        .update({ status: "pago", data_recebimento: new Date().toISOString().slice(0, 10) })
+        .eq("id", id)
+        .eq("clinic_id", clinicId)
+        .eq("entry_type", "receivable");
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },
+    onSuccess: () => { invalidateFinanceModuleQueries(qc, clinicId); },
   });
 
   async function emitReceipt(entry: any) {
@@ -580,7 +598,9 @@ function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId,
       .from("financial_entries")
       .select("id, data, valor, forma_pagamento, status")
       .eq("clinic_id", clinicId!)
+      .eq("entry_type", "receivable")
       .eq("patient_id", patient_id)
+      .neq("status", "cancelado")
       .order("data", { ascending: false })
       .limit(50)).data ?? [],
   });

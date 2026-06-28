@@ -8,6 +8,9 @@ export const FINANCE_ROUTE_BASE = "/app/financeiro" as const;
 
 export const FINANCE_FEATURE_KEY = "financeiro" as const;
 
+/** Versão congelada do Financeiro Base MVP (Sprint G1.8). */
+export const FINANCE_BASE_VERSION = "G1.8" as const;
+
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   pix: "PIX",
   dinheiro: "Dinheiro",

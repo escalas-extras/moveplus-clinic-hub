@@ -1,17 +1,34 @@
 # Arquitetura — Módulo Financeiro Base (G1)
 
-Documento técnico de referência. Sprint G1.1.
+Documento técnico de referência. **Congelado em Sprint G1.8** (`FINANCE_BASE_VERSION = "G1.8"`).
 
 ## Visão geral
 
-O Financeiro Base é um **módulo gestão** separado do Core Clínico congelado. Opera no mesmo app multi-clínica (`clinic_id`), com RLS Supabase e feature flag `financeiro` no plano.
+O Financeiro Base é um **módulo de gestão** separado do Core Clínico congelado. Opera no mesmo app multi-clínica (`clinic_id`), com RLS Supabase e feature flag `financeiro` no plano.
+
+Fonte única de lançamentos: **`financial_entries`** (`entry_type`: `receivable` | `payable`).
 
 ```
 src/
-├── lib/finance/           # Domínio, tipos, registry, query keys, helpers
-├── components/finance/    # UI compartilhada do hub e futuros formulários
-└── routes/.../financeiro.tsx   # Rota /app/financeiro (hub + operação v1)
+├── lib/finance/              # Domínio, tipos, registry, query keys, helpers
+├── components/finance/     # Painéis por aba (dashboard, categorias, AR/AP, fluxo)
+└── routes/.../financeiro.tsx   # Rota /app/financeiro (8 abas)
 ```
+
+## Abas ativas (`/app/financeiro`)
+
+| Aba | Componente | Sprint |
+|-----|------------|--------|
+| Visão geral | `FinanceDashboardPanel` | G1.7 |
+| Categorias | `FinanceCategoriesPanel` | G1.2 |
+| Centros de Custo | `FinanceCostCentersPanel` | G1.3 |
+| Contas a Receber | `FinanceReceivablesPanel` | G1.4 |
+| Contas a Pagar | `FinancePayablesPanel` | G1.5 |
+| Fluxo de Caixa | `FinanceCashFlowPanel` | G1.6 |
+| Lançamentos v1 | `LancamentosTab` (inline) | v1 |
+| Recibos | `RecibosTab` (inline) | v1 |
+
+`FinanceModuleHub.tsx` — legado G1.1, **não usado** na UI desde G1.7.
 
 ## Padrões reutilizados do projeto
 
@@ -19,75 +36,100 @@ src/
 |--------|------|-------------------|
 | Rotas autenticadas | `/_authenticated/app/*` | `/app/financeiro` |
 | Multi-clínica | `useActiveClinic()` → `clinicId` | Obrigatório em queries |
-| RLS tenant | `fin_tenant_*` em `financial_entries` | Escopo por clínica + papel |
-| Layout premium | `AppShell`, `PageHeader`, `InfoCard`, `KpiGrid` | Hub G1.1 |
-| Data fetching | TanStack Query + Supabase client | `financeQueryKeys` |
+| RLS tenant | `fin_tenant_*`, `fin_cat_*`, `fin_cc_*` | Escopo por clínica + papel |
+| Layout | `AppShell`, `PageHeader`, `KpiGrid`, `EmptyState`, `StatusBadge` | Painéis G1.2–G1.7 |
+| Data fetching | TanStack Query + Supabase client | `financeQueryKeys` + legado `fin` |
 | Feature gate | `plan-features` → `financeiro` | Menu app-shell |
-| Auditoria | `audit_log` / `saas_audit_log` | Prefixo `finance.*` (helpers) |
-| Server fn | `src/lib/api/*.functions.ts` | G1.2+ para mutações complexas |
+| Support mode | `SupportGuardButton` + triggers DB | Bloqueia mutações em impersonação |
+| Auditoria | prefixo `finance.*` | `financeAuditAction()` em helpers |
 
-## Persistência existente (sem migration G1.1)
+## Persistência
 
 ### `financial_entries`
 
-Lançamentos v1 vinculados a paciente + profissional.
+Lançamentos unificados (receitas e despesas).
 
 | Coluna | Tipo | Notas |
 |--------|------|-------|
 | `clinic_id` | uuid | Tenant |
-| `patient_id` | uuid | Obrigatório |
-| `professional_id` | uuid | Obrigatório |
+| `entry_type` | `receivable` \| `payable` | Receita vs despesa |
+| `patient_id` | uuid? | Obrigatório para `receivable` |
+| `professional_id` | uuid? | Obrigatório para `receivable` |
+| `category_id` | uuid? | FK `financial_categories` |
+| `cost_center_id` | uuid? | FK `financial_cost_centers` |
 | `valor` | numeric | |
-| `status` | `pago` \| `pendente` | |
+| `status` | `pago` \| `pendente` \| `cancelado` | Cancelados ignorados em KPIs |
 | `forma_pagamento` | enum | pix, dinheiro, cartao, transferencia |
-| `data` | date | |
+| `data` | date | Data de competência / registro |
+| `data_vencimento` | date? | Previsto / vencimento |
+| `data_recebimento` | date? | Realizado (pago/recebido) |
+| `documento` | text? | NF, boleto, fornecedor (payables) |
+| `observacoes` | text? | |
 | `appointment_id` | uuid? | Opcional |
+
+### `financial_categories` (G1.2)
+
+Plano de contas simplificado. Tipos: `income` | `expense`. RLS `fin_cat_*`.
+
+### `financial_cost_centers` (G1.3)
+
+Segmentação interna. Flag `ativo`. RLS `fin_cc_*`.
 
 ### `receipts`
 
-Recibos emitidos a partir de `financial_entry_id` — rota dedicada `/app/recibos`.
+Recibos emitidos a partir de `financial_entry_id` — aba Recibos em `/app/financeiro` (+ rota `/app/recibos`).
 
-## Entidades futuras (G1.2+)
+## Regras de negócio consolidadas (G1.8)
 
-| Entidade | Tabela proposta | Sprint |
-|----------|-----------------|--------|
-| Categorias financeiras | `financial_categories` | G1.2 |
-| Centros de custo | `financial_cost_centers` | G1.3 |
-| Contas a receber | evoluir `financial_entries` ou `financial_receivables` | G1.4 |
-| Contas a pagar | `financial_payables` | G1.4 |
-| Fluxo de caixa | view / agregação | G1.5 |
-| Dashboard | composição de KPIs | G1.5 |
-
-**G1.1 não cria essas tabelas** — apenas registry e tipos preparatórios.
+| Conceito | Regra |
+|----------|--------|
+| Cancelados | Excluídos de dashboard, fluxo de caixa, KPIs e export ativo |
+| Receitas | `entry_type = receivable` |
+| Despesas | `entry_type = payable` |
+| Realizado | `status = pago`; data = `data_recebimento ?? data` |
+| Previsto | `status = pendente`; data = `data_vencimento ?? data` |
+| Vencidos | pendente + `data_vencimento < hoje` |
+| Categorias | income em receber; expense em pagar; inativas filtradas |
+| Centros de custo | apenas ativos nos selects |
 
 ## Registry de módulos
 
-`src/lib/finance/module-registry.ts` — fonte única do roadmap UI (cards “Em breve”).
+`src/lib/finance/module-registry.ts` — todos os módulos G1.2–G1.7 `active`; `legacy_entries` = v1.
 
 ## Query keys
 
-`src/lib/finance/query-keys.ts` — namespace `["finance", clinicId, ...]`.
+- Namespace principal: `["finance", clinicId, ...]` — `financeQueryKeys`
+- Legado v1: `["fin", clinicId]`, `["fin-totals", clinicId]`, `["fin-by-patient", ...]`
+- Relatórios: `["report-financial", clinicId, from, to]`
 
-Migrar gradualmente queries legadas (`["fin", clinicId]`) em sprints futuras.
+**Invalidação unificada (G1.8):** `invalidateFinanceModuleQueries(qc, clinicId)` em `helpers.ts` — invalida `finance`, `fin`, `fin-totals` e `report-financial`.
 
 ## Permissões
 
-- **RLS:** políticas `fin_tenant_*` em `financial_entries`
+- **RLS:** `can_access_clinic(clinic_id)` leitura; `can_manage_clinic(clinic_id)` escrita
 - **Papel:** `owner`, `admin`, `financeiro` em `clinic_members`
-- **Support mode:** `SupportGuardButton` bloqueia mutações em impersonação
+- **Support mode:** mutações bloqueadas na UI; triggers DB impedem escrita em impersonação
+- **Tenant:** todas as queries filtram `.eq("clinic_id", clinicId)`
 
-## Fora de escopo G1
+## Integrações preservadas
+
+- Lançamentos v1 (receivable only na listagem/totais)
+- Recibos + PDF (`receipt-pdf.ts` — **sem alteração**)
+- Relatórios financeiros (`/app/relatorios`) + export CSV
+- Dashboard e fluxo de caixa
+
+## Fora de escopo G1 (congelado)
 
 - DRE, PIX automático, NF-e, conciliação bancária
-- Convênios, pacotes, parcelamento, inadimplência
-- Alterações em Core Clínico, PDFs, Histórico Integrado
+- Convênios, pacotes, parcelamento, inadimplência, billing SaaS
+- Alterações em Core Clínico, PDFs clínicos, Histórico Integrado
 
-## Riscos conhecidos
+## Riscos remanescentes
 
-1. **`relatorios.tsx`** referencia colunas `tipo` e `descricao` em `financial_entries` que **não existem** no schema tipado — drift a corrigir em G1.2+
-2. Query keys legadas (`fin`, `fin-totals`) coexistem com `financeQueryKeys`
-3. Duplicidade UI: aba Recibos em `/app/financeiro` e rota `/app/recibos` — consolidar em sprint futura
+1. Query keys legadas (`fin`, `fin-totals`) coexistem com `financeQueryKeys` — invalidação unificada mitiga stale cache
+2. Duplicidade UI: aba Recibos em `/app/financeiro` e rota `/app/recibos` — consolidar em sprint futura
+3. Lançamentos v1 permanece legado; novos fluxos devem usar Contas a Receber/Pagar
 
-## Próximo passo
+## Próximo passo (pós-freeze)
 
-**Sprint G1.2 — Categorias Financeiras:** migration `financial_categories`, CRUD, RLS, UI lista/cadastro.
+Novos recursos financeiros exigem **nova trilha de sprint** (G2+). Não estender G1 sem revisão arquitetural.

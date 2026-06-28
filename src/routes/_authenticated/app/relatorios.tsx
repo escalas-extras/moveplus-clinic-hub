@@ -124,16 +124,17 @@ function ReportsPage() {
       const isIncome = (row: any) =>
         row.entry_type !== "payable" && (!row.category_id || row.financial_categories?.type === "income");
 
-      const recebido = rows
+      const activeRows = rows.filter((d) => d.status !== "cancelado");
+
+      const recebido = activeRows
         .filter((d) => d.status === "pago" && isIncome(d))
         .reduce((s, d) => s + Number(d.valor || 0), 0);
-      const pendente = rows
+      const pendente = activeRows
         .filter((d) => d.status === "pendente" && isIncome(d))
         .reduce((s, d) => s + Number(d.valor || 0), 0);
-      const despesas = rows
+      const despesas = activeRows
         .filter((d) => d.status === "pago" && isExpense(d))
         .reduce((s, d) => s + Number(d.valor || 0), 0);
-      const activeRows = rows.filter((d) => d.status !== "cancelado");
       return { recebido, pendente, despesas, entries: activeRows };
     },
   });
@@ -177,7 +178,7 @@ function ReportsPage() {
     const rows = financial.entries.map((e: any) => ({
       data: e.data,
       categoria: e.financial_categories?.name ?? "—",
-      tipo: e.financial_categories?.type === "expense" ? "Despesa" : "Receita",
+      tipo: e.entry_type === "payable" ? "Despesa" : "Receita",
       valor: e.valor,
       status: e.status,
       forma_pagamento: e.forma_pagamento ?? "",

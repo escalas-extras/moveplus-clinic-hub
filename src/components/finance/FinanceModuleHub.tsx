@@ -1,3 +1,7 @@
+/**
+ * Hub legado G1.1 — substituído por FinanceDashboardPanel (G1.7).
+ * Mantido exportado para referência; não usado na rota /app/financeiro desde G1.7.
+ */
 import { Link } from "@tanstack/react-router";
 import {
   ArrowDownCircle,

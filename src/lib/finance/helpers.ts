@@ -2,11 +2,24 @@
  * Sprint G1.1 — helpers puros do Financeiro Base.
  */
 
+import type { QueryClient } from "@tanstack/react-query";
 import type { FinanceEntryTotals, FinancialEntryRow } from "./types";
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "./constants";
 
 export function assertFinanceClinicId(clinicId: string | null | undefined): asserts clinicId is string {
   if (!clinicId) throw new Error("Clínica ativa não definida.");
+}
+
+/** Invalida caches compartilhados após mutações em financial_entries (G1.8). */
+export function invalidateFinanceModuleQueries(
+  qc: QueryClient,
+  clinicId: string | null | undefined,
+) {
+  if (!clinicId) return;
+  void qc.invalidateQueries({ queryKey: ["finance", clinicId] });
+  void qc.invalidateQueries({ queryKey: ["fin", clinicId] });
+  void qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] });
+  void qc.invalidateQueries({ queryKey: ["report-financial", clinicId] });
 }
 
 export function sumEntryValues(rows: Pick<FinancialEntryRow, "valor">[]): number {
