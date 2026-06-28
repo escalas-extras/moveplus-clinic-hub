@@ -56,15 +56,17 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceProfessionalRevenuePanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
 };
 
 const SELECT_ALL = "all";
 
-export function FinanceProfessionalRevenuePanel({ clinicId }: FinanceProfessionalRevenuePanelProps) {
-  const [filters, setFilters] = useState<ProfessionalRevenueFilters>(defaultProfessionalRevenueFilters);
+export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: FinanceProfessionalRevenuePanelProps) {
+  const [filters, setFilters] = useState<ProfessionalRevenueFilters>(() => defaultProfessionalRevenueFilters());
   const [detailGroup, setDetailGroup] = useState<ProfessionalRevenueGroup | null>(null);
 
   const lookups = useQuery({
@@ -143,27 +145,19 @@ export function FinanceProfessionalRevenuePanel({ clinicId }: FinanceProfessiona
     setFilters(defaultProfessionalRevenueFilters());
   }
 
-  if (revenue.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando receita por profissional…
-      </div>
-    );
-  }
-
-  if (revenue.isError || lookups.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar a receita por profissional.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => { revenue.refetch(); lookups.refetch(); }}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={revenue.isLoading || lookups.isLoading}
+      error={revenue.error ?? lookups.error}
+      onRetry={() => {
+        void revenue.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando receita por profissional…"
+      errorFallback="Não foi possível carregar a receita por profissional."
+    >
     <div className="space-y-6">
       <KpiGrid columns={3}>
         <KpiCard
@@ -403,6 +397,7 @@ export function FinanceProfessionalRevenuePanel({ clinicId }: FinanceProfessiona
         </DialogContent>
       </Dialog>
     </div>
+    </FinancePanelGate>
   );
 }
 

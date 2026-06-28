@@ -61,9 +61,11 @@ import {
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceReceivablesPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
@@ -108,9 +110,9 @@ function filtersKey(filters: ReceivableFilters) {
   return JSON.stringify(rest);
 }
 
-export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceivablesPanelProps) {
+export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }: FinanceReceivablesPanelProps) {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState<ReceivableFilters>(defaultReceivableFilters);
+  const [filters, setFilters] = useState<ReceivableFilters>(() => defaultReceivableFilters());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveTarget, setReceiveTarget] = useState<ReceivableRow | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ReceivableRow | null>(null);
@@ -365,27 +367,19 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
     setDialogOpen(true);
   }
 
-  if (receivables.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando contas a receber…
-      </div>
-    );
-  }
-
-  if (receivables.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar as contas a receber.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => receivables.refetch()}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={receivables.isLoading || lookups.isLoading}
+      error={receivables.error ?? lookups.error}
+      onRetry={() => {
+        void receivables.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando contas a receber…"
+      errorFallback="Não foi possível carregar as contas a receber."
+    >
     <div className="space-y-6">
       <KpiGrid columns={4}>
         <KpiCard
@@ -708,6 +702,7 @@ export function FinanceReceivablesPanel({ clinicId, supportMode }: FinanceReceiv
         </DialogContent>
       </Dialog>
     </div>
+    </FinancePanelGate>
   );
 }
 

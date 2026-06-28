@@ -60,9 +60,11 @@ import {
   type PatientHealthInsuranceRowView,
 } from "@/lib/finance";
 import { fmtDate } from "@/lib/format";
+import { FinanceErrorCard, FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceHealthInsurancePanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
@@ -74,9 +76,9 @@ function filtersKey(filters: PatientHealthInsuranceFilters) {
   return JSON.stringify(rest);
 }
 
-export function FinanceHealthInsurancePanel({ clinicId, supportMode }: FinanceHealthInsurancePanelProps) {
+export function FinanceHealthInsurancePanel({ clinicId, clinicLoading, supportMode }: FinanceHealthInsurancePanelProps) {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState<PatientHealthInsuranceFilters>(defaultPatientHealthInsuranceFilters());
+  const [filters, setFilters] = useState<PatientHealthInsuranceFilters>(() => defaultPatientHealthInsuranceFilters());
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [receivableDialogOpen, setReceivableDialogOpen] = useState(false);
@@ -335,27 +337,19 @@ export function FinanceHealthInsurancePanel({ clinicId, supportMode }: FinanceHe
     setProviderDialogOpen(true);
   }
 
-  if (providers.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando convênios…
-      </div>
-    );
-  }
-
-  if (providers.isError || lookups.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar os convênios.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => { providers.refetch(); lookups.refetch(); }}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={providers.isLoading || lookups.isLoading}
+      error={providers.error ?? lookups.error}
+      onRetry={() => {
+        void providers.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando convênios…"
+      errorFallback="Não foi possível carregar os convênios."
+    >
     <div className="space-y-8">
       <PageSection
         title="Operadoras / Convênios"
@@ -483,12 +477,11 @@ export function FinanceHealthInsurancePanel({ clinicId, supportMode }: FinanceHe
             Carregando vínculos…
           </div>
         ) : links.isError ? (
-          <Card className="p-8 text-center">
-            <p className="text-sm text-destructive">Não foi possível carregar os vínculos paciente x convênio.</p>
-            <Button variant="outline" size="sm" className="mt-4" onClick={() => links.refetch()}>
-              Tentar novamente
-            </Button>
-          </Card>
+          <FinanceErrorCard
+            error={links.error}
+            onRetry={() => links.refetch()}
+            fallback="Não foi possível carregar os vínculos paciente x convênio."
+          />
         ) : !filteredLinks.length ? (
           <EmptyState
             icon={UserPlus}
@@ -728,5 +721,6 @@ export function FinanceHealthInsurancePanel({ clinicId, supportMode }: FinanceHe
         </DialogContent>
       </Dialog>
     </div>
+    </FinancePanelGate>
   );
 }

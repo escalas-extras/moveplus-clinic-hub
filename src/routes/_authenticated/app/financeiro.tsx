@@ -28,7 +28,7 @@ import { useActiveClinic } from "@/lib/active-clinic";
 import { invalidateFinanceModuleQueries } from "@/lib/finance";
 import { SupportGuardButton } from "@/components/support-guard";
 import { AppShell, PageHeader } from "@/components/layout";
-import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel, FinancePackagesPanel, FinanceHealthInsurancePanel, FinanceDelinquencyPanel, FinanceProfessionalRevenuePanel } from "@/components/finance";
+import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel, FinancePackagesPanel, FinanceHealthInsurancePanel, FinanceDelinquencyPanel, FinanceProfessionalRevenuePanel, FinancePanelGate } from "@/components/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
   component: FinanceiroPage,
@@ -54,7 +54,7 @@ function requiredAmount(value: unknown) {
 }
 
 function FinanceiroPage() {
-  const { clinicId, supportMode } = useActiveClinic();
+  const { clinicId, supportMode, loading: clinicLoading } = useActiveClinic();
   const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "fluxo" | "pacotes" | "convenios" | "inadimplencia" | "receita-profissional" | "lancamentos" | "recibos">("visao-geral");
 
   return (
@@ -116,6 +116,7 @@ function FinanceiroPage() {
         <TabsContent value="visao-geral" className="mt-6">
           <FinanceDashboardPanel
             clinicId={clinicId}
+            clinicLoading={clinicLoading}
             onNewReceivable={() => setTab("receber")}
             onNewPayable={() => setTab("pagar")}
             onOpenCashFlow={() => setTab("fluxo")}
@@ -126,47 +127,47 @@ function FinanceiroPage() {
         </TabsContent>
 
         <TabsContent value="categorias" className="mt-6">
-          <FinanceCategoriesPanel clinicId={clinicId} supportMode={supportMode} />
+          <FinanceCategoriesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="centros-custo" className="mt-6">
-          <FinanceCostCentersPanel clinicId={clinicId} supportMode={supportMode} />
+          <FinanceCostCentersPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="receber" className="mt-6">
-          <FinanceReceivablesPanel clinicId={clinicId} supportMode={supportMode} />
+          <FinanceReceivablesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="pagar" className="mt-6">
-          <FinancePayablesPanel clinicId={clinicId} supportMode={supportMode} />
+          <FinancePayablesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="fluxo" className="mt-6">
-          <FinanceCashFlowPanel clinicId={clinicId} />
+          <FinanceCashFlowPanel clinicId={clinicId} clinicLoading={clinicLoading} />
         </TabsContent>
 
         <TabsContent value="pacotes" className="mt-6">
-          <FinancePackagesPanel clinicId={clinicId} supportMode={supportMode} />
+          <FinancePackagesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="convenios" className="mt-6">
-          <FinanceHealthInsurancePanel clinicId={clinicId} supportMode={supportMode} />
+          <FinanceHealthInsurancePanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="inadimplencia" className="mt-6">
-          <FinanceDelinquencyPanel clinicId={clinicId} supportMode={supportMode} />
+          <FinanceDelinquencyPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="receita-profissional" className="mt-6">
-          <FinanceProfessionalRevenuePanel clinicId={clinicId} />
+          <FinanceProfessionalRevenuePanel clinicId={clinicId} clinicLoading={clinicLoading} />
         </TabsContent>
 
         <TabsContent value="lancamentos" className="space-y-6 mt-6">
-          <LancamentosTab clinicId={clinicId} supportMode={supportMode} />
+          <LancamentosTab clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="recibos" className="space-y-4 mt-6">
-          <RecibosTab clinicId={clinicId} supportMode={supportMode} />
+          <RecibosTab clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
         </TabsContent>
       </Tabs>
     </AppShell>
@@ -175,7 +176,7 @@ function FinanceiroPage() {
 
 /* ───────────────────────── LANÇAMENTOS ───────────────────────── */
 
-function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; supportMode: boolean }) {
+function LancamentosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const monthStart = new Date(); monthStart.setDate(1);
@@ -301,6 +302,20 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
   }
 
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={list.isLoading || totals.isLoading || patients.isLoading || profs.isLoading}
+      error={list.error ?? totals.error ?? patients.error ?? profs.error}
+      onRetry={() => {
+        void list.refetch();
+        void totals.refetch();
+        void patients.refetch();
+        void profs.refetch();
+      }}
+      loadingLabel="Carregando lançamentos…"
+      errorFallback="Não foi possível carregar os lançamentos."
+    >
     <>
       <div className="flex justify-end">
         <SupportGuardButton supportMode={supportMode} onClick={() => setOpen(true)} tooltip="Novo lançamento bloqueado no Modo Suporte">
@@ -353,6 +368,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
         {!list.data?.length && <div className="p-8 text-center text-sm text-muted-foreground">Sem lançamentos.</div>}
       </Card>
     </>
+    </FinancePanelGate>
   );
 }
 
@@ -428,7 +444,7 @@ type ReceiptForm = {
   payment_date: string;
 };
 
-function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; supportMode: boolean }) {
+function RecibosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [cancelOf, setCancelOf] = useState<any | null>(null);
@@ -537,6 +553,18 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
 
 
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={list.isLoading || patients.isLoading}
+      error={list.error ?? patients.error}
+      onRetry={() => {
+        void list.refetch();
+        void patients.refetch();
+      }}
+      loadingLabel="Carregando recibos…"
+      errorFallback="Não foi possível carregar os recibos."
+    >
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <ReceiptPrintModeSelector value={printMode} onChange={setPrintMode} className="rounded-lg border bg-muted/30 p-4" />
@@ -607,6 +635,7 @@ function RecibosTab({ clinicId, supportMode }: { clinicId: string | null; suppor
         pending={cancel.isPending}
       />
     </>
+    </FinancePanelGate>
   );
 }
 

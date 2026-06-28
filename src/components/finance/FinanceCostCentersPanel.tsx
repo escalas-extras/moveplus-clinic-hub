@@ -31,9 +31,11 @@ import {
   type FinancialCostCenterRow,
 } from "@/lib/finance";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceCostCentersPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
@@ -51,7 +53,7 @@ const EMPTY_FORM: CostCenterForm = {
   sort_order: 0,
 };
 
-export function FinanceCostCentersPanel({ clinicId, supportMode }: FinanceCostCentersPanelProps) {
+export function FinanceCostCentersPanel({ clinicId, clinicLoading, supportMode }: FinanceCostCentersPanelProps) {
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FinancialCostCenterRow | null>(null);
@@ -177,29 +179,18 @@ export function FinanceCostCentersPanel({ clinicId, supportMode }: FinanceCostCe
     setDialogOpen(true);
   }
 
-  if (costCenters.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando centros de custo…
-      </div>
-    );
-  }
-
-  if (costCenters.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar os centros de custo.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => costCenters.refetch()}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   const hasAny = sorted.length > 0;
 
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={costCenters.isLoading}
+      error={costCenters.error}
+      onRetry={() => costCenters.refetch()}
+      loadingLabel="Carregando centros de custo…"
+      errorFallback="Não foi possível carregar os centros de custo."
+    >
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground max-w-2xl">
@@ -322,6 +313,7 @@ export function FinanceCostCentersPanel({ clinicId, supportMode }: FinanceCostCe
         supportMode={supportMode}
       />
     </div>
+    </FinancePanelGate>
   );
 }
 

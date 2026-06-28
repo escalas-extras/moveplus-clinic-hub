@@ -7,7 +7,6 @@ import {
   FolderTree,
   Landmark,
   LayoutDashboard,
-  Loader2,
   Plus,
   Receipt,
 } from "lucide-react";
@@ -46,9 +45,11 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceDashboardPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   onNewReceivable?: () => void;
   onNewPayable?: () => void;
   onOpenCashFlow?: () => void;
@@ -61,6 +62,7 @@ const SELECT_ALL = "all";
 
 export function FinanceDashboardPanel({
   clinicId,
+  clinicLoading,
   onNewReceivable,
   onNewPayable,
   onOpenCashFlow,
@@ -68,7 +70,7 @@ export function FinanceDashboardPanel({
   onOpenCostCenters,
   onOpenLegacy,
 }: FinanceDashboardPanelProps) {
-  const [filters, setFilters] = useState<DashboardFilters>(defaultDashboardFilters);
+  const [filters, setFilters] = useState<DashboardFilters>(() => defaultDashboardFilters());
 
   const lookups = useQuery({
     queryKey: financeQueryKeys.dashboardLookups(clinicId),
@@ -146,27 +148,19 @@ export function FinanceDashboardPanel({
 
   const hasData = (entries.data?.length ?? 0) > 0;
 
-  if (entries.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando dashboard financeiro…
-      </div>
-    );
-  }
-
-  if (entries.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar o dashboard financeiro.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => entries.refetch()}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={entries.isLoading || lookups.isLoading}
+      error={entries.error ?? lookups.error}
+      onRetry={() => {
+        void entries.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando dashboard financeiro…"
+      errorFallback="Não foi possível carregar o dashboard financeiro."
+    >
     <div className="space-y-8">
       <Card className="p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -314,6 +308,7 @@ export function FinanceDashboardPanel({
         </>
       )}
     </div>
+    </FinancePanelGate>
   );
 }
 

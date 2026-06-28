@@ -58,9 +58,11 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinancePayablesPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
@@ -97,9 +99,9 @@ function filtersKey(filters: PayableFilters) {
   return JSON.stringify(rest);
 }
 
-export function FinancePayablesPanel({ clinicId, supportMode }: FinancePayablesPanelProps) {
+export function FinancePayablesPanel({ clinicId, clinicLoading, supportMode }: FinancePayablesPanelProps) {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState<PayableFilters>(defaultPayableFilters);
+  const [filters, setFilters] = useState<PayableFilters>(() => defaultPayableFilters());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [payTarget, setPayTarget] = useState<PayableRow | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PayableRow | null>(null);
@@ -327,27 +329,19 @@ export function FinancePayablesPanel({ clinicId, supportMode }: FinancePayablesP
     setDialogOpen(true);
   }
 
-  if (payables.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando contas a pagar…
-      </div>
-    );
-  }
-
-  if (payables.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar as contas a pagar.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => payables.refetch()}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={payables.isLoading || lookups.isLoading}
+      error={payables.error ?? lookups.error}
+      onRetry={() => {
+        void payables.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando contas a pagar…"
+      errorFallback="Não foi possível carregar as contas a pagar."
+    >
     <div className="space-y-6">
       <KpiGrid columns={4}>
         <KpiCard
@@ -649,6 +643,7 @@ export function FinancePayablesPanel({ clinicId, supportMode }: FinancePayablesP
         </DialogContent>
       </Dialog>
     </div>
+    </FinancePanelGate>
   );
 }
 

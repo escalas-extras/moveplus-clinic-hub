@@ -64,9 +64,11 @@ import {
 import { brl, fmtDate } from "@/lib/format";
 import { FinancePackageContractUsageDialog } from "./FinancePackageContractUsageDialog";
 import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
+import { FinanceErrorCard, FinancePanelGate } from "./FinancePanelGate";
 
 type FinancePackagesPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
@@ -124,9 +126,9 @@ function filtersKey(filters: PatientPackageFilters) {
   return JSON.stringify(rest);
 }
 
-export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesPanelProps) {
+export function FinancePackagesPanel({ clinicId, clinicLoading, supportMode }: FinancePackagesPanelProps) {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState<PatientPackageFilters>(defaultPatientPackageFilters());
+  const [filters, setFilters] = useState<PatientPackageFilters>(() => defaultPatientPackageFilters());
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ClinicalPackageTemplateRow | null>(null);
@@ -492,27 +494,19 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
     return computeSessionUnitValue(total, count);
   }, [templateForm.total_value, templateForm.session_count]);
 
-  if (templates.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando pacotes…
-      </div>
-    );
-  }
-
-  if (templates.isError || lookups.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar os pacotes.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => { templates.refetch(); lookups.refetch(); }}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={templates.isLoading || lookups.isLoading}
+      error={templates.error ?? lookups.error}
+      onRetry={() => {
+        void templates.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando pacotes…"
+      errorFallback="Não foi possível carregar os pacotes."
+    >
     <div className="space-y-8">
       <PageSection
         title="Modelos de pacote"
@@ -640,12 +634,11 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
             Carregando contratos…
           </div>
         ) : contracts.isError ? (
-          <Card className="p-8 text-center">
-            <p className="text-sm text-destructive">Não foi possível carregar os contratos de pacote.</p>
-            <Button variant="outline" size="sm" className="mt-4" onClick={() => contracts.refetch()}>
-              Tentar novamente
-            </Button>
-          </Card>
+          <FinanceErrorCard
+            error={contracts.error}
+            onRetry={() => contracts.refetch()}
+            fallback="Não foi possível carregar os contratos de pacote."
+          />
         ) : !filteredContracts.length ? (
           <EmptyState
             icon={Package}
@@ -1029,5 +1022,6 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
         </DialogContent>
       </Dialog>
     </div>
+    </FinancePanelGate>
   );
 }

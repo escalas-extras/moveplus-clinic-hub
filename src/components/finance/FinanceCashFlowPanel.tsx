@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { BarChart3, Download, Loader2 } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,9 +38,11 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceCashFlowPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
 };
 
 const SELECT_ALL = "all";
@@ -57,8 +59,8 @@ const GROUPING_LABELS: Record<CashFlowGrouping, string> = {
   month: "Mês",
 };
 
-export function FinanceCashFlowPanel({ clinicId }: FinanceCashFlowPanelProps) {
-  const [filters, setFilters] = useState<CashFlowFilters>(defaultCashFlowFilters);
+export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlowPanelProps) {
+  const [filters, setFilters] = useState<CashFlowFilters>(() => defaultCashFlowFilters());
 
   const lookups = useQuery({
     queryKey: financeQueryKeys.cashFlowLookups(clinicId),
@@ -135,27 +137,19 @@ export function FinanceCashFlowPanel({ clinicId }: FinanceCashFlowPanelProps) {
     );
   }
 
-  if (entries.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando fluxo de caixa…
-      </div>
-    );
-  }
-
-  if (entries.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar o fluxo de caixa.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => entries.refetch()}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={entries.isLoading || lookups.isLoading}
+      error={entries.error ?? lookups.error}
+      onRetry={() => {
+        void entries.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando fluxo de caixa…"
+      errorFallback="Não foi possível carregar o fluxo de caixa."
+    >
     <div className="space-y-6">
       <KpiGrid columns={4}>
         <KpiCard
@@ -383,5 +377,6 @@ export function FinanceCashFlowPanel({ clinicId }: FinanceCashFlowPanelProps) {
         </Card>
       )}
     </div>
+    </FinancePanelGate>
   );
 }

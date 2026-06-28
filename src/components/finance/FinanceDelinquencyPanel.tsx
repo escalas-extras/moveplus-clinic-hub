@@ -59,17 +59,19 @@ import {
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceDelinquencyPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
 const SELECT_ALL = "all";
 
-export function FinanceDelinquencyPanel({ clinicId, supportMode }: FinanceDelinquencyPanelProps) {
+export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }: FinanceDelinquencyPanelProps) {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState<DelinquencyFilters>(defaultDelinquencyFilters);
+  const [filters, setFilters] = useState<DelinquencyFilters>(() => defaultDelinquencyFilters());
   const [receiveTarget, setReceiveTarget] = useState<DelinquencyRow | null>(null);
   const [detailTarget, setDetailTarget] = useState<DelinquencyRow | null>(null);
   const [notesTarget, setNotesTarget] = useState<DelinquencyRow | null>(null);
@@ -205,27 +207,19 @@ export function FinanceDelinquencyPanel({ clinicId, supportMode }: FinanceDelinq
     setFilters(defaultDelinquencyFilters());
   }
 
-  if (delinquency.isLoading || lookups.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando inadimplência…
-      </div>
-    );
-  }
-
-  if (delinquency.isError || lookups.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar os recebíveis vencidos.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => { delinquency.refetch(); lookups.refetch(); }}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={delinquency.isLoading || lookups.isLoading}
+      error={delinquency.error ?? lookups.error}
+      onRetry={() => {
+        void delinquency.refetch();
+        void lookups.refetch();
+      }}
+      loadingLabel="Carregando inadimplência…"
+      errorFallback="Não foi possível carregar os recebíveis vencidos."
+    >
     <div className="space-y-6">
       <KpiGrid columns={3}>
         <KpiCard
@@ -566,6 +560,7 @@ export function FinanceDelinquencyPanel({ clinicId, supportMode }: FinanceDelinq
         </DialogContent>
       </Dialog>
     </div>
+    </FinancePanelGate>
   );
 }
 

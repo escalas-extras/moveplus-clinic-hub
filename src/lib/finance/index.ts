@@ -17,3 +17,4 @@ export * from "./installment-helpers";
 export * from "./health-insurance-helpers";
 export * from "./delinquency-helpers";
 export * from "./professional-revenue-helpers";
+export * from "./finance-error-helpers";

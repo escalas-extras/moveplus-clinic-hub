@@ -41,9 +41,11 @@ import {
   type FinancialCategoryType,
 } from "@/lib/finance";
 import { cn } from "@/lib/utils";
+import { FinancePanelGate } from "./FinancePanelGate";
 
 type FinanceCategoriesPanelProps = {
   clinicId: string | null;
+  clinicLoading: boolean;
   supportMode: boolean;
 };
 
@@ -61,7 +63,7 @@ const EMPTY_FORM: CategoryForm = {
   sort_order: 0,
 };
 
-export function FinanceCategoriesPanel({ clinicId, supportMode }: FinanceCategoriesPanelProps) {
+export function FinanceCategoriesPanel({ clinicId, clinicLoading, supportMode }: FinanceCategoriesPanelProps) {
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FinancialCategoryRow | null>(null);
@@ -183,30 +185,19 @@ export function FinanceCategoriesPanel({ clinicId, supportMode }: FinanceCategor
     setDialogOpen(true);
   }
 
-  if (categories.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Carregando categorias…
-      </div>
-    );
-  }
-
-  if (categories.isError) {
-    return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível carregar as categorias.</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => categories.refetch()}>
-          Tentar novamente
-        </Button>
-      </Card>
-    );
-  }
-
   const grouped = groupCategoriesByType(categories.data ?? []);
   const hasAny = (categories.data?.length ?? 0) > 0;
 
   return (
+    <FinancePanelGate
+      clinicId={clinicId}
+      clinicLoading={clinicLoading}
+      loading={categories.isLoading}
+      error={categories.error}
+      onRetry={() => categories.refetch()}
+      loadingLabel="Carregando categorias…"
+      errorFallback="Não foi possível carregar as categorias."
+    >
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground max-w-2xl">
@@ -281,6 +272,7 @@ export function FinanceCategoriesPanel({ clinicId, supportMode }: FinanceCategor
         supportMode={supportMode}
       />
     </div>
+    </FinancePanelGate>
   );
 }
 
