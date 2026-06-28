@@ -26,4 +26,10 @@ export const financeQueryKeys = {
     ["finance", clinicId, "dashboard", filtersKey] as const,
   dashboardLookups: (clinicId: string | null | undefined) =>
     ["finance", clinicId, "dashboard-lookups"] as const,
+  packageTemplates: (clinicId: string | null | undefined) =>
+    ["finance", clinicId, "package-templates"] as const,
+  patientPackages: (clinicId: string | null | undefined, filtersKey: string) =>
+    ["finance", clinicId, "patient-packages", filtersKey] as const,
+  packageLookups: (clinicId: string | null | undefined) =>
+    ["finance", clinicId, "package-lookups"] as const,
 } as const;

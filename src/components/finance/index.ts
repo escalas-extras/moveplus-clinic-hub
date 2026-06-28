@@ -5,3 +5,4 @@ export { FinanceCostCentersPanel } from "./FinanceCostCentersPanel";
 export { FinanceReceivablesPanel } from "./FinanceReceivablesPanel";
 export { FinancePayablesPanel } from "./FinancePayablesPanel";
 export { FinanceCashFlowPanel } from "./FinanceCashFlowPanel";
+export { FinancePackagesPanel } from "./FinancePackagesPanel";

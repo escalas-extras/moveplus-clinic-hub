@@ -56,6 +56,14 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     sprint: "G1.6",
   },
   {
+    id: "packages",
+    title: "Pacotes",
+    description: "Modelos de pacotes e contratos clínico-financeiros por paciente.",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
+    sprint: "G2.1",
+  },
+  {
     id: "legacy_entries",
     title: "Lançamentos v1",
     description: "Registro operacional atual (financial_entries + recibos).",

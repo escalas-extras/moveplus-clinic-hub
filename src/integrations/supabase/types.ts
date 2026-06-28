@@ -1452,6 +1452,54 @@ export type Database = {
           },
         ]
       }
+      clinical_package_templates: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          session_count: number
+          session_unit_value: number
+          total_value: number
+          updated_at: string
+          validity_days: number
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          session_count: number
+          total_value: number
+          updated_at?: string
+          validity_days: number
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          session_count?: number
+          total_value?: number
+          updated_at?: string
+          validity_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_package_templates_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_signatures: {
         Row: {
           assessment_id: string | null
@@ -2673,6 +2721,94 @@ export type Database = {
           },
         ]
       }
+      patient_package_contracts: {
+        Row: {
+          clinic_id: string
+          contracted_at: string
+          contracted_value: number
+          created_at: string
+          financial_entry_id: string | null
+          id: string
+          package_template_id: string
+          patient_id: string
+          professional_id: string | null
+          sessions_remaining: number
+          sessions_total: number
+          sessions_used: number
+          status: Database["public"]["Enums"]["patient_package_status"]
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          clinic_id: string
+          contracted_at?: string
+          contracted_value: number
+          created_at?: string
+          financial_entry_id?: string | null
+          id?: string
+          package_template_id: string
+          patient_id: string
+          professional_id?: string | null
+          sessions_total: number
+          sessions_used?: number
+          status?: Database["public"]["Enums"]["patient_package_status"]
+          updated_at?: string
+          valid_until: string
+        }
+        Update: {
+          clinic_id?: string
+          contracted_at?: string
+          contracted_value?: number
+          created_at?: string
+          financial_entry_id?: string | null
+          id?: string
+          package_template_id?: string
+          patient_id?: string
+          professional_id?: string | null
+          sessions_total?: number
+          sessions_used?: number
+          status?: Database["public"]["Enums"]["patient_package_status"]
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_package_contracts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_contracts_financial_entry_id_fkey"
+            columns: ["financial_entry_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_contracts_package_template_id_fkey"
+            columns: ["package_template_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_package_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_contracts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_contracts_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           acompanhante_nome: string | null
@@ -3552,6 +3688,7 @@ export type Database = {
       library_scope: "global" | "clinic" | "shared"
       payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
       payment_status: "pago" | "pendente" | "cancelado"
+      patient_package_status: "ativo" | "encerrado" | "cancelado"
       risk_level: "baixo" | "moderado" | "alto" | "muito_alto"
       scale_type: "barthel" | "katz" | "berg" | "tinetti" | "braden"
       signer_role: "paciente" | "responsavel" | "profissional"
@@ -3749,6 +3886,7 @@ export const Constants = {
       library_scope: ["global", "clinic", "shared"],
       payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
       payment_status: ["pago", "pendente", "cancelado"],
+      patient_package_status: ["ativo", "encerrado", "cancelado"],
       risk_level: ["baixo", "moderado", "alto", "muito_alto"],
       scale_type: ["barthel", "katz", "berg", "tinetti", "braden"],
       signer_role: ["paciente", "responsavel", "profissional"],

@@ -14,6 +14,12 @@ export type FinancialCategoryType = FinancialCategoryRow["type"];
 export type FinancialCostCenterRow = Database["public"]["Tables"]["financial_cost_centers"]["Row"];
 export type FinancialCostCenterInsert = Database["public"]["Tables"]["financial_cost_centers"]["Insert"];
 export type FinancialCostCenterUpdate = Database["public"]["Tables"]["financial_cost_centers"]["Update"];
+export type ClinicalPackageTemplateRow = Database["public"]["Tables"]["clinical_package_templates"]["Row"];
+export type ClinicalPackageTemplateInsert = Database["public"]["Tables"]["clinical_package_templates"]["Insert"];
+export type ClinicalPackageTemplateUpdate = Database["public"]["Tables"]["clinical_package_templates"]["Update"];
+export type PatientPackageContractRow = Database["public"]["Tables"]["patient_package_contracts"]["Row"];
+export type PatientPackageContractInsert = Database["public"]["Tables"]["patient_package_contracts"]["Insert"];
+export type PatientPackageStatus = Database["public"]["Enums"]["patient_package_status"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
 export type FinancialEntryType = FinancialEntryRow["entry_type"];
@@ -26,7 +32,8 @@ export type FinanceModuleId =
   | "receivables"
   | "payables"
   | "cash_flow"
-  | "legacy_entries";
+  | "legacy_entries"
+  | "packages";
 
 export type FinanceModuleStatus = "active" | "planned" | "legacy";
 
