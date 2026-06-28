@@ -88,6 +88,13 @@
   --fos-bg-deep: #dfe9ec;
   --fos-ink: #1d2939;
   --fos-ink-soft: #475569;
+  --fos-sidebar-w-expanded: 228px;
+  --fos-sidebar-w-collapsed: 60px;
+  --fos-sidebar-header-h: 52px;
+  --fos-sidebar-footer-h: 48px;
+  --fos-sidebar-nav-item-h: 36px;
+  --fos-sidebar-transition: 280ms;
+
   --fos-sidebar-bg: #082436;
   --fos-active-indicator: #2bb673;
 
@@ -399,12 +406,38 @@
  * Sidebar escuro premium — modelo aprovado
  * =========================================================== */
 
-/* Fundo escuro do sidebar */
+/* Fundo escuro do sidebar — Premium V2 */
 .glass-sidebar {
-  background: linear-gradient(180deg, #0a2d42 0%, #082436 48%, #071e2e 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 4px 0 24px -8px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(180deg, #0a2d42 0%, #082436 52%, #071e2e 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 2px 0 16px -6px rgba(0, 0, 0, 0.28);
   color: rgba(255, 255, 255, 0.88);
+}
+
+.fos-sidebar {
+  will-change: width;
+}
+
+.fos-sidebar-header {
+  min-height: var(--fos-sidebar-header-h);
+}
+
+.fos-sidebar-footer {
+  min-height: var(--fos-sidebar-footer-h);
+}
+
+.fos-sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.fos-sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.fos-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
 }
 
 /* Labels de grupo — mais legíveis */
@@ -425,10 +458,10 @@
   color: #ffffff;
 }
 [data-sidebar="nav-item"][data-active="true"] {
-  background: linear-gradient(90deg, rgba(43, 182, 115, 0.22) 0%, rgba(255, 255, 255, 0.10) 100%);
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgba(43, 182, 115, 0.25);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(43, 182, 115, 0.18);
 }
 [data-sidebar="nav-item"][data-active="true"] svg {
   color: #5eead4;
@@ -965,5 +998,76 @@ textarea.fos-field,
 
 .fos-clinical-dialog__body {
   scrollbar-gutter: stable;
+}
+
+/* ── PREMIUM-01 — Design System Operacional ── */
+
+.ops-module-stack {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
+.ops-page-hero--module {
+  margin-bottom: 0.25rem;
+}
+
+.ops-kpi-strip {
+  margin-top: 0.125rem;
+}
+
+.ops-filters-panel {
+  min-width: 0;
+}
+
+.ops-operation-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.ops-data-list-panel {
+  min-width: 0;
+}
+
+.home-hero-v2 {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
+.operational-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--fos-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.quick-action-chip:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--fos-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+
+.clinical-module .ops-module-stack > * + * {
+  margin-top: 0;
+}
+
+/* ── UX-07 — Agenda operacional ── */
+
+.agenda-operational {
+  min-width: 0;
+}
+
+.agenda-operational .agenda-day-view {
+  margin-bottom: 0;
+}
+
+.agenda-side-panel {
+  min-width: 0;
+}
+
+.agenda-appt-block:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--fos-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .agenda-operational .ops-filters-panel {
+    margin-bottom: 0.125rem;
+  }
 }
 

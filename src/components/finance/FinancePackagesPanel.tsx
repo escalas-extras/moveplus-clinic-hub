@@ -65,6 +65,12 @@ import { brl, fmtDate } from "@/lib/format";
 import { FinancePackageContractUsageDialog } from "./FinancePackageContractUsageDialog";
 import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
 import { FinanceErrorCard, FinancePanelGate } from "./FinancePanelGate";
+import {
+  FINANCE_PANEL_ROOT_LOOSE,
+  FINANCE_TABLE,
+  FINANCE_TABLE_CARD,
+  FINANCE_TABLE_SCROLL,
+} from "./finance-layout";
 
 type FinancePackagesPanelProps = {
   clinicId: string | null;
@@ -507,7 +513,7 @@ export function FinancePackagesPanel({ clinicId, clinicLoading, supportMode }: F
       loadingLabel="Carregando pacotes…"
       errorFallback="Não foi possível carregar os pacotes."
     >
-    <div className="space-y-8">
+    <div className={FINANCE_PANEL_ROOT_LOOSE}>
       <PageSection
         title="Modelos de pacote"
         description="Cadastre pacotes de sessões com valor total, validade e status."
@@ -588,8 +594,8 @@ export function FinancePackagesPanel({ clinicId, clinicLoading, supportMode }: F
           </SupportGuardButton>
         }
       >
-        <div className="mb-4 flex flex-wrap gap-3">
-          <div className="relative min-w-[200px] flex-1">
+        <div className="mb-4 flex min-w-0 w-full max-w-full flex-wrap gap-3">
+          <div className="relative min-w-0 flex-1 basis-[200px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9"
@@ -646,9 +652,9 @@ export function FinancePackagesPanel({ clinicId, clinicLoading, supportMode }: F
             description="Contrate um pacote para gerar a conta a receber automaticamente."
           />
         ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <Card className={FINANCE_TABLE_CARD}>
+            <div className={FINANCE_TABLE_SCROLL}>
+              <table className={FINANCE_TABLE}>
                 <thead>
                   <tr className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                     <th className="px-4 py-3">Paciente</th>

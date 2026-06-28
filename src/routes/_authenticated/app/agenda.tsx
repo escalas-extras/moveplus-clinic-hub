@@ -31,7 +31,7 @@ import {
   Clock,
   GripVertical,
   X,
-  Filter,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -50,18 +50,18 @@ import {
   FilterField,
   FormFooter,
   FormGrid,
-  InfoCard,
-  KpiCard,
-  KpiGrid,
-  PageHeader,
   PageSection,
-  PrimaryActionButton,
   QueryErrorState,
   SearchField,
   SecondaryActionButton,
   StatusBadge,
   clinical,
+  InfoCard,
 } from "@/components/layout";
+import { OpsFiltersPanel, OpsModuleStack } from "@/components/ops";
+import { HomeHeroV2, OperationalCard, OperationalCardsGrid } from "@/components/dashboard";
+import { AgendaSidePanel } from "@/components/agenda/AgendaSidePanel";
+import { useBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
 
@@ -110,10 +110,14 @@ const STATUS_VARIANT: Record<Status, "success" | "warning" | "danger" | "info" |
 };
 
 const STATUS_CLASS: Record<Status, string> = {
-  confirmado: "bg-emerald-50 text-emerald-700 ring-emerald-200 border-l-emerald-500",
-  agendado: "bg-amber-50 text-amber-800 ring-amber-200 border-l-amber-500",
-  realizado: "bg-sky-50 text-sky-700 ring-sky-200 border-l-sky-500",
-  cancelado: "bg-rose-50 text-rose-700 ring-rose-200 border-l-rose-500",
+  confirmado:
+    "border-l-emerald-500 bg-emerald-50/95 text-emerald-900 ring-emerald-200/70 hover:bg-emerald-50 hover:shadow-[0_4px_14px_-6px_rgba(16,185,129,0.35)]",
+  agendado:
+    "border-l-amber-500 bg-amber-50/95 text-amber-900 ring-amber-200/70 hover:bg-amber-50 hover:shadow-[0_4px_14px_-6px_rgba(245,158,11,0.35)]",
+  realizado:
+    "border-l-sky-500 bg-sky-50/95 text-sky-900 ring-sky-200/70 hover:bg-sky-50 hover:shadow-[0_4px_14px_-6px_rgba(14,165,233,0.35)]",
+  cancelado:
+    "border-l-rose-500 bg-rose-50/90 text-rose-800 ring-rose-200/60 opacity-95 hover:opacity-100 hover:shadow-[0_4px_14px_-6px_rgba(244,63,94,0.25)]",
 };
 
 const ALL_STATUSES: Status[] = ["confirmado", "agendado", "realizado", "cancelado"];
@@ -121,6 +125,10 @@ const DND_MIME = "application/x-moveplus-agenda-appt";
 
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function currentHHMM() {
+  const n = new Date();
+  return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
 }
 function startOfWeek(d: Date) {
   const x = new Date(d);
@@ -156,6 +164,13 @@ function translateError(msg?: string): string {
 function AgendaPage() {
   const qc = useQueryClient();
   const { clinicId, supportMode } = useActiveClinic();
+  const brand = useBranding();
+  const todayIso = ymd(new Date());
+  const dateLabel = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
   const [view, setView] = useState<ViewMode>("dia");
   const [anchor, setAnchor] = useState<Date>(() => {
     const d = new Date();
@@ -356,23 +371,94 @@ function AgendaPage() {
     });
   }, [list.data, filterProf, filterPatient, filterStatus, search]);
 
+  const todayAppointments = useMemo(
+    () => filtered.filter((a) => a.data === todayIso),
+    [filtered, todayIso],
+  );
+
   const daySummary = useMemo(() => {
-    const day = ymd(anchor);
-    const todays = filtered.filter((a) => a.data === day);
+    const todays = todayAppointments;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const emAndamento = todays.filter((a) => {
+      if (a.status === "cancelado" || a.status === "realizado") return false;
+      const [h, m] = String(a.horario).slice(0, 5).split(":").map(Number);
+      const start = h * 60 + (m || 0);
+      const end = start + (a.duracao_min || 30);
+      return nowMin >= start && nowMin < end;
+    }).length;
     return {
       total: todays.length,
       confirmado: todays.filter((a) => a.status === "confirmado").length,
       agendado: todays.filter((a) => a.status === "agendado").length,
       cancelado: todays.filter((a) => a.status === "cancelado").length,
+      emAndamento,
     };
-  }, [filtered, anchor]);
+  }, [todayAppointments]);
 
-  const sideDayItems = useMemo(() => {
-    const day = ymd(anchor);
-    return filtered
-      .filter((a) => a.data === day)
+  const agendaSideData = useMemo(() => {
+    const nowStr = currentHHMM();
+    const upcoming = todayAppointments
+      .filter(
+        (a) =>
+          a.status !== "cancelado" &&
+          a.status !== "realizado" &&
+          String(a.horario).slice(0, 5) >= nowStr,
+      )
       .sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
-  }, [filtered, anchor]);
+
+    const waiting = todayAppointments
+      .filter(
+        (a) =>
+          (a.status === "agendado" || a.status === "confirmado") &&
+          String(a.horario).slice(0, 5) <= nowStr,
+      )
+      .sort((x, y) => String(x.horario).localeCompare(String(y.horario)));
+
+    const alerts: { id: string; message: string; tone: "warning" | "danger" | "neutral" }[] = [];
+    const overdue = todayAppointments.filter(
+      (a) => a.status === "agendado" && String(a.horario).slice(0, 5) < nowStr,
+    );
+    if (overdue.length > 0) {
+      alerts.push({
+        id: "overdue",
+        message: `${overdue.length} atendimento(s) atrasado(s) aguardando confirmação`,
+        tone: "danger",
+      });
+    }
+    if (daySummary.cancelado > 0) {
+      alerts.push({
+        id: "cancelled",
+        message: `${daySummary.cancelado} cancelamento(s) registrado(s) hoje`,
+        tone: "warning",
+      });
+    }
+    if (daySummary.agendado > 0) {
+      alerts.push({
+        id: "pending",
+        message: `${daySummary.agendado} atendimento(s) pendente(s) de confirmação`,
+        tone: "neutral",
+      });
+    }
+
+    return { upcoming, waiting, alerts };
+  }, [todayAppointments, daySummary.agendado, daySummary.cancelado]);
+
+  const mapSideItem = useCallback(
+    (a: Appt) => {
+      const s = (a.status ?? "agendado") as Status;
+      return {
+        id: a.id,
+        horario: String(a.horario),
+        patientName: a.patients?.nome_completo ?? "—",
+        professionalName: a.professionals?.nome ?? undefined,
+        statusLabel: STATUS_LABEL[s] ?? s,
+        statusVariant: STATUS_VARIANT[s] ?? "neutral",
+        onSelect: () => setSelectedAppt(a),
+      };
+    },
+    [],
+  );
 
   const selectedFromList = useMemo(() => {
     if (!selectedAppt) return null;
@@ -411,24 +497,59 @@ function AgendaPage() {
 
   return (
     <AppShell clinical>
-      <PageHeader
-        icon={CalendarDays}
-        eyebrow="Gestão clínica"
-        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Agenda" }]}
-        title="Agenda"
-        description={`Visualize e gerencie atendimentos · ${headerLabel}`}
-        actions={
-          <SupportGuardButton
-            supportMode={supportMode}
-            onClick={() => openNewSlot(ymd(anchor))}
-            tooltip="Modo Suporte ativo — novo agendamento bloqueado"
-            className={clinical.btnPrimary}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Novo agendamento
-          </SupportGuardButton>
-        }
-      />
+      <OpsModuleStack className="agenda-operational space-y-3 sm:space-y-4">
+        <HomeHeroV2
+          title="Agenda"
+          clinicName={brand.clinicName}
+          dateLabel={dateLabel}
+          primaryColor={brand.primaryColor}
+          secondaryColor={brand.secondaryColor}
+          daySummary={
+            !list.isLoading && !list.isError
+              ? [
+                  { label: "atendimentos hoje", value: daySummary.total },
+                  { label: "aguardando", value: agendaSideData.waiting.length },
+                  { label: "próximos", value: agendaSideData.upcoming.length },
+                ]
+              : undefined
+          }
+          actions={
+            <>
+              <SupportGuardButton
+                supportMode={supportMode}
+                onClick={() => openNewSlot(todayIso)}
+                tooltip="Modo Suporte ativo — novo agendamento bloqueado"
+                className={cn("h-10 gap-2 px-4 text-sm", clinical.btnPrimary)}
+                style={{ background: brand.primaryColor }}
+              >
+                <Plus className="h-4 w-4" />
+                Novo atendimento
+              </SupportGuardButton>
+              <SecondaryActionButton
+                className="h-10 px-4 text-sm bg-white/90"
+                onClick={() => {
+                  const d = new Date();
+                  d.setHours(0, 0, 0, 0);
+                  setAnchor(d);
+                  setView("dia");
+                }}
+              >
+                Hoje
+              </SecondaryActionButton>
+              <SecondaryActionButton
+                className="h-10 px-4 text-sm bg-white/90"
+                onClick={() => {
+                  const d = new Date();
+                  d.setHours(0, 0, 0, 0);
+                  setAnchor(d);
+                  setView("semana");
+                }}
+              >
+                Semana
+              </SecondaryActionButton>
+            </>
+          }
+        />
 
       <NewAppointmentDialog
         open={open}
@@ -447,101 +568,106 @@ function AgendaPage() {
       {list.isError ? (
         <QueryErrorState onRetry={() => void list.refetch()} />
       ) : list.isLoading ? (
-        <ClinicalSkeleton variant="split" kpiCount={4} />
+        <ClinicalSkeleton variant="split" kpiCount={5} />
       ) : (
         <>
-          <KpiGrid columns={4}>
-            <KpiCard
+          <OperationalCardsGrid className="xl:grid-cols-5">
+            <OperationalCard
+              static
+              compact
+              title="Atendimentos hoje"
               icon={CalendarDays}
-              label="Atendimentos hoje"
               value={daySummary.total}
-              accent="var(--primary)"
-              hideDelta
+              context="Total programado para hoje"
+              to="/app/agenda"
+              accent={brand.primaryColor}
             />
-            <KpiCard
+            <OperationalCard
+              static
+              compact
+              title="Confirmados"
               icon={CheckCircle2}
-              label="Confirmados"
               value={daySummary.confirmado}
+              context="Pacientes com consulta confirmada"
+              to="/app/agenda"
               accent="#059669"
-              hideDelta
             />
-            <KpiCard
-              icon={Clock}
-              label="Pendentes"
-              value={daySummary.agendado}
-              accent="#d97706"
-              hideDelta
+            <OperationalCard
+              static
+              compact
+              title="Em andamento"
+              icon={Activity}
+              value={daySummary.emAndamento}
+              context="Atendimentos no horário atual"
+              to="/app/agenda"
+              accent={brand.secondaryColor}
             />
-            <KpiCard
+            <OperationalCard
+              static
+              compact
+              title="Cancelados"
               icon={XCircle}
-              label="Cancelados"
               value={daySummary.cancelado}
+              context="Cancelamentos registrados hoje"
+              to="/app/agenda"
               accent="#e11d48"
-              hideDelta
             />
-          </KpiGrid>
+            <OperationalCard
+              static
+              compact
+              title="Pendentes"
+              icon={Clock}
+              value={daySummary.agendado}
+              context="Aguardando confirmação"
+              to="/app/agenda"
+              accent="#d97706"
+              alert={daySummary.agendado > 0}
+            />
+          </OperationalCardsGrid>
 
-          <InfoCard padded className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Anterior">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg"
-                  onClick={() => {
-                    const d = new Date();
-                    d.setHours(0, 0, 0, 0);
-                    setAnchor(d);
-                  }}
-                >
-                  Hoje
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Próximo">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+          <OpsFiltersPanel
+            showMobileFilters={showMobileFilters}
+            onToggleMobileFilters={() => setShowMobileFilters((v) => !v)}
+            hasActiveFilters={hasActiveFilters}
+            filterColumns={3}
+            toolbar={
+              <>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Anterior">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-[8rem] text-center text-sm font-medium capitalize text-slate-700">
+                    {headerLabel}
+                  </span>
+                  <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Próximo">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
 
-              <SearchField
-                className="min-w-[180px] flex-1 sm:max-w-xs"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Pesquisa rápida…"
-              />
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-lg lg:hidden"
-                onClick={() => setShowMobileFilters((v) => !v)}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filtros
-                {hasActiveFilters && (
-                  <span className="ml-1.5 h-2 w-2 rounded-full bg-primary" />
-                )}
-              </Button>
-
-              <div className="ml-auto">
-                <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
-                  <TabsList className="rounded-xl">
-                    <TabsTrigger value="dia" className="rounded-lg">
-                      Dia
-                    </TabsTrigger>
-                    <TabsTrigger value="semana" className="rounded-lg">
-                      Semana
-                    </TabsTrigger>
-                    <TabsTrigger value="mes" className="rounded-lg">
-                      Mês
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-            </div>
-
-            <div className={cn("grid gap-3 sm:grid-cols-3", showMobileFilters ? "grid" : "hidden lg:grid")}>
+                <SearchField
+                  className="min-w-[180px] flex-1 sm:max-w-xs"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Pesquisa rápida…"
+                />
+              </>
+            }
+            trailing={
+              <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
+                <TabsList className="rounded-xl">
+                  <TabsTrigger value="dia" className="rounded-lg">
+                    Dia
+                  </TabsTrigger>
+                  <TabsTrigger value="semana" className="rounded-lg">
+                    Semana
+                  </TabsTrigger>
+                  <TabsTrigger value="mes" className="rounded-lg">
+                    Mês
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            }
+          >
               <FilterField label="Profissional">
                 <Select value={filterProf} onValueChange={setFilterProf}>
                   <SelectTrigger className={cn("rounded-xl", clinical.select)}>
@@ -587,10 +713,9 @@ function AgendaPage() {
                   </SelectContent>
                 </Select>
               </FilterField>
-            </div>
-          </InfoCard>
+          </OpsFiltersPanel>
 
-          <div className={clinical.splitLayout}>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] xl:gap-4">
             <div className="min-w-0">
               {view === "dia" ? (
                 <DayView
@@ -631,16 +756,7 @@ function AgendaPage() {
               )}
             </div>
 
-            <aside className="space-y-4">
-              <InfoCard padded={false} className="overflow-hidden">
-                <CalendarPicker
-                  mode="single"
-                  selected={anchor}
-                  onSelect={(d) => d && setAnchor(d)}
-                  className="pointer-events-auto mx-auto p-3"
-                />
-              </InfoCard>
-
+            <aside className="min-w-0 space-y-2.5">
               {selectedFromList ? (
                 <DetailPanel
                   appt={selectedFromList}
@@ -649,57 +765,26 @@ function AgendaPage() {
                   onStatus={(s) => updateStatus.mutate({ id: selectedFromList.id, status: s })}
                   disabled={supportMode}
                 />
-              ) : (
-                <PageSection
-                  icon={Clock}
-                  title="Agenda do dia"
-                  description={fmtDate(ymd(anchor))}
-                  contentClassName="py-3"
-                >
-                  {sideDayItems.length === 0 ? (
-                    <EmptyState
-                      icon={CalendarDays}
-                      title="Nenhum atendimento"
-                      description="Não há consultas agendadas para este dia com os filtros atuais."
-                      action={{
-                        label: "Novo agendamento",
-                        onClick: () => openNewSlot(ymd(anchor)),
-                      }}
-                      className="py-8"
-                    />
-                  ) : (
-                    <ul className="divide-y divide-slate-100">
-                      {sideDayItems.map((a) => {
-                        const s = (a.status ?? "agendado") as Status;
-                        return (
-                          <li key={a.id}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedAppt(a)}
-                              className="flex w-full items-start gap-3 px-1 py-3 text-left transition-colors hover:bg-slate-50"
-                            >
-                              <span className="shrink-0 pt-0.5 text-xs font-bold tabular-nums text-primary">
-                                {String(a.horario).slice(0, 5)}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-sm font-medium">
-                                  {a.patients?.nome_completo ?? "—"}
-                                </div>
-                                <div className="truncate text-xs text-muted-foreground">
-                                  {a.professionals?.nome ?? "—"}
-                                </div>
-                              </div>
-                              <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"}>
-                                {STATUS_LABEL[s] ?? s}
-                              </StatusBadge>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </PageSection>
-              )}
+              ) : null}
+
+              <AgendaSidePanel
+                upcoming={agendaSideData.upcoming.map(mapSideItem)}
+                waiting={agendaSideData.waiting.map(mapSideItem)}
+                alerts={agendaSideData.alerts}
+                onSelectItem={(id) => {
+                  const appt = filtered.find((a) => a.id === id);
+                  if (appt) setSelectedAppt(appt);
+                }}
+              />
+
+              <InfoCard padded={false} className="overflow-hidden">
+                <CalendarPicker
+                  mode="single"
+                  selected={anchor}
+                  onSelect={(d) => d && setAnchor(d)}
+                  className="pointer-events-auto mx-auto p-2"
+                />
+              </InfoCard>
             </aside>
           </div>
         </>
@@ -713,6 +798,7 @@ function AgendaPage() {
         profs={profs.data ?? []}
         disabled={supportMode}
       />
+      </OpsModuleStack>
     </AppShell>
   );
 }
@@ -908,15 +994,17 @@ function DayView({
       icon={CalendarDays}
       title="Grade do dia"
       description={!disabled ? "Arraste atendimentos para remarcar" : fmtDate(day)}
+      contentClassName="p-0"
+      className="agenda-day-view"
     >
-      <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200/80">
+      <ul className="divide-y divide-slate-100/90 overflow-hidden rounded-xl border border-[rgba(15,76,92,0.1)] bg-white/60">
         {hours.map((h) => {
           const slot = todays.filter((a) => Number(String(a.horario).slice(0, 2)) === h);
           return (
             <li
               key={h}
               className={cn(
-                "grid min-h-[64px] grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 transition-colors",
+                "grid min-h-[52px] grid-cols-[48px_minmax(0,1fr)] gap-2 px-2 py-1.5 transition-colors sm:grid-cols-[52px_minmax(0,1fr)] sm:px-3",
                 dragOverHour === h && "bg-primary/5",
               )}
               onDragOver={(e) => {
@@ -939,10 +1027,10 @@ function DayView({
                 }
               }}
             >
-              <div className="pt-2 text-xs font-semibold tabular-nums text-muted-foreground">
+              <div className="pt-1.5 text-[11px] font-bold tabular-nums text-slate-500">
                 {String(h).padStart(2, "0")}:00
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {slot.length === 0 ? (
                   <SupportGuardClickable
                     supportMode={disabled}
@@ -951,7 +1039,7 @@ function DayView({
                   >
                     <button
                       type="button"
-                      className="h-10 w-full rounded-lg border border-dashed border-slate-200 text-xs text-muted-foreground/60 transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-9 w-full rounded-lg border border-dashed border-slate-200/90 bg-slate-50/40 text-[11px] text-slate-400 transition hover:border-[var(--fos-primary)]/40 hover:bg-[rgba(15,76,92,0.04)] hover:text-[var(--fos-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Criar agendamento às ${String(h).padStart(2, "0")}:00`}
                     >
                       + Novo agendamento
@@ -1070,9 +1158,9 @@ function AppointmentBlock({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "flex cursor-grab items-start gap-2 rounded-xl border-l-4 px-3 py-2 ring-1 active:cursor-grabbing",
+        "agenda-appt-block group flex cursor-grab items-start gap-2 rounded-xl border-l-[3px] px-2.5 py-2 ring-1 transition-all duration-200 hover:-translate-y-px active:cursor-grabbing sm:gap-2.5 sm:px-3 sm:py-2.5",
         STATUS_CLASS[s],
-        selected && "ring-2 ring-primary ring-offset-1",
+        selected && "ring-2 ring-[var(--fos-primary)] ring-offset-1 shadow-sm",
       )}
       onClick={() => onSelect(a)}
       role="button"
@@ -1082,18 +1170,20 @@ function AppointmentBlock({
       }}
     >
       {!disabled && (
-        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 opacity-40" aria-hidden />
+        <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-30 transition-opacity group-hover:opacity-60" aria-hidden />
       )}
-      <div className="w-12 shrink-0 pt-0.5 text-xs font-semibold tabular-nums">
+      <div className="w-11 shrink-0 pt-0.5 text-[11px] font-bold tabular-nums sm:w-12 sm:text-xs">
         {String(a.horario).slice(0, 5)}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{a.patients?.nome_completo ?? "—"}</div>
-        <div className="truncate text-xs opacity-80">
+        <div className="truncate text-sm font-semibold leading-tight tracking-tight">
+          {a.patients?.nome_completo ?? "—"}
+        </div>
+        <div className="truncate text-[11px] font-medium opacity-75">
           {a.professionals?.nome ?? "—"} · {a.duracao_min} min
         </div>
       </div>
-      <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"} className="hidden shrink-0 sm:inline-flex">
+      <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"} className="shrink-0 text-[10px] sm:inline-flex">
         {STATUS_LABEL[s]}
       </StatusBadge>
       <RowActions a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />

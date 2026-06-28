@@ -34,8 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/layout/EmptyState";
-import { KpiCard } from "@/components/layout/KpiCard";
-import { KpiGrid } from "@/components/layout/KpiGrid";
+import { FinanceKpiCard, FinanceKpiGrid } from "./FinanceKpiCard";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { SupportGuardButton } from "@/components/support-guard";
 import {
@@ -62,6 +61,13 @@ import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
 import { FinancePanelGate } from "./FinancePanelGate";
+import {
+  FINANCE_FILTER_GRID,
+  FINANCE_PANEL_ROOT,
+  FINANCE_TABLE,
+  FINANCE_TABLE_CARD,
+  FINANCE_TABLE_SCROLL,
+} from "./finance-layout";
 
 type FinanceReceivablesPanelProps = {
   clinicId: string | null;
@@ -380,9 +386,9 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
       loadingLabel="Carregando contas a receber…"
       errorFallback="Não foi possível carregar as contas a receber."
     >
-    <div className="space-y-6">
-      <KpiGrid columns={4}>
-        <KpiCard
+    <div className={FINANCE_PANEL_ROOT}>
+      <FinanceKpiGrid columns={4}>
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Em aberto"
           value={brl(summary.emAberto)}
@@ -390,7 +396,7 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
           hideDelta
           variant="premium"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={CheckCircle2}
           label="Recebidas"
           value={brl(summary.recebidas)}
@@ -398,7 +404,7 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#10b981"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Total do período"
           value={brl(summary.totalPeriodo)}
@@ -406,7 +412,7 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#3b82f6"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={AlertCircle}
           label="Vencidas"
           value={brl(summary.vencidas)}
@@ -415,11 +421,11 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#ef4444"
         />
-      </KpiGrid>
+      </FinanceKpiGrid>
 
-      <Card className="p-4 space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 flex-1">
+      <Card className="min-w-0 max-w-full p-4 space-y-4">
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className={cn(FINANCE_FILTER_GRID, "min-w-0 flex-1")}>
             <FilterDate label="Venc. de" value={filters.from} onChange={(v) => setFilters((f) => ({ ...f, from: v }))} />
             <FilterDate label="Venc. até" value={filters.to} onChange={(v) => setFilters((f) => ({ ...f, to: v }))} />
             <FilterSelect
@@ -494,9 +500,9 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
           action={{ label: "Nova receita", onClick: openCreate }}
         />
       ) : (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <Card className={FINANCE_TABLE_CARD}>
+          <div className={FINANCE_TABLE_SCROLL}>
+            <table className={FINANCE_TABLE}>
               <thead className="bg-muted/60">
                 <tr className="text-left">
                   <th className="px-4 py-3">Vencimento</th>

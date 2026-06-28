@@ -24,7 +24,6 @@ import { Route as AuthenticatedAppReavaliacoesRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppProfissionaisRouteImport } from './routes/_authenticated/app/profissionais'
 import { Route as AuthenticatedAppMarketingRouteImport } from './routes/_authenticated/app/marketing'
 import { Route as AuthenticatedAppHomeCareRouteImport } from './routes/_authenticated/app/home-care'
-import { Route as AuthenticatedAppFinanceiroRouteImport } from './routes/_authenticated/app/financeiro'
 import { Route as AuthenticatedAppEvolucoesRouteImport } from './routes/_authenticated/app/evolucoes'
 import { Route as AuthenticatedAppDocumentosRouteImport } from './routes/_authenticated/app/documentos'
 import { Route as AuthenticatedAppDiferenciaisRouteImport } from './routes/_authenticated/app/diferenciais'
@@ -36,7 +35,16 @@ import { Route as AuthenticatedAppAltasRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppAgendaRouteImport } from './routes/_authenticated/app/agenda'
 import { Route as AuthenticatedAppAdminSaasRouteImport } from './routes/_authenticated/app/admin-saas'
 import { Route as AuthenticatedAppPacientesIndexRouteImport } from './routes/_authenticated/app/pacientes/index'
+import { Route as AuthenticatedAppFinanceiroIndexRouteImport } from './routes/_authenticated/app/financeiro/index'
 import { Route as AuthenticatedAppPacientesIdRouteImport } from './routes/_authenticated/app/pacientes/$id'
+import { Route as AuthenticatedAppFinanceiroReceitaProfissionalRouteImport } from './routes/_authenticated/app/financeiro/receita-profissional'
+import { Route as AuthenticatedAppFinanceiroReceberRouteImport } from './routes/_authenticated/app/financeiro/receber'
+import { Route as AuthenticatedAppFinanceiroPagarRouteImport } from './routes/_authenticated/app/financeiro/pagar'
+import { Route as AuthenticatedAppFinanceiroPacotesRouteImport } from './routes/_authenticated/app/financeiro/pacotes'
+import { Route as AuthenticatedAppFinanceiroInadimplenciaRouteImport } from './routes/_authenticated/app/financeiro/inadimplencia'
+import { Route as AuthenticatedAppFinanceiroFluxoRouteImport } from './routes/_authenticated/app/financeiro/fluxo'
+import { Route as AuthenticatedAppFinanceiroConveniosRouteImport } from './routes/_authenticated/app/financeiro/convenios'
+import { Route as AuthenticatedAppFinanceiroAdministracaoRouteImport } from './routes/_authenticated/app/financeiro/administracao'
 
 const SetPasswordRoute = SetPasswordRouteImport.update({
   id: '/set-password',
@@ -119,12 +127,6 @@ const AuthenticatedAppHomeCareRoute =
     path: '/home-care',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
-const AuthenticatedAppFinanceiroRoute =
-  AuthenticatedAppFinanceiroRouteImport.update({
-    id: '/financeiro',
-    path: '/financeiro',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
-  } as any)
 const AuthenticatedAppEvolucoesRoute =
   AuthenticatedAppEvolucoesRouteImport.update({
     id: '/evolucoes',
@@ -189,10 +191,64 @@ const AuthenticatedAppPacientesIndexRoute =
     path: '/pacientes/',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppFinanceiroIndexRoute =
+  AuthenticatedAppFinanceiroIndexRouteImport.update({
+    id: '/financeiro/',
+    path: '/financeiro/',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppPacientesIdRoute =
   AuthenticatedAppPacientesIdRouteImport.update({
     id: '/pacientes/$id',
     path: '/pacientes/$id',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroReceitaProfissionalRoute =
+  AuthenticatedAppFinanceiroReceitaProfissionalRouteImport.update({
+    id: '/financeiro/receita-profissional',
+    path: '/financeiro/receita-profissional',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroReceberRoute =
+  AuthenticatedAppFinanceiroReceberRouteImport.update({
+    id: '/financeiro/receber',
+    path: '/financeiro/receber',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroPagarRoute =
+  AuthenticatedAppFinanceiroPagarRouteImport.update({
+    id: '/financeiro/pagar',
+    path: '/financeiro/pagar',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroPacotesRoute =
+  AuthenticatedAppFinanceiroPacotesRouteImport.update({
+    id: '/financeiro/pacotes',
+    path: '/financeiro/pacotes',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroInadimplenciaRoute =
+  AuthenticatedAppFinanceiroInadimplenciaRouteImport.update({
+    id: '/financeiro/inadimplencia',
+    path: '/financeiro/inadimplencia',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroFluxoRoute =
+  AuthenticatedAppFinanceiroFluxoRouteImport.update({
+    id: '/financeiro/fluxo',
+    path: '/financeiro/fluxo',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroConveniosRoute =
+  AuthenticatedAppFinanceiroConveniosRouteImport.update({
+    id: '/financeiro/convenios',
+    path: '/financeiro/convenios',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppFinanceiroAdministracaoRoute =
+  AuthenticatedAppFinanceiroAdministracaoRouteImport.update({
+    id: '/financeiro/administracao',
+    path: '/financeiro/administracao',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
 
@@ -212,7 +268,6 @@ export interface FileRoutesByFullPath {
   '/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
   '/app/documentos': typeof AuthenticatedAppDocumentosRoute
   '/app/evolucoes': typeof AuthenticatedAppEvolucoesRoute
-  '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/home-care': typeof AuthenticatedAppHomeCareRoute
   '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
@@ -222,7 +277,16 @@ export interface FileRoutesByFullPath {
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/app/financeiro/administracao': typeof AuthenticatedAppFinanceiroAdministracaoRoute
+  '/app/financeiro/convenios': typeof AuthenticatedAppFinanceiroConveniosRoute
+  '/app/financeiro/fluxo': typeof AuthenticatedAppFinanceiroFluxoRoute
+  '/app/financeiro/inadimplencia': typeof AuthenticatedAppFinanceiroInadimplenciaRoute
+  '/app/financeiro/pacotes': typeof AuthenticatedAppFinanceiroPacotesRoute
+  '/app/financeiro/pagar': typeof AuthenticatedAppFinanceiroPagarRoute
+  '/app/financeiro/receber': typeof AuthenticatedAppFinanceiroReceberRoute
+  '/app/financeiro/receita-profissional': typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
   '/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
+  '/app/financeiro/': typeof AuthenticatedAppFinanceiroIndexRoute
   '/app/pacientes/': typeof AuthenticatedAppPacientesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -240,7 +304,6 @@ export interface FileRoutesByTo {
   '/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
   '/app/documentos': typeof AuthenticatedAppDocumentosRoute
   '/app/evolucoes': typeof AuthenticatedAppEvolucoesRoute
-  '/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/app/home-care': typeof AuthenticatedAppHomeCareRoute
   '/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
@@ -250,7 +313,16 @@ export interface FileRoutesByTo {
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/app/financeiro/administracao': typeof AuthenticatedAppFinanceiroAdministracaoRoute
+  '/app/financeiro/convenios': typeof AuthenticatedAppFinanceiroConveniosRoute
+  '/app/financeiro/fluxo': typeof AuthenticatedAppFinanceiroFluxoRoute
+  '/app/financeiro/inadimplencia': typeof AuthenticatedAppFinanceiroInadimplenciaRoute
+  '/app/financeiro/pacotes': typeof AuthenticatedAppFinanceiroPacotesRoute
+  '/app/financeiro/pagar': typeof AuthenticatedAppFinanceiroPagarRoute
+  '/app/financeiro/receber': typeof AuthenticatedAppFinanceiroReceberRoute
+  '/app/financeiro/receita-profissional': typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
   '/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
+  '/app/financeiro': typeof AuthenticatedAppFinanceiroIndexRoute
   '/app/pacientes': typeof AuthenticatedAppPacientesIndexRoute
 }
 export interface FileRoutesById {
@@ -271,7 +343,6 @@ export interface FileRoutesById {
   '/_authenticated/app/diferenciais': typeof AuthenticatedAppDiferenciaisRoute
   '/_authenticated/app/documentos': typeof AuthenticatedAppDocumentosRoute
   '/_authenticated/app/evolucoes': typeof AuthenticatedAppEvolucoesRoute
-  '/_authenticated/app/financeiro': typeof AuthenticatedAppFinanceiroRoute
   '/_authenticated/app/home-care': typeof AuthenticatedAppHomeCareRoute
   '/_authenticated/app/marketing': typeof AuthenticatedAppMarketingRoute
   '/_authenticated/app/profissionais': typeof AuthenticatedAppProfissionaisRoute
@@ -281,7 +352,16 @@ export interface FileRoutesById {
   '/_authenticated/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/_authenticated/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/app/financeiro/administracao': typeof AuthenticatedAppFinanceiroAdministracaoRoute
+  '/_authenticated/app/financeiro/convenios': typeof AuthenticatedAppFinanceiroConveniosRoute
+  '/_authenticated/app/financeiro/fluxo': typeof AuthenticatedAppFinanceiroFluxoRoute
+  '/_authenticated/app/financeiro/inadimplencia': typeof AuthenticatedAppFinanceiroInadimplenciaRoute
+  '/_authenticated/app/financeiro/pacotes': typeof AuthenticatedAppFinanceiroPacotesRoute
+  '/_authenticated/app/financeiro/pagar': typeof AuthenticatedAppFinanceiroPagarRoute
+  '/_authenticated/app/financeiro/receber': typeof AuthenticatedAppFinanceiroReceberRoute
+  '/_authenticated/app/financeiro/receita-profissional': typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
   '/_authenticated/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
+  '/_authenticated/app/financeiro/': typeof AuthenticatedAppFinanceiroIndexRoute
   '/_authenticated/app/pacientes/': typeof AuthenticatedAppPacientesIndexRoute
 }
 export interface FileRouteTypes {
@@ -302,7 +382,6 @@ export interface FileRouteTypes {
     | '/app/diferenciais'
     | '/app/documentos'
     | '/app/evolucoes'
-    | '/app/financeiro'
     | '/app/home-care'
     | '/app/marketing'
     | '/app/profissionais'
@@ -312,7 +391,16 @@ export interface FileRouteTypes {
     | '/app/templates'
     | '/app/usuarios'
     | '/app/'
+    | '/app/financeiro/administracao'
+    | '/app/financeiro/convenios'
+    | '/app/financeiro/fluxo'
+    | '/app/financeiro/inadimplencia'
+    | '/app/financeiro/pacotes'
+    | '/app/financeiro/pagar'
+    | '/app/financeiro/receber'
+    | '/app/financeiro/receita-profissional'
     | '/app/pacientes/$id'
+    | '/app/financeiro/'
     | '/app/pacientes/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -330,7 +418,6 @@ export interface FileRouteTypes {
     | '/app/diferenciais'
     | '/app/documentos'
     | '/app/evolucoes'
-    | '/app/financeiro'
     | '/app/home-care'
     | '/app/marketing'
     | '/app/profissionais'
@@ -340,7 +427,16 @@ export interface FileRouteTypes {
     | '/app/templates'
     | '/app/usuarios'
     | '/app'
+    | '/app/financeiro/administracao'
+    | '/app/financeiro/convenios'
+    | '/app/financeiro/fluxo'
+    | '/app/financeiro/inadimplencia'
+    | '/app/financeiro/pacotes'
+    | '/app/financeiro/pagar'
+    | '/app/financeiro/receber'
+    | '/app/financeiro/receita-profissional'
     | '/app/pacientes/$id'
+    | '/app/financeiro'
     | '/app/pacientes'
   id:
     | '__root__'
@@ -360,7 +456,6 @@ export interface FileRouteTypes {
     | '/_authenticated/app/diferenciais'
     | '/_authenticated/app/documentos'
     | '/_authenticated/app/evolucoes'
-    | '/_authenticated/app/financeiro'
     | '/_authenticated/app/home-care'
     | '/_authenticated/app/marketing'
     | '/_authenticated/app/profissionais'
@@ -370,7 +465,16 @@ export interface FileRouteTypes {
     | '/_authenticated/app/templates'
     | '/_authenticated/app/usuarios'
     | '/_authenticated/app/'
+    | '/_authenticated/app/financeiro/administracao'
+    | '/_authenticated/app/financeiro/convenios'
+    | '/_authenticated/app/financeiro/fluxo'
+    | '/_authenticated/app/financeiro/inadimplencia'
+    | '/_authenticated/app/financeiro/pacotes'
+    | '/_authenticated/app/financeiro/pagar'
+    | '/_authenticated/app/financeiro/receber'
+    | '/_authenticated/app/financeiro/receita-profissional'
     | '/_authenticated/app/pacientes/$id'
+    | '/_authenticated/app/financeiro/'
     | '/_authenticated/app/pacientes/'
   fileRoutesById: FileRoutesById
 }
@@ -489,13 +593,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppHomeCareRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
-    '/_authenticated/app/financeiro': {
-      id: '/_authenticated/app/financeiro'
-      path: '/financeiro'
-      fullPath: '/app/financeiro'
-      preLoaderRoute: typeof AuthenticatedAppFinanceiroRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
-    }
     '/_authenticated/app/evolucoes': {
       id: '/_authenticated/app/evolucoes'
       path: '/evolucoes'
@@ -573,11 +670,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPacientesIndexRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/financeiro/': {
+      id: '/_authenticated/app/financeiro/'
+      path: '/financeiro'
+      fullPath: '/app/financeiro/'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/pacientes/$id': {
       id: '/_authenticated/app/pacientes/$id'
       path: '/pacientes/$id'
       fullPath: '/app/pacientes/$id'
       preLoaderRoute: typeof AuthenticatedAppPacientesIdRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/receita-profissional': {
+      id: '/_authenticated/app/financeiro/receita-profissional'
+      path: '/financeiro/receita-profissional'
+      fullPath: '/app/financeiro/receita-profissional'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroReceitaProfissionalRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/receber': {
+      id: '/_authenticated/app/financeiro/receber'
+      path: '/financeiro/receber'
+      fullPath: '/app/financeiro/receber'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroReceberRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/pagar': {
+      id: '/_authenticated/app/financeiro/pagar'
+      path: '/financeiro/pagar'
+      fullPath: '/app/financeiro/pagar'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroPagarRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/pacotes': {
+      id: '/_authenticated/app/financeiro/pacotes'
+      path: '/financeiro/pacotes'
+      fullPath: '/app/financeiro/pacotes'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroPacotesRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/inadimplencia': {
+      id: '/_authenticated/app/financeiro/inadimplencia'
+      path: '/financeiro/inadimplencia'
+      fullPath: '/app/financeiro/inadimplencia'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroInadimplenciaRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/fluxo': {
+      id: '/_authenticated/app/financeiro/fluxo'
+      path: '/financeiro/fluxo'
+      fullPath: '/app/financeiro/fluxo'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroFluxoRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/convenios': {
+      id: '/_authenticated/app/financeiro/convenios'
+      path: '/financeiro/convenios'
+      fullPath: '/app/financeiro/convenios'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroConveniosRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/financeiro/administracao': {
+      id: '/_authenticated/app/financeiro/administracao'
+      path: '/financeiro/administracao'
+      fullPath: '/app/financeiro/administracao'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroAdministracaoRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
   }
@@ -594,7 +754,6 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppDiferenciaisRoute: typeof AuthenticatedAppDiferenciaisRoute
   AuthenticatedAppDocumentosRoute: typeof AuthenticatedAppDocumentosRoute
   AuthenticatedAppEvolucoesRoute: typeof AuthenticatedAppEvolucoesRoute
-  AuthenticatedAppFinanceiroRoute: typeof AuthenticatedAppFinanceiroRoute
   AuthenticatedAppHomeCareRoute: typeof AuthenticatedAppHomeCareRoute
   AuthenticatedAppMarketingRoute: typeof AuthenticatedAppMarketingRoute
   AuthenticatedAppProfissionaisRoute: typeof AuthenticatedAppProfissionaisRoute
@@ -604,7 +763,16 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppTemplatesRoute: typeof AuthenticatedAppTemplatesRoute
   AuthenticatedAppUsuariosRoute: typeof AuthenticatedAppUsuariosRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppFinanceiroAdministracaoRoute: typeof AuthenticatedAppFinanceiroAdministracaoRoute
+  AuthenticatedAppFinanceiroConveniosRoute: typeof AuthenticatedAppFinanceiroConveniosRoute
+  AuthenticatedAppFinanceiroFluxoRoute: typeof AuthenticatedAppFinanceiroFluxoRoute
+  AuthenticatedAppFinanceiroInadimplenciaRoute: typeof AuthenticatedAppFinanceiroInadimplenciaRoute
+  AuthenticatedAppFinanceiroPacotesRoute: typeof AuthenticatedAppFinanceiroPacotesRoute
+  AuthenticatedAppFinanceiroPagarRoute: typeof AuthenticatedAppFinanceiroPagarRoute
+  AuthenticatedAppFinanceiroReceberRoute: typeof AuthenticatedAppFinanceiroReceberRoute
+  AuthenticatedAppFinanceiroReceitaProfissionalRoute: typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
   AuthenticatedAppPacientesIdRoute: typeof AuthenticatedAppPacientesIdRoute
+  AuthenticatedAppFinanceiroIndexRoute: typeof AuthenticatedAppFinanceiroIndexRoute
   AuthenticatedAppPacientesIndexRoute: typeof AuthenticatedAppPacientesIndexRoute
 }
 
@@ -619,7 +787,6 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppDiferenciaisRoute: AuthenticatedAppDiferenciaisRoute,
   AuthenticatedAppDocumentosRoute: AuthenticatedAppDocumentosRoute,
   AuthenticatedAppEvolucoesRoute: AuthenticatedAppEvolucoesRoute,
-  AuthenticatedAppFinanceiroRoute: AuthenticatedAppFinanceiroRoute,
   AuthenticatedAppHomeCareRoute: AuthenticatedAppHomeCareRoute,
   AuthenticatedAppMarketingRoute: AuthenticatedAppMarketingRoute,
   AuthenticatedAppProfissionaisRoute: AuthenticatedAppProfissionaisRoute,
@@ -629,7 +796,22 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppTemplatesRoute: AuthenticatedAppTemplatesRoute,
   AuthenticatedAppUsuariosRoute: AuthenticatedAppUsuariosRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppFinanceiroAdministracaoRoute:
+    AuthenticatedAppFinanceiroAdministracaoRoute,
+  AuthenticatedAppFinanceiroConveniosRoute:
+    AuthenticatedAppFinanceiroConveniosRoute,
+  AuthenticatedAppFinanceiroFluxoRoute: AuthenticatedAppFinanceiroFluxoRoute,
+  AuthenticatedAppFinanceiroInadimplenciaRoute:
+    AuthenticatedAppFinanceiroInadimplenciaRoute,
+  AuthenticatedAppFinanceiroPacotesRoute:
+    AuthenticatedAppFinanceiroPacotesRoute,
+  AuthenticatedAppFinanceiroPagarRoute: AuthenticatedAppFinanceiroPagarRoute,
+  AuthenticatedAppFinanceiroReceberRoute:
+    AuthenticatedAppFinanceiroReceberRoute,
+  AuthenticatedAppFinanceiroReceitaProfissionalRoute:
+    AuthenticatedAppFinanceiroReceitaProfissionalRoute,
   AuthenticatedAppPacientesIdRoute: AuthenticatedAppPacientesIdRoute,
+  AuthenticatedAppFinanceiroIndexRoute: AuthenticatedAppFinanceiroIndexRoute,
   AuthenticatedAppPacientesIndexRoute: AuthenticatedAppPacientesIndexRoute,
 }
 

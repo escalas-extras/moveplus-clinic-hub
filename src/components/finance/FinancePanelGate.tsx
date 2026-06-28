@@ -86,5 +86,5 @@ export function FinancePanelGate({
     return <FinanceErrorCard error={error} onRetry={onRetry} fallback={errorFallback} />;
   }
 
-  return <>{children}</>;
+  return <div className="min-w-0 w-full max-w-full">{children}</div>;
 }

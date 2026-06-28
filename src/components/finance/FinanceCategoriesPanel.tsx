@@ -42,6 +42,7 @@ import {
 } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
+import { FINANCE_PANEL_ROOT } from "./finance-layout";
 
 type FinanceCategoriesPanelProps = {
   clinicId: string | null;
@@ -198,7 +199,7 @@ export function FinanceCategoriesPanel({ clinicId, clinicLoading, supportMode }:
       loadingLabel="Carregando categorias…"
       errorFallback="Não foi possível carregar as categorias."
     >
-    <div className="space-y-6">
+    <div className={FINANCE_PANEL_ROOT}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground max-w-2xl">
           Organize receitas e despesas da clínica. Categorias inativas não aparecem em novos cadastros futuros.

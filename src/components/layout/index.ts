@@ -18,6 +18,7 @@ export { PageBreadcrumb } from "./PageBreadcrumb";
 export { PageHeader } from "./PageHeader";
 export type { BreadcrumbItem } from "./PageHeader";
 export { PageSection } from "./PageSection";
+export { SectionHeader } from "./SectionHeader";
 export { SearchField } from "./SearchField";
 export { StatusBadge } from "./StatusBadge";
 export { ClinicalDataTable } from "./ClinicalDataTable";

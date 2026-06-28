@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark, ArrowDownCircle, ArrowUpCircle, BarChart3, Package, Building2, AlertTriangle, UserCircle2 } from "lucide-react";
+import { Plus, FileDown, Check, XCircle, Printer, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
@@ -24,17 +22,20 @@ import {
   type ReceiptPrintMode,
 } from "@/lib/receipt-pdf";
 import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
-import { useActiveClinic } from "@/lib/active-clinic";
 import { invalidateFinanceModuleQueries } from "@/lib/finance";
 import { SupportGuardButton } from "@/components/support-guard";
-import { AppShell, PageHeader } from "@/components/layout";
-import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel, FinancePackagesPanel, FinanceHealthInsurancePanel, FinanceDelinquencyPanel, FinanceProfessionalRevenuePanel, FinancePanelGate } from "@/components/finance";
-
-export const Route = createFileRoute("/_authenticated/app/financeiro")({
-  component: FinanceiroPage,
-});
+import { FinancePanelGate } from "./FinancePanelGate";
+import { FINANCE_TABLE_CARD, FINANCE_TABLE_SCROLL, FINANCE_TABLE } from "./finance-layout";
 
 type Form = { patient_id: string; professional_id: string; data: string; valor: number; forma_pagamento?: any; status: "pago" | "pendente"; observacoes?: string };
+type ReceiptForm = {
+  patient_id: string;
+  financial_entry_id?: string | null;
+  description: string;
+  amount: number;
+  payment_method: "pix" | "dinheiro" | "cartao" | "transferencia";
+  payment_date: string;
+};
 
 function requiredDate(value?: string | null) {
   const v = value?.trim();
@@ -53,130 +54,20 @@ function requiredAmount(value: unknown) {
   return n;
 }
 
-function FinanceiroPage() {
-  const { clinicId, supportMode, loading: clinicLoading } = useActiveClinic();
-  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "fluxo" | "pacotes" | "convenios" | "inadimplencia" | "receita-profissional" | "lancamentos" | "recibos">("visao-geral");
-
-  return (
-    <AppShell clinical>
-      <PageHeader
-        icon={Wallet}
-        eyebrow="Gestão"
-        title="Financeiro"
-        description="Dashboard executivo e módulos do Financeiro Base — categorias, contas, fluxo de caixa."
-        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Financeiro" }]}
-      />
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList>
-          <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
-          <TabsTrigger value="categorias">
-            <FolderTree className="h-3.5 w-3.5 mr-1.5" />
-            Categorias
-          </TabsTrigger>
-          <TabsTrigger value="centros-custo">
-            <Landmark className="h-3.5 w-3.5 mr-1.5" />
-            Centros de Custo
-          </TabsTrigger>
-          <TabsTrigger value="receber">
-            <ArrowDownCircle className="h-3.5 w-3.5 mr-1.5" />
-            Contas a Receber
-          </TabsTrigger>
-          <TabsTrigger value="pagar">
-            <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
-            Contas a Pagar
-          </TabsTrigger>
-          <TabsTrigger value="fluxo">
-            <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
-            Fluxo de Caixa
-          </TabsTrigger>
-          <TabsTrigger value="pacotes">
-            <Package className="h-3.5 w-3.5 mr-1.5" />
-            Pacotes
-          </TabsTrigger>
-          <TabsTrigger value="convenios">
-            <Building2 className="h-3.5 w-3.5 mr-1.5" />
-            Convênios
-          </TabsTrigger>
-          <TabsTrigger value="inadimplencia">
-            <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
-            Inadimplência
-          </TabsTrigger>
-          <TabsTrigger value="receita-profissional">
-            <UserCircle2 className="h-3.5 w-3.5 mr-1.5" />
-            Receita por Profissional
-          </TabsTrigger>
-          <TabsTrigger value="lancamentos">Lançamentos v1</TabsTrigger>
-          <TabsTrigger value="recibos">
-            <Receipt className="h-3.5 w-3.5 mr-1.5" />
-            Recibos
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="visao-geral" className="mt-6">
-          <FinanceDashboardPanel
-            clinicId={clinicId}
-            clinicLoading={clinicLoading}
-            onNewReceivable={() => setTab("receber")}
-            onNewPayable={() => setTab("pagar")}
-            onOpenCashFlow={() => setTab("fluxo")}
-            onOpenCategories={() => setTab("categorias")}
-            onOpenCostCenters={() => setTab("centros-custo")}
-            onOpenLegacy={() => setTab("lancamentos")}
-          />
-        </TabsContent>
-
-        <TabsContent value="categorias" className="mt-6">
-          <FinanceCategoriesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="centros-custo" className="mt-6">
-          <FinanceCostCentersPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="receber" className="mt-6">
-          <FinanceReceivablesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="pagar" className="mt-6">
-          <FinancePayablesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="fluxo" className="mt-6">
-          <FinanceCashFlowPanel clinicId={clinicId} clinicLoading={clinicLoading} />
-        </TabsContent>
-
-        <TabsContent value="pacotes" className="mt-6">
-          <FinancePackagesPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="convenios" className="mt-6">
-          <FinanceHealthInsurancePanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="inadimplencia" className="mt-6">
-          <FinanceDelinquencyPanel clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="receita-profissional" className="mt-6">
-          <FinanceProfessionalRevenuePanel clinicId={clinicId} clinicLoading={clinicLoading} />
-        </TabsContent>
-
-        <TabsContent value="lancamentos" className="space-y-6 mt-6">
-          <LancamentosTab clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-
-        <TabsContent value="recibos" className="space-y-4 mt-6">
-          <RecibosTab clinicId={clinicId} clinicLoading={clinicLoading} supportMode={supportMode} />
-        </TabsContent>
-      </Tabs>
-    </AppShell>
-  );
+async function renderReceiptPdf(
+  opts: ReceiptPdfData,
+  mode: "preview" | "download" | "print" = "download",
+) {
+  const data: ReceiptPdfData = {
+    ...opts,
+    printMode: opts.printMode ?? getStoredReceiptPrintMode(),
+  };
+  if (mode === "preview") await previewReceiptPdf(data);
+  else if (mode === "print") await printReceiptPdf(data);
+  else await downloadReceiptPdf(data);
 }
 
-/* ───────────────────────── LANÇAMENTOS ───────────────────────── */
-
-function LancamentosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
+export function FinanceLegacyLancamentosPanel({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const monthStart = new Date(); monthStart.setDate(1);
@@ -317,20 +208,21 @@ function LancamentosTab({ clinicId, clinicLoading, supportMode }: { clinicId: st
       errorFallback="Não foi possível carregar os lançamentos."
     >
     <>
-      <div className="flex justify-end">
+      <div className="flex min-w-0 w-full max-w-full flex-wrap justify-end gap-2">
         <SupportGuardButton supportMode={supportMode} onClick={() => setOpen(true)} tooltip="Novo lançamento bloqueado no Modo Suporte">
           <Plus className="h-4 w-4 mr-2" />Novo lançamento
         </SupportGuardButton>
         <NewEntryDialog open={open} setOpen={setOpen} create={create} patients={patients.data ?? []} profs={profs.data ?? []} disabled={supportMode} />
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid min-w-0 w-full max-w-full gap-4 sm:grid-cols-2">
         <Card className="p-5"><div className="text-xs uppercase text-muted-foreground">Faturamento do mês</div><div className="text-2xl font-semibold mt-1">{brl(totals.data?.totalMes ?? 0)}</div></Card>
         <Card className="p-5"><div className="text-xs uppercase text-muted-foreground">A receber</div><div className="text-2xl font-semibold mt-1">{brl(totals.data?.totalPend ?? 0)}</div></Card>
       </div>
 
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm">
+      <Card className={FINANCE_TABLE_CARD}>
+        <div className={FINANCE_TABLE_SCROLL}>
+        <table className={FINANCE_TABLE}>
           <thead className="bg-muted/60">
             <tr className="text-left">
               <th className="px-4 py-3">Data</th>
@@ -350,7 +242,7 @@ function LancamentosTab({ clinicId, clinicLoading, supportMode }: { clinicId: st
                 <td className="px-4 py-2 text-right tabular-nums">{brl(e.valor)}</td>
                 <td className="px-4 py-2"><span className={"text-xs rounded-full px-2 py-0.5 " + (e.status === "pago" ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground")}>{e.status}</span></td>
                 <td className="px-4 py-2 text-right">
-                  <div className="inline-flex gap-1">
+                  <div className="inline-flex flex-wrap justify-end gap-1">
                     {e.status === "pendente" && (
                       <SupportGuardButton size="sm" variant="outline" supportMode={supportMode} onClick={() => markPaid.mutate(e.id)} tooltip="Marcar como pago bloqueado no Modo Suporte">
                         <Check className="h-3 w-3 mr-1" />Pago
@@ -365,6 +257,7 @@ function LancamentosTab({ clinicId, clinicLoading, supportMode }: { clinicId: st
             ))}
           </tbody>
         </table>
+        </div>
         {!list.data?.length && <div className="p-8 text-center text-sm text-muted-foreground">Sem lançamentos.</div>}
       </Card>
     </>
@@ -433,18 +326,7 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
   );
 }
 
-/* ───────────────────────── RECIBOS ───────────────────────── */
-
-type ReceiptForm = {
-  patient_id: string;
-  financial_entry_id?: string | null;
-  description: string;
-  amount: number;
-  payment_method: "pix" | "dinheiro" | "cartao" | "transferencia";
-  payment_date: string;
-};
-
-function RecibosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
+export function FinanceLegacyRecibosPanel({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [cancelOf, setCancelOf] = useState<any | null>(null);
@@ -583,8 +465,9 @@ function RecibosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string
         onPrintModeChange={setPrintMode}
       />
 
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm">
+      <Card className={FINANCE_TABLE_CARD}>
+        <div className={FINANCE_TABLE_SCROLL}>
+        <table className={FINANCE_TABLE}>
           <thead className="bg-muted/60">
             <tr className="text-left">
               <th className="px-4 py-3">Nº</th>
@@ -610,7 +493,7 @@ function RecibosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string
                     : <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Ativo</Badge>}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <div className="inline-flex gap-1">
+                  <div className="inline-flex flex-wrap justify-end gap-1">
                     <Button size="sm" variant="outline" onClick={() => reprint(r, "preview")}><Eye className="h-3 w-3 mr-1" />Ver</Button>
                     <Button size="sm" variant="outline" onClick={() => reprint(r, "download")}><FileDown className="h-3 w-3 mr-1" />Baixar</Button>
                     <Button size="sm" variant="outline" onClick={() => reprint(r, "print")}><Printer className="h-3 w-3 mr-1" />Imprimir</Button>
@@ -625,6 +508,7 @@ function RecibosTab({ clinicId, clinicLoading, supportMode }: { clinicId: string
             ))}
           </tbody>
         </table>
+        </div>
         {!list.data?.length && <div className="p-8 text-center text-sm text-muted-foreground">Sem recibos emitidos.</div>}
       </Card>
 
@@ -762,21 +646,5 @@ function CancelReceiptDialog({ receipt, onClose, onConfirm, pending }: { receipt
       </DialogContent>
     </Dialog>
   );
-}
-
-/* ───────────────────────── PDF ───────────────────────── */
-// Template White Label dinâmico — vide src/lib/receipt-pdf.ts
-
-async function renderReceiptPdf(
-  opts: ReceiptPdfData,
-  mode: "preview" | "download" | "print" = "download",
-) {
-  const data: ReceiptPdfData = {
-    ...opts,
-    printMode: opts.printMode ?? getStoredReceiptPrintMode(),
-  };
-  if (mode === "preview") await previewReceiptPdf(data);
-  else if (mode === "print") await printReceiptPdf(data);
-  else await downloadReceiptPdf(data);
 }
 

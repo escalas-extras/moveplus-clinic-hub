@@ -22,6 +22,8 @@ export type KpiCardProps = {
   className?: string;
   sparkline?: number[];
   variant?: "default" | "premium";
+  /** Compacto (~30% menor) — painéis de módulo. */
+  size?: "default" | "compact" | "dense";
 };
 
 function KpiCardInner({
@@ -39,8 +41,11 @@ function KpiCardInner({
   className,
   sparkline,
   variant = "default",
+  size = "default",
 }: KpiCardProps) {
   const isPremium = variant === "premium";
+  const isCompact = size === "compact";
+  const isDense = size === "dense";
   const numValue = typeof value === "number" ? value : 0;
   const hasPrev = typeof previous === "number" && previous > 0;
   const delta = hasPrev ? ((numValue - previous!) / previous!) * 100 : numValue > 0 ? 100 : 0;
@@ -61,7 +66,17 @@ function KpiCardInner({
         clinical.kpiCard,
         clinical.cardHover,
         "relative flex h-full flex-col overflow-hidden",
-        isPremium ? "min-h-[156px] p-5 sm:p-6" : "p-4 sm:p-5",
+        isPremium && isDense
+          ? "min-h-[80px] p-2.5 sm:p-3"
+          : isPremium && isCompact
+            ? "min-h-[108px] p-3.5 sm:p-4"
+            : isPremium
+              ? "min-h-[156px] p-5 sm:p-6"
+              : isDense
+                ? "p-2 sm:p-2.5"
+                : isCompact
+                  ? "p-3 sm:p-3.5"
+                  : "p-4 sm:p-5",
         to && "cursor-pointer",
         className,
       )}
@@ -73,7 +88,10 @@ function KpiCardInner({
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full opacity-[0.11] blur-2xl"
+        className={cn(
+          "pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full blur-2xl",
+          isDense ? "opacity-[0.06]" : "opacity-[0.11]",
+        )}
         style={{ background: accent }}
       />
 
@@ -81,12 +99,32 @@ function KpiCardInner({
         <div
           className={cn(
             "flex shrink-0 items-center justify-center rounded-xl ring-1 ring-black/[0.05] shadow-[0_1px_2px_rgba(15,76,92,0.06)]",
-            isPremium ? "h-12 w-12" : "h-10 w-10",
+            isPremium && isDense
+              ? "h-7 w-7"
+              : isPremium && isCompact
+                ? "h-9 w-9"
+                : isPremium
+                  ? "h-12 w-12"
+                  : isDense
+                    ? "h-7 w-7"
+                    : isCompact
+                      ? "h-8 w-8"
+                      : "h-10 w-10",
           )}
           style={{ background: `${accent}18`, color: accent }}
           aria-hidden
         >
-          <Icon className={cn(isPremium ? "h-5 w-5" : "h-4 w-4")} strokeWidth={2.25} />
+          <Icon
+            className={cn(
+              isPremium && isDense ? "h-3.5 w-3.5"
+                : isPremium && isCompact ? "h-4 w-4"
+                  : isPremium ? "h-5 w-5"
+                    : isDense ? "h-3 w-3"
+                      : isCompact ? "h-3.5 w-3.5"
+                        : "h-4 w-4",
+            )}
+            strokeWidth={2.25}
+          />
         </div>
         {!hideDelta && !isPlaceholder && previous !== undefined && (
           <span
@@ -104,12 +142,24 @@ function KpiCardInner({
         )}
       </div>
 
-      <div className="relative mt-4 flex flex-1 flex-col">
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <div className={cn("relative flex flex-1 flex-col", isDense ? "mt-2" : isCompact ? "mt-2.5" : "mt-4")}>
+        <p className={cn("font-bold uppercase tracking-[0.12em] text-slate-500", isDense ? "text-[9px]" : isCompact ? "text-[10px]" : "text-[11px]")}>
+          {label}
+        </p>
         <div
           className={cn(
-            "mt-1 font-bold tabular-nums tracking-tight text-slate-950 kpi-value",
-            isPremium ? "text-[2rem] leading-none sm:text-[2.35rem]" : "text-2xl sm:text-[1.85rem]",
+            "mt-0.5 font-bold tabular-nums tracking-tight text-slate-950 kpi-value",
+            isPremium && isDense
+              ? "text-lg leading-none sm:text-xl"
+              : isPremium && isCompact
+                ? "text-[1.45rem] leading-none sm:text-[1.65rem]"
+                : isPremium
+                  ? "text-[2rem] leading-none sm:text-[2.35rem]"
+                  : isDense
+                    ? "text-lg sm:text-xl"
+                    : isCompact
+                      ? "text-xl sm:text-[1.55rem]"
+                      : "text-2xl sm:text-[1.85rem]",
             tone === "warning" && numValue > 0 && "text-amber-700",
             isPlaceholder && "text-slate-400",
           )}
@@ -117,12 +167,12 @@ function KpiCardInner({
         >
           {value}
         </div>
-        {meta && <p className="mt-2 text-xs leading-relaxed text-slate-500">{meta}</p>}
+        {meta && <p className={cn("leading-relaxed text-slate-500", isCompact ? "mt-1 text-[11px]" : "mt-2 text-xs")}>{meta}</p>}
       </div>
 
       {sparkline && sparkline.length >= 2 && (
-        <div className="fos-kpi-card__sparkline relative mt-4 border-t border-[rgba(15,76,92,0.08)] pt-3">
-          <Sparkline data={sparkline} color={accent} height={32} className="w-full max-w-none opacity-90" integrated />
+        <div className={cn("fos-kpi-card__sparkline relative border-t border-[rgba(15,76,92,0.08)]", isCompact ? "mt-2.5 pt-2" : "mt-4 pt-3")}>
+          <Sparkline data={sparkline} color={accent} height={isCompact ? 24 : 32} className="w-full max-w-none opacity-90" integrated />
         </div>
       )}
     </div>

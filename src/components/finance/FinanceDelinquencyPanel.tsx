@@ -31,8 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/layout/EmptyState";
-import { KpiCard } from "@/components/layout/KpiCard";
-import { KpiGrid } from "@/components/layout/KpiGrid";
+import { FinanceKpiCard, FinanceKpiGrid } from "./FinanceKpiCard";
 import { PageSection } from "@/components/layout/PageSection";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { SupportGuardButton } from "@/components/support-guard";
@@ -60,6 +59,13 @@ import {
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
+import {
+  FINANCE_FILTER_GRID,
+  FINANCE_PANEL_ROOT,
+  FINANCE_TABLE,
+  FINANCE_TABLE_CARD,
+  FINANCE_TABLE_SCROLL,
+} from "./finance-layout";
 
 type FinanceDelinquencyPanelProps = {
   clinicId: string | null;
@@ -220,9 +226,9 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
       loadingLabel="Carregando inadimplência…"
       errorFallback="Não foi possível carregar os recebíveis vencidos."
     >
-    <div className="space-y-6">
-      <KpiGrid columns={3}>
-        <KpiCard
+    <div className={FINANCE_PANEL_ROOT}>
+      <FinanceKpiGrid columns={3}>
+        <FinanceKpiCard
           icon={AlertTriangle}
           label="Total vencido"
           value={brl(summary.totalVencido)}
@@ -231,7 +237,7 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#ef4444"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={AlertTriangle}
           label="Títulos vencidos"
           value={String(summary.quantidade)}
@@ -239,7 +245,7 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
           hideDelta
           variant="premium"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={AlertTriangle}
           label="Maior devedor"
           value={summary.maiorDevedorNome ? brl(summary.maiorDevedorValor) : "—"}
@@ -248,10 +254,10 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
           hideDelta
           variant="premium"
         />
-      </KpiGrid>
+      </FinanceKpiGrid>
 
-      <KpiGrid columns={3}>
-        <KpiCard
+      <FinanceKpiGrid columns={3}>
+        <FinanceKpiCard
           icon={AlertTriangle}
           label="Vencidos 1–7 dias"
           value={brl(summary.vencidos1a7)}
@@ -259,7 +265,7 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#f59e0b"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={AlertTriangle}
           label="Vencidos 8–30 dias"
           value={brl(summary.vencidos8a30)}
@@ -267,7 +273,7 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#f97316"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={AlertTriangle}
           label="Vencidos acima de 30 dias"
           value={brl(summary.vencidosAcima30)}
@@ -275,10 +281,10 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
           variant="premium"
           accent="#ef4444"
         />
-      </KpiGrid>
+      </FinanceKpiGrid>
 
-      <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <Card className="min-w-0 max-w-full p-4">
+        <div className={FINANCE_FILTER_GRID}>
           <FilterDate
             label="Vencimento de"
             value={filters.from}
@@ -355,9 +361,9 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
             description="Não há recebíveis inadimplentes para os filtros selecionados."
           />
         ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <Card className={FINANCE_TABLE_CARD}>
+            <div className={FINANCE_TABLE_SCROLL}>
+              <table className={FINANCE_TABLE}>
                 <thead className="bg-muted/60">
                   <tr className="text-left">
                     <th className="px-4 py-3">Paciente</th>

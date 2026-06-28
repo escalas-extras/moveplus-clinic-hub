@@ -15,8 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/layout/EmptyState";
-import { KpiCard } from "@/components/layout/KpiCard";
-import { KpiGrid } from "@/components/layout/KpiGrid";
+import { FinanceKpiCard, FinanceKpiGrid } from "./FinanceKpiCard";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import {
   assertFinanceClinicId,
@@ -39,6 +38,13 @@ import {
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
+import {
+  FINANCE_FILTER_GRID,
+  FINANCE_PANEL_ROOT,
+  FINANCE_TABLE,
+  FINANCE_TABLE_CARD,
+  FINANCE_TABLE_SCROLL,
+} from "./finance-layout";
 
 type FinanceCashFlowPanelProps = {
   clinicId: string | null;
@@ -150,9 +156,9 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
       loadingLabel="Carregando fluxo de caixa…"
       errorFallback="Não foi possível carregar o fluxo de caixa."
     >
-    <div className="space-y-6">
-      <KpiGrid columns={4}>
-        <KpiCard
+    <div className={FINANCE_PANEL_ROOT}>
+      <FinanceKpiGrid columns={4}>
+        <FinanceKpiCard
           icon={BarChart3}
           label="Entradas realizadas"
           value={brl(summary.entradasRealizadas)}
@@ -160,7 +166,7 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
           variant="premium"
           accent="#10b981"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={BarChart3}
           label="Saídas realizadas"
           value={brl(summary.saidasRealizadas)}
@@ -168,7 +174,7 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
           variant="premium"
           accent="#ef4444"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={BarChart3}
           label="Saldo realizado"
           value={brl(summary.saldoRealizado)}
@@ -177,7 +183,7 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
           accent="#3b82f6"
           tone={summary.saldoRealizado < 0 ? "warning" : "default"}
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={BarChart3}
           label="Saldo previsto"
           value={brl(summary.saldoPrevisto)}
@@ -186,11 +192,11 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
           accent="#8b5cf6"
           tone={summary.saldoPrevisto < 0 ? "warning" : "default"}
         />
-      </KpiGrid>
+      </FinanceKpiGrid>
 
-      <Card className="p-4 space-y-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 flex-1">
+      <Card className="min-w-0 max-w-full p-4 space-y-4">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className={cn(FINANCE_FILTER_GRID, "min-w-0 flex-1")}>
             <div>
               <Label className="text-xs">Período de</Label>
               <Input
@@ -287,12 +293,12 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
       </Card>
 
       {grouped.length > 0 && (
-        <Card className="overflow-hidden">
+        <Card className={FINANCE_TABLE_CARD}>
           <div className="border-b bg-muted/40 px-4 py-2">
             <h3 className="text-sm font-semibold">Resumo por {GROUPING_LABELS[filters.grouping].toLowerCase()}</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className={FINANCE_TABLE_SCROLL}>
+            <table className={FINANCE_TABLE}>
               <thead className="bg-muted/60">
                 <tr className="text-left">
                   <th className="px-4 py-2">Período</th>
@@ -325,12 +331,12 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
           description="Ajuste o período ou a visão (realizado/previsto) para ver entradas e saídas consolidadas."
         />
       ) : (
-        <Card className="overflow-hidden">
+        <Card className={FINANCE_TABLE_CARD}>
           <div className="border-b bg-muted/40 px-4 py-2">
             <h3 className="text-sm font-semibold">Movimentações ({lines.length})</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className={FINANCE_TABLE_SCROLL}>
+            <table className={FINANCE_TABLE}>
               <thead className="bg-muted/60">
                 <tr className="text-left">
                   <th className="px-4 py-3">Data</th>

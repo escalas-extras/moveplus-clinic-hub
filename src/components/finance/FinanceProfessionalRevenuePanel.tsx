@@ -29,8 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/layout/EmptyState";
-import { KpiCard } from "@/components/layout/KpiCard";
-import { KpiGrid } from "@/components/layout/KpiGrid";
+import { FinanceKpiCard, FinanceKpiGrid } from "./FinanceKpiCard";
 import { PageSection } from "@/components/layout/PageSection";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import {
@@ -57,6 +56,13 @@ import {
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
+import {
+  FINANCE_FILTER_GRID,
+  FINANCE_PANEL_ROOT,
+  FINANCE_TABLE,
+  FINANCE_TABLE_CARD,
+  FINANCE_TABLE_SCROLL,
+} from "./finance-layout";
 
 type FinanceProfessionalRevenuePanelProps = {
   clinicId: string | null;
@@ -158,9 +164,9 @@ export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: Fin
       loadingLabel="Carregando receita por profissional…"
       errorFallback="Não foi possível carregar a receita por profissional."
     >
-    <div className="space-y-6">
-      <KpiGrid columns={3}>
-        <KpiCard
+    <div className={FINANCE_PANEL_ROOT}>
+      <FinanceKpiGrid columns={3}>
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Receita realizada"
           value={brl(summary.receitaRealizadaTotal)}
@@ -168,7 +174,7 @@ export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: Fin
           variant="premium"
           accent="#10b981"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Receita prevista"
           value={brl(summary.receitaPrevistaTotal)}
@@ -176,7 +182,7 @@ export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: Fin
           variant="premium"
           accent="#3b82f6"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={UserCircle2}
           label="Maior receita"
           value={summary.maiorReceitaNome ? brl(summary.maiorReceitaValor) : "—"}
@@ -184,17 +190,17 @@ export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: Fin
           hideDelta
           variant="premium"
         />
-      </KpiGrid>
+      </FinanceKpiGrid>
 
-      <KpiGrid columns={3}>
-        <KpiCard
+      <FinanceKpiGrid columns={3}>
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Títulos recebidos"
           value={String(summary.qtdRecebidos)}
           hideDelta
           variant="premium"
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Títulos em aberto"
           value={String(summary.qtdAbertos)}
@@ -202,17 +208,17 @@ export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: Fin
           variant="premium"
           tone={summary.qtdAbertos > 0 ? "warning" : "default"}
         />
-        <KpiCard
+        <FinanceKpiCard
           icon={ArrowDownCircle}
           label="Ticket médio"
           value={brl(summary.ticketMedioGlobal)}
           hideDelta
           variant="premium"
         />
-      </KpiGrid>
+      </FinanceKpiGrid>
 
-      <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <Card className="min-w-0 max-w-full p-4">
+        <div className={FINANCE_FILTER_GRID}>
           <FilterDate
             label="Período de"
             value={filters.from}
@@ -290,9 +296,9 @@ export function FinanceProfessionalRevenuePanel({ clinicId, clinicLoading }: Fin
             description="Não há recebíveis para os filtros selecionados."
           />
         ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          <Card className={FINANCE_TABLE_CARD}>
+            <div className={FINANCE_TABLE_SCROLL}>
+              <table className={FINANCE_TABLE}>
                 <thead className="bg-muted/60">
                   <tr className="text-left">
                     <th className="px-4 py-3">Profissional</th>
@@ -416,9 +422,9 @@ function EntryTable({ rows, emptyLabel }: { rows: ProfessionalRevenueRow[]; empt
   }
 
   return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+    <Card className={FINANCE_TABLE_CARD}>
+      <div className={FINANCE_TABLE_SCROLL}>
+        <table className={FINANCE_TABLE}>
           <thead className="bg-muted/60">
             <tr className="text-left">
               <th className="px-4 py-3">Paciente</th>

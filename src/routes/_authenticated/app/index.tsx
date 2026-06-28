@@ -1,26 +1,29 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
-import { fmtDate } from "@/lib/format";
-import { appointmentStatusLabel, appointmentStatusVariant } from "@/lib/appointment-status";
+import { fmtDate, brl } from "@/lib/format";
+import { appointmentStatusLabel } from "@/lib/appointment-status";
 import {
   AppShell,
   ClinicalSkeleton,
-  EmptyState,
   InfoCard,
-  KpiCard,
-  KpiGrid,
-  PageSection,
   PrimaryActionButton,
   QueryErrorState,
   SecondaryActionButton,
-  StatusBadge,
-  clinical,
 } from "@/components/layout";
-import { AgendaTimeline, DashboardHero, sparkFromTrend } from "@/components/dashboard";
+import { OpsModuleStack } from "@/components/ops";
+import {
+  HomeHeroV2,
+  OperationalCard,
+  OperationalCardsGrid,
+  AttentionList,
+  QuickActionCard,
+  type AttentionItem,
+} from "@/components/dashboard";
 import {
   Users,
   CalendarDays,
@@ -28,20 +31,13 @@ import {
   RefreshCw,
   Sparkles,
   AlertTriangle,
-  FileSignature,
   ClipboardList,
-  UserCheck,
   ArrowRight,
   Plus,
-  Clock,
   DollarSign,
-  CalendarRange,
   Stethoscope,
-  Settings,
-  UserPlus,
+  Wallet,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   beforeLoad: async () => {
@@ -103,13 +99,13 @@ type ApptRow = {
   professionals: { nome: string } | null;
 };
 
-type PatientRow = {
+type ReavalRow = {
   id: string;
-  nome_completo: string;
-  created_at: string;
+  patient_id: string;
+  scheduled_for: string;
+  patients: { nome_completo: string } | null;
 };
 
-const STATUS_VARIANT = appointmentStatusVariant;
 const STATUS_LABEL = appointmentStatusLabel;
 
 function PainelClinico() {
@@ -152,17 +148,14 @@ function PainelClinico() {
         pacientesAntes,
         atendHoje,
         agendaSemana,
-        atendMes,
-        atendPrev,
         docsMes,
         docsPrev,
         reavalPend,
         docsRascunho,
         evolSemAssin,
-        retorno,
         hoje,
-        proximos,
-        pacientesRecentes,
+        receitaMesRows,
+        recebiveisVencidos,
       ] = await Promise.all([
         supabase
           .from("patients")
@@ -187,17 +180,6 @@ function PainelClinico() {
           .gte("data", weekStartIso)
           .lte("data", weekEndIso),
         supabase
-          .from("appointments")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .gte("data", thisMonthIso),
-        supabase
-          .from("appointments")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .gte("data", prevMonthIso)
-          .lt("data", thisMonthIso),
-        supabase
           .from("clinical_documents")
           .select("id", { count: "exact", head: true })
           .eq("clinic_id", cid)
@@ -215,7 +197,7 @@ function PainelClinico() {
           .lte("scheduled_for", todayIso)
           .is("completed_at", null)
           .order("scheduled_for")
-          .limit(10),
+          .limit(8),
         supabase
           .from("clinical_documents")
           .select("id", { count: "exact", head: true })
@@ -227,465 +209,278 @@ function PainelClinico() {
           .eq("clinic_id", cid)
           .is("locked_at", null),
         supabase
-          .from("patients")
-          .select("id, nome_completo, updated_at")
-          .eq("clinic_id", cid)
-          .eq("situacao", "ativo")
-          .order("updated_at", { ascending: true })
-          .limit(5),
-        supabase
           .from("appointments")
           .select("id, data, horario, status, observacao, patients(nome_completo), professionals(nome)")
           .eq("clinic_id", cid)
           .eq("data", todayIso)
-          .order("horario"),
-        supabase
-          .from("appointments")
-          .select("id, data, horario, status, observacao, patients(nome_completo), professionals(nome)")
-          .eq("clinic_id", cid)
-          .gt("data", todayIso)
-          .lte("data", weekEndIso)
-          .order("data")
           .order("horario")
-          .limit(8),
+          .limit(6),
         supabase
-          .from("patients")
-          .select("id, nome_completo, created_at")
+          .from("financial_entries")
+          .select("valor")
           .eq("clinic_id", cid)
-          .eq("situacao", "ativo")
-          .order("created_at", { ascending: false })
-          .limit(5),
+          .eq("entry_type", "receivable")
+          .eq("status", "pago")
+          .gte("data", thisMonthIso),
+        supabase
+          .from("financial_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid)
+          .eq("entry_type", "receivable")
+          .eq("status", "pendente")
+          .lt("data_vencimento", todayIso),
       ]);
+
+      const receitaMes = (receitaMesRows.data ?? []).reduce((sum, r) => sum + Number(r.valor), 0);
+
       return {
         pacientesAtivos: pacientesAtivos.count ?? 0,
         pacientesAntes: pacientesAntes.count ?? 0,
         atendHoje: atendHoje.count ?? 0,
         agendaSemana: agendaSemana.count ?? 0,
-        atendMes: atendMes.count ?? 0,
-        atendPrev: atendPrev.count ?? 0,
         docsMes: docsMes.count ?? 0,
         docsPrev: docsPrev.count ?? 0,
-        reavalPend: reavalPend.data ?? [],
+        reavalPend: (reavalPend.data ?? []) as ReavalRow[],
         docsRascunho: docsRascunho.count ?? 0,
         evolSemAssin: evolSemAssin.count ?? 0,
-        retorno: retorno.data ?? [],
         hoje: (hoje.data ?? []) as ApptRow[],
-        proximos: (proximos.data ?? []) as ApptRow[],
-        pacientesRecentes: (pacientesRecentes.data ?? []) as PatientRow[],
+        receitaMes,
+        recebiveisVencidos: recebiveisVencidos.count ?? 0,
       };
     },
   });
 
   const s = stats.data;
   const reavalCount = s?.reavalPend.length ?? 0;
-  const isNewClinic =
-    !!s && s.pacientesAtivos === 0 && s.atendMes === 0 && s.docsMes === 0;
+  const pendenciasTotal =
+    reavalCount + (s?.docsRascunho ?? 0) + (s?.evolSemAssin ?? 0) + (s?.recebiveisVencidos ?? 0);
+  const isNewClinic = !!s && s.pacientesAtivos === 0 && s.docsMes === 0 && s.atendHoje === 0;
   const loading = stats.isLoading;
 
+  const attentionItems = useMemo((): AttentionItem[] => {
+    if (!s) return [];
+    const items: AttentionItem[] = [];
+
+    for (const a of s.hoje.slice(0, 3)) {
+      items.push({
+        id: `appt-${a.id}`,
+        icon: CalendarDays,
+        title: a.patients?.nome_completo ?? "Atendimento",
+        subtitle: `${String(a.horario).slice(0, 5)} · ${a.professionals?.nome ?? "Consulta"}`,
+        meta: STATUS_LABEL(a.status ?? ""),
+        to: "/app/agenda",
+        tone: "default",
+      });
+    }
+
+    for (const r of s.reavalPend.slice(0, 3)) {
+      items.push({
+        id: `reaval-${r.id}`,
+        icon: RefreshCw,
+        title: r.patients?.nome_completo ?? "Reavaliação",
+        subtitle: `Vencida em ${fmtDate(r.scheduled_for)}`,
+        meta: "Reavaliação",
+        to: "/app/reavaliacoes",
+        tone: "warning",
+      });
+    }
+
+    if (s.docsRascunho > 0) {
+      items.push({
+        id: "docs-rascunho",
+        icon: FileText,
+        title: "Documentos pendentes de finalização",
+        subtitle: `${s.docsRascunho} rascunho(s) aguardando`,
+        meta: String(s.docsRascunho),
+        to: "/app/documentos",
+        tone: "warning",
+      });
+    }
+
+    if (s.recebiveisVencidos > 0) {
+      items.push({
+        id: "fin-vencidos",
+        icon: Wallet,
+        title: "Recebimentos vencidos",
+        subtitle: "Títulos a receber em atraso",
+        meta: String(s.recebiveisVencidos),
+        to: "/app/financeiro/inadimplencia",
+        tone: "danger",
+      });
+    }
+
+    if (s.evolSemAssin > 0) {
+      items.push({
+        id: "evol-sem-assin",
+        icon: ClipboardList,
+        title: "Evoluções sem assinatura",
+        subtitle: `${s.evolSemAssin} registro(s) pendente(s)`,
+        meta: String(s.evolSemAssin),
+        to: "/app/evolucoes",
+        tone: "warning",
+      });
+    }
+
+    return items.slice(0, 8);
+  }, [s]);
+
+  const pacientesDelta =
+    s && s.pacientesAntes > 0
+      ? Math.round(((s.pacientesAtivos - s.pacientesAntes) / s.pacientesAntes) * 100)
+      : s && s.pacientesAtivos > 0
+        ? 100
+        : 0;
+
+  const docsDelta =
+    s && s.docsPrev > 0
+      ? Math.round(((s.docsMes - s.docsPrev) / s.docsPrev) * 100)
+      : s && s.docsMes > 0
+        ? 100
+        : 0;
+
   return (
-    <AppShell clinical className="space-y-7 sm:space-y-8">
-      <DashboardHero
-        greeting={greeting}
-        displayName={displayName || undefined}
-        clinicName={brand.clinicName}
-        dateLabel={dateLabel}
-        primaryColor={brand.primaryColor}
-        secondaryColor={brand.secondaryColor}
-        dayMetric={
-          !loading && s
-            ? {
-                label: "Atendimentos hoje",
-                value: s.atendHoje,
-                hint:
-                  reavalCount > 0
-                    ? `${reavalCount} reavaliação(ões) pendente(s) · ${s.agendaSemana} na semana`
-                    : s.atendHoje > 0
-                      ? `${s.agendaSemana} agendamento(s) nesta semana`
-                      : "Sua agenda está livre hoje",
-              }
-            : undefined
-        }
-        actions={
+    <AppShell clinical>
+      <OpsModuleStack className="space-y-4 sm:space-y-5">
+        <HomeHeroV2
+          greeting={greeting}
+          displayName={displayName || undefined}
+          clinicName={brand.clinicName}
+          dateLabel={dateLabel}
+          primaryColor={brand.primaryColor}
+          secondaryColor={brand.secondaryColor}
+          daySummary={
+            !loading && s
+              ? [
+                  { label: "atendimentos hoje", value: s.atendHoje },
+                  { label: "pendências", value: pendenciasTotal },
+                  { label: "na semana", value: s.agendaSemana },
+                ]
+              : undefined
+          }
+          actions={
+            <>
+              <PrimaryActionButton asChild className="h-10 px-4 text-sm" style={{ background: brand.primaryColor }}>
+                <Link to="/app/pacientes">
+                  <Plus className="h-4 w-4" />
+                  Novo paciente
+                </Link>
+              </PrimaryActionButton>
+              <SecondaryActionButton asChild className="h-10 px-4 text-sm bg-white/90">
+                <Link to="/app/agenda">
+                  <CalendarDays className="h-4 w-4" />
+                  Agendar
+                </Link>
+              </SecondaryActionButton>
+            </>
+          }
+        />
+
+        {stats.isError ? (
+          <QueryErrorState onRetry={() => void stats.refetch()} />
+        ) : loading ? (
+          <ClinicalSkeleton variant="dashboard" kpiCount={6} />
+        ) : (
           <>
-            <PrimaryActionButton asChild className="h-11 px-5 shadow-soft" style={{ background: brand.primaryColor }}>
-              <Link to="/app/pacientes">
-                <Plus className="h-4 w-4" />
-                Novo paciente
-              </Link>
-            </PrimaryActionButton>
-            <SecondaryActionButton asChild className="h-11 px-5 bg-white/90">
-              <Link to="/app/agenda">
-                <CalendarDays className="h-4 w-4" />
-                Agendar
-              </Link>
-            </SecondaryActionButton>
+            {isNewClinic && (
+              <InfoCard variant="highlight" hoverable icon={Sparkles} title="Sua clínica está pronta para iniciar" description="Cadastre o primeiro paciente e abra sua agenda.">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                  <Link to="/app/pacientes" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
+                    Cadastrar paciente <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <Link to="/app/agenda" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
+                    Abrir agenda <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              </InfoCard>
+            )}
+
+            <OperationalCardsGrid>
+              <OperationalCard
+                title="Agenda de hoje"
+                icon={CalendarDays}
+                value={s?.atendHoje ?? 0}
+                context={s?.atendHoje ? "Atendimentos programados para hoje" : "Nenhum atendimento — agende agora"}
+                to="/app/agenda"
+                accent={brand.primaryColor}
+                trend={{ label: `${s?.agendaSemana ?? 0} na semana`, tone: "neutral" }}
+              />
+              <OperationalCard
+                title="Pacientes ativos"
+                icon={Users}
+                value={s?.pacientesAtivos ?? 0}
+                context="Cadastros ativos na clínica"
+                to="/app/pacientes"
+                accent={brand.secondaryColor}
+                trend={
+                  pacientesDelta !== 0
+                    ? { label: `${pacientesDelta > 0 ? "+" : ""}${pacientesDelta}% vs mês`, tone: pacientesDelta > 0 ? "success" : "neutral" }
+                    : { label: "Estável no mês", tone: "neutral" }
+                }
+              />
+              <OperationalCard
+                title="Reavaliações"
+                icon={RefreshCw}
+                value={reavalCount}
+                context={reavalCount > 0 ? "Reavaliações vencidas ou pendentes" : "Reavaliações em dia"}
+                to="/app/reavaliacoes"
+                accent={reavalCount > 0 ? "var(--fos-warning)" : brand.primaryColor}
+                alert={reavalCount > 0}
+                trend={reavalCount > 0 ? { label: "Requer atenção", tone: "warning" } : { label: "Em dia", tone: "success" }}
+              />
+              <OperationalCard
+                title="Financeiro do mês"
+                icon={DollarSign}
+                value={s?.receitaMes ? brl(s.receitaMes) : "—"}
+                context={s?.receitaMes ? "Receitas realizadas no mês" : "Acompanhe receitas e pendências"}
+                to="/app/financeiro"
+                accent="#059669"
+                alert={(s?.recebiveisVencidos ?? 0) > 0}
+                trend={
+                  (s?.recebiveisVencidos ?? 0) > 0
+                    ? { label: `${s?.recebiveisVencidos} vencido(s)`, tone: "danger" }
+                    : { label: "Ver centro financeiro", tone: "neutral" }
+                }
+              />
+              <OperationalCard
+                title="Documentos recentes"
+                icon={FileText}
+                value={s?.docsMes ?? 0}
+                context="Emitidos no mês corrente"
+                to="/app/documentos"
+                accent={brand.primaryColor}
+                trend={
+                  docsDelta !== 0
+                    ? { label: `${docsDelta > 0 ? "+" : ""}${docsDelta}% vs mês ant.`, tone: docsDelta > 0 ? "success" : "neutral" }
+                    : undefined
+                }
+              />
+              <OperationalCard
+                title="Pendências clínicas"
+                icon={AlertTriangle}
+                value={pendenciasTotal}
+                context="Docs, evoluções, reavaliações e financeiro"
+                to="/app/documentos"
+                accent={pendenciasTotal > 0 ? "var(--fos-warning)" : brand.secondaryColor}
+                alert={pendenciasTotal > 0}
+                trend={pendenciasTotal > 0 ? { label: "Resolver agora", tone: "warning" } : { label: "Tudo em dia", tone: "success" }}
+              />
+            </OperationalCardsGrid>
+
+            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr] lg:gap-5">
+              <AttentionList items={attentionItems} />
+              <QuickActionCard
+                items={[
+                  { label: "Agenda", icon: CalendarDays, to: "/app/agenda" },
+                  { label: "Pacientes", icon: Users, to: "/app/pacientes" },
+                  { label: "Financeiro", icon: DollarSign, to: "/app/financeiro" },
+                  { label: "Documentos", icon: FileText, to: "/app/documentos" },
+                  { label: "Avaliações", icon: Stethoscope, to: "/app/avaliacoes" },
+                ]}
+              />
+            </div>
           </>
-        }
-      />
-
-      {stats.isError ? (
-        <QueryErrorState onRetry={() => void stats.refetch()} />
-      ) : loading ? (
-        <ClinicalSkeleton variant="dashboard" kpiCount={6} />
-      ) : (
-        <>
-          {isNewClinic && (
-            <InfoCard
-              variant="highlight"
-              hoverable
-              icon={Sparkles}
-              title="Sua clínica está pronta para iniciar"
-              description="Cadastre o primeiro paciente, configure sua agenda e emita seu primeiro documento."
-            >
-              <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                <Link
-                  to="/app/pacientes"
-                  className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
-                >
-                  Cadastrar paciente <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-                <Link
-                  to="/app/agenda"
-                  className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
-                >
-                  Abrir agenda <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-                <Link
-                  to="/app/configuracoes"
-                  className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline"
-                >
-                  Personalizar marca <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </InfoCard>
-          )}
-
-          <KpiGrid columns={6}>
-            <KpiCard
-              variant="premium"
-              icon={Users}
-              label="Pacientes ativos"
-              value={s?.pacientesAtivos ?? 0}
-              previous={s?.pacientesAntes ?? 0}
-              period="vs início do mês"
-              sparkline={sparkFromTrend(s?.pacientesAntes ?? 0, s?.pacientesAtivos ?? 0)}
-              to="/app/pacientes"
-              accent={brand.primaryColor}
-            />
-            <KpiCard
-              variant="premium"
-              icon={Clock}
-              label="Atendimentos hoje"
-              value={s?.atendHoje ?? 0}
-              to="/app/agenda"
-              accent={brand.secondaryColor}
-              hideDelta
-              subtitle={s?.atendHoje ? "Agendados para hoje" : "Nenhum hoje"}
-            />
-            <KpiCard
-              variant="premium"
-              icon={CalendarRange}
-              label="Agenda desta semana"
-              value={s?.agendaSemana ?? 0}
-              to="/app/agenda"
-              accent={brand.primaryColor}
-              hideDelta
-              subtitle="Seg — Dom"
-            />
-            <KpiCard
-              variant="premium"
-              icon={RefreshCw}
-              label="Reavaliações pendentes"
-              value={reavalCount}
-              tone={reavalCount > 0 ? "warning" : "default"}
-              to="/app/reavaliacoes"
-              accent={reavalCount > 0 ? "var(--warning)" : brand.primaryColor}
-              hideDelta
-              subtitle={reavalCount > 0 ? "Requer atenção" : "Em dia"}
-            />
-            <KpiCard
-              variant="premium"
-              icon={FileText}
-              label="Documentos emitidos"
-              value={s?.docsMes ?? 0}
-              previous={s?.docsPrev ?? 0}
-              period="vs mês anterior"
-              sparkline={sparkFromTrend(s?.docsPrev ?? 0, s?.docsMes ?? 0)}
-              to="/app/documentos"
-              accent={brand.secondaryColor}
-            />
-            <KpiCard
-              variant="premium"
-              icon={DollarSign}
-              label="Receita do mês"
-              value="—"
-              to="/app/financeiro"
-              accent={brand.primaryColor}
-              hideDelta
-              subtitle="Em breve"
-              isPlaceholder
-            />
-          </KpiGrid>
-
-          <div className={cn("grid gap-6 lg:grid-cols-[1.65fr_1fr]", clinical.splitLayout)}>
-            <PageSection
-              icon={CalendarDays}
-              title="Agenda do dia"
-              description="Atendimentos programados para hoje"
-              actions={
-                <Link
-                  to="/app/agenda"
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  Ver semana →
-                </Link>
-              }
-            >
-              {!s?.hoje.length ? (
-                <EmptyState
-                  icon={CalendarDays}
-                  title="Nenhum atendimento hoje"
-                  description="Sua agenda está livre. Aproveite para organizar a semana ou cadastrar novos pacientes."
-                  action={{ label: "Abrir agenda", to: "/app/agenda" }}
-                  className="py-10"
-                />
-              ) : (
-                <AgendaTimeline items={s.hoje} accent={brand.primaryColor} />
-              )}
-            </PageSection>
-
-            <PageSection
-              icon={Clock}
-              title="Próximos atendimentos"
-              description="Agenda dos próximos dias"
-              actions={
-                <Link
-                  to="/app/agenda"
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  Ver todos →
-                </Link>
-              }
-            >
-              {!s?.proximos.length ? (
-                <EmptyState
-                  icon={Clock}
-                  title="Sem atendimentos futuros"
-                  description="Não há consultas agendadas para o restante da semana."
-                  action={{ label: "Agendar consulta", to: "/app/agenda" }}
-                  className="py-10"
-                />
-              ) : (
-                <ul className="space-y-2.5">
-                  {s.proximos.map((a) => (
-                    <li key={a.id}>
-                      <Link
-                        to="/app/agenda"
-                        className="dashboard-upcoming-card group flex items-center gap-3 rounded-2xl px-3.5 py-3.5 sm:px-4"
-                      >
-                        <div
-                          className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-[10px] font-bold leading-tight shadow-sm ring-1 ring-black/[0.04]"
-                          style={{ background: `${brand.primaryColor}14`, color: brand.primaryColor }}
-                        >
-                          <span>{fmtDate(a.data).slice(0, 5)}</span>
-                          <span className="tabular-nums text-xs">{String(a.horario).slice(0, 5)}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-semibold text-slate-900 group-hover:text-primary">
-                            {a.patients?.nome_completo ?? "—"}
-                          </div>
-                          <div className="truncate text-xs text-slate-600 sm:text-sm">
-                            {a.observacao || a.professionals?.nome || "Consulta"}
-                          </div>
-                        </div>
-                        <StatusBadge variant={STATUS_VARIANT(a.status ?? "")} className="shrink-0">
-                          {STATUS_LABEL(a.status ?? "")}
-                        </StatusBadge>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </PageSection>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <PageSection
-              icon={Users}
-              title="Pacientes recentes"
-              description="Últimos cadastros na clínica"
-              actions={
-                <Link
-                  to="/app/pacientes"
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  Ver todos →
-                </Link>
-              }
-            >
-              {!s?.pacientesRecentes.length ? (
-                <EmptyState
-                  icon={UserPlus}
-                  title="Nenhum paciente cadastrado"
-                  description="Comece cadastrando seu primeiro paciente para acompanhar evoluções e documentos."
-                  action={{ label: "Cadastrar paciente", to: "/app/pacientes" }}
-                  className="py-10"
-                />
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {s.pacientesRecentes.map((p) => (
-                    <li key={p.id}>
-                      <Link
-                        to="/app/pacientes/$id"
-                        params={{ id: p.id }}
-                        className="flex items-center justify-between gap-3 px-1 py-3.5 transition-colors hover:bg-slate-50"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                            {p.nome_completo.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="truncate font-medium">{p.nome_completo}</span>
-                        </div>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {fmtDate(p.created_at)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </PageSection>
-
-            <PageSection
-              icon={Sparkles}
-              title="Ações rápidas"
-              description="Atalhos e pendências operacionais"
-            >
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <QuickAction icon={UserPlus} label="Novo paciente" to="/app/pacientes" accent={brand.primaryColor} />
-                <QuickAction icon={CalendarDays} label="Agendar" to="/app/agenda" accent={brand.secondaryColor} />
-                <QuickAction icon={FileText} label="Documentos" to="/app/documentos" accent={brand.primaryColor} />
-                <QuickAction icon={Stethoscope} label="Evoluções" to="/app/evolucoes" accent={brand.secondaryColor} />
-                <QuickAction icon={RefreshCw} label="Reavaliações" to="/app/reavaliacoes" accent={brand.primaryColor} />
-                <QuickAction icon={Settings} label="Configurações" to="/app/configuracoes" accent={brand.primaryColor} />
-              </div>
-
-              <div className="mt-5 space-y-1.5 border-t border-slate-100 pt-5">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                  Pendências
-                </p>
-                <ActivityRow
-                  icon={ClipboardList}
-                  label="Documentos pendentes"
-                  count={s?.docsRascunho ?? 0}
-                  to="/app/documentos"
-                  tone={(s?.docsRascunho ?? 0) > 0 ? "warning" : "default"}
-                />
-                <ActivityRow
-                  icon={AlertTriangle}
-                  label="Reavaliações vencidas"
-                  count={reavalCount}
-                  to="/app/reavaliacoes"
-                  tone={reavalCount > 0 ? "danger" : "default"}
-                />
-                <ActivityRow
-                  icon={FileSignature}
-                  label="Evoluções sem assinatura"
-                  count={s?.evolSemAssin ?? 0}
-                  to="/app/evolucoes"
-                  tone={(s?.evolSemAssin ?? 0) > 0 ? "warning" : "default"}
-                />
-                <ActivityRow
-                  icon={UserCheck}
-                  label="Pacientes aguardando retorno"
-                  count={s?.retorno.length ?? 0}
-                  to="/app/pacientes"
-                  tone="default"
-                />
-              </div>
-
-              {s &&
-                reavalCount === 0 &&
-                (s.docsRascunho ?? 0) === 0 &&
-                (s.evolSemAssin ?? 0) === 0 && (
-                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/60 px-3 py-2.5 text-xs text-emerald-800">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Tudo em dia. Nenhuma pendência crítica.
-                  </div>
-                )}
-            </PageSection>
-          </div>
-        </>
-      )}
+        )}
+      </OpsModuleStack>
     </AppShell>
-  );
-}
-
-
-function QuickAction({
-  icon: Icon,
-  label,
-  to,
-  accent = "var(--primary)",
-}: {
-  icon: LucideIcon;
-  label: string;
-  to: string;
-  accent?: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="dashboard-quick-action group flex flex-col items-center gap-3 rounded-2xl px-3 py-5 text-center"
-    >
-      <div
-        className="flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-soft transition-transform duration-200 group-hover:scale-105"
-        style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in oklab, ${accent} 72%, #2bb673))` }}
-      >
-        <Icon className="h-5 w-5" strokeWidth={2} />
-      </div>
-      <span className="text-xs font-semibold leading-tight text-slate-800 sm:text-[13px]">{label}</span>
-    </Link>
-  );
-}
-
-function ActivityRow({
-  icon: Icon,
-  label,
-  count,
-  to,
-  tone,
-}: {
-  icon: LucideIcon;
-  label: string;
-  count: number;
-  to: string;
-  tone: "default" | "warning" | "danger";
-}) {
-  const cls =
-    tone === "danger"
-      ? "text-rose-700 bg-rose-50 ring-rose-200"
-      : tone === "warning"
-        ? "text-amber-700 bg-amber-50 ring-amber-200"
-        : "text-muted-foreground bg-muted ring-border";
-  return (
-    <Link
-      to={to}
-      className="group flex items-center gap-3 rounded-2xl border border-transparent px-3 py-3 transition-all duration-200 hover:border-[rgba(15,76,92,0.12)] hover:bg-white/80 hover:shadow-sm"
-    >
-      <div className={cn("rounded-lg p-1.5 ring-1", cls)}>
-        <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-medium">{label}</div>
-      </div>
-      <div
-        className="text-[19px] font-semibold tabular-nums"
-        style={{ color: count > 0 ? undefined : "var(--muted-foreground)" }}
-      >
-        {count}
-      </div>
-      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover:text-primary" />
-    </Link>
   );
 }

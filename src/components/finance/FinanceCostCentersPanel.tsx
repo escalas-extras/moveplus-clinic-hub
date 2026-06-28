@@ -32,6 +32,7 @@ import {
 } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
+import { FINANCE_PANEL_ROOT } from "./finance-layout";
 
 type FinanceCostCentersPanelProps = {
   clinicId: string | null;
@@ -191,7 +192,7 @@ export function FinanceCostCentersPanel({ clinicId, clinicLoading, supportMode }
       loadingLabel="Carregando centros de custo…"
       errorFallback="Não foi possível carregar os centros de custo."
     >
-    <div className="space-y-6">
+    <div className={FINANCE_PANEL_ROOT}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground max-w-2xl">
           Segmentação por área ou unidade da clínica. Centros inativos não aparecem em novos cadastros futuros.

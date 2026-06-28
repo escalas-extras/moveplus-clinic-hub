@@ -26,9 +26,6 @@ import {
   FilePlus2,
   Stethoscope,
   Home as HomeIcon,
-  PanelLeftClose,
-  PanelLeftOpen,
-  ChevronRight,
 } from "lucide-react";
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -53,15 +50,17 @@ import { Button } from "@/components/ui/button";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { useBranding, FISIOOS_DEFAULTS } from "@/lib/branding";
 import { preloadImageUrl } from "@/lib/image-preload";
 import { preloadAvatarUrl } from "@/lib/user-avatar";
 
 import { ClinicLogo } from "@/components/clinic-logo";
+
+import { AppSidebar } from "@/components/sidebar";
+
+import { SIDEBAR_LAYOUT } from "@/components/sidebar/sidebar-layout";
 
 import { SupportBanner } from "@/components/support-banner";
 
@@ -223,7 +222,7 @@ const platformGroups: NavGroup[] = [
   },
 ];
 
-const COLLAPSED_KEY = "fos-sidebar-collapsed";
+const COLLAPSED_KEY = SIDEBAR_LAYOUT.collapseStorageKey;
 
 const CLINIC_ROLE_LABELS: Record<string, string> = {
   owner: "Proprietário",
@@ -343,8 +342,6 @@ export function AppShell({
 
   const avatarGradient = `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})`;
 
-  const sidebarExpanded = !collapsed || open;
-
   const { data: profile, isLoading: avatarProfileLoading } = useQuery({
     queryKey: ["user-avatar", user?.id],
 
@@ -410,8 +407,6 @@ export function AppShell({
 
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  const sidebarWidthClass = collapsed && !open ? "w-[72px]" : "w-[280px]";
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -484,152 +479,24 @@ export function AppShell({
             </div>
           </header>
 
-          {/* Sidebar — Clinical Command Center */}
-
-          <aside
-            className={cn(
-              "fixed lg:sticky top-0 left-0 z-30 h-screen h-dvh glass-sidebar flex flex-col transition-[width,transform] duration-300 ease-out overflow-hidden",
-
-              sidebarWidthClass,
-
-              "lg:translate-x-0",
-
-              open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-            )}
-          >
-            {/* Identity block */}
-
-            <div
-              className={cn(
-                "shrink-0 border-b border-sidebar-border",
-
-                collapsed && !open
-                  ? "flex flex-col items-center gap-2 px-2 py-3.5"
-                  : "px-3 py-4 space-y-3",
-              )}
-            >
-              <div
-                className={cn(
-                  "sidebar-identity-glow rounded-xl overflow-hidden",
-
-                  collapsed && !open ? "flex justify-center w-full max-w-[52px]" : "w-full",
-                )}
-              >
-                <ClinicLogo
-                  brand={brand}
-                  isLoading={logoLoading}
-                  variant={collapsed && !open ? "sidebar-mark" : "sidebar-brand"}
-                />
-              </div>
-
-              {sidebarExpanded && (
-                <div className="space-y-0.5 min-w-0 text-center lg:text-left">
-                  <div className="font-semibold text-[15px] leading-snug tracking-tight text-white truncate">
-                    {brand.clinicName}
-                  </div>
-
-                  {brand.slogan && (
-                    <div className="text-[12px] leading-relaxed text-sidebar-foreground/70 line-clamp-2">
-                      {brand.slogan}
-                    </div>
-                  )}
-
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-sidebar-foreground/45 pt-0.5">
-                    {brand.hasOwnLogo ? `Powered by ${brand.appName}` : brand.appName}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Navigation */}
-
-            <nav
-              className={cn(
-                "flex-1 overflow-y-auto overflow-x-hidden overscroll-contain py-4",
-
-                collapsed && !open ? "px-2 space-y-3" : "px-3 space-y-6",
-              )}
-            >
-              {visibleGroups.map((g, gi) => (
-                <div key={g.title}>
-                  {sidebarExpanded && (
-                    <div className="sidebar-nav-group-label px-2.5 mb-2 text-[10px] font-semibold uppercase select-none">
-                      {g.title}
-                    </div>
-                  )}
-
-                  {gi > 0 && !sidebarExpanded && (
-                    <div className="sidebar-group-divider mx-2 mb-2 h-px" aria-hidden />
-                  )}
-
-                  <div className="space-y-0.5">
-                    {g.items.map((item) => (
-                      <NavItem
-                        key={item.to}
-                        to={item.to}
-                        exact={item.exact}
-                        icon={item.icon}
-                        label={item.label}
-                        collapsed={collapsed && !open}
-                        onClick={() => setOpen(false)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </nav>
-
-            {/* Footer — usuário + ações */}
-
-            <div className="shrink-0 border-t border-sidebar-border p-3 space-y-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "hidden lg:flex w-full text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent min-h-10",
-
-                  collapsed ? "justify-center px-0" : "justify-start",
-                )}
-                onClick={() => setCollapsed((v) => !v)}
-                aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-              >
-                {collapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" />
-                ) : (
-                  <>
-                    <PanelLeftClose className="h-4 w-4 mr-2 shrink-0" /> Recolher menu
-                  </>
-                )}
-              </Button>
-
-              {collapsed && !open ? (
-                <CollapsedUserFooter
-                  userName={userName}
-                  userRole={userRole}
-                  avatarPath={avatarPath}
-                  userId={user?.id}
-                  avatarGradient={avatarGradient}
-                  avatarLoading={avatarLoading}
-                  onAvatarClick={() => setAvatarOpen(true)}
-                  onLogout={logout}
-                  isAdmin={isAdmin}
-                />
-              ) : (
-                <ExpandedUserFooter
-                  userName={userName}
-                  userRole={userRole}
-                  userEmail={user?.email}
-                  avatarPath={avatarPath}
-                  userId={user?.id}
-                  avatarGradient={avatarGradient}
-                  avatarLoading={avatarLoading}
-                  onAvatarClick={() => setAvatarOpen(true)}
-                  onLogout={logout}
-                  isAdmin={isAdmin}
-                />
-              )}
-            </div>
-          </aside>
+          <AppSidebar
+            brand={brand}
+            logoLoading={logoLoading}
+            visibleGroups={visibleGroups}
+            collapsed={collapsed}
+            mobileOpen={open}
+            onToggleCollapsed={() => setCollapsed((v) => !v)}
+            onCloseMobile={() => setOpen(false)}
+            userName={userName}
+            userRole={userRole}
+            userId={user?.id}
+            avatarPath={avatarPath}
+            avatarGradient={avatarGradient}
+            avatarLoading={avatarLoading}
+            isAdmin={isAdmin}
+            onAvatarClick={() => setAvatarOpen(true)}
+            onLogout={logout}
+          />
 
           <main className="fos-app-canvas flex-1 min-w-0 pt-16 lg:pt-0">
             <div className="sticky top-0 z-30">
@@ -730,288 +597,5 @@ export function AppShell({
         )}
       </div>
     </TooltipProvider>
-  );
-}
-
-function NavItem({
-  to,
-
-  exact,
-
-  icon: Icon,
-
-  label,
-
-  collapsed,
-
-  onClick,
-}: {
-  to: string;
-
-  exact?: boolean;
-
-  icon: typeof LayoutDashboard;
-
-  label: string;
-
-  collapsed: boolean;
-
-  onClick: () => void;
-}) {
-  const loc = useLocation();
-
-  const active = exact
-    ? loc.pathname === to
-    : loc.pathname === to || (to !== "/app" && loc.pathname.startsWith(to));
-
-  const link = (
-    <Link
-      to={to}
-      onClick={onClick}
-      data-active={active}
-      data-sidebar="nav-item"
-      className={cn(
-        "group relative flex items-center rounded-xl text-[13.5px] font-medium transition-all duration-200",
-
-        collapsed ? "justify-center h-11 w-11 mx-auto" : "gap-3 px-3 min-h-[44px] py-2.5",
-
-        active
-          ? "bg-sidebar-accent text-white font-semibold shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-          : "text-sidebar-foreground/85 hover:bg-sidebar-accent/80 hover:text-white",
-      )}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-    >
-      {active && (
-        <span
-          className={cn(
-            "absolute rounded-full bg-sidebar-primary",
-
-            collapsed
-              ? "left-0 top-1/2 -translate-y-1/2 h-6 w-[3px]"
-              : "left-0 top-2 bottom-2 w-[3px] rounded-r-full",
-          )}
-        />
-      )}
-
-      <Icon
-        className={cn(
-          "h-[18px] w-[18px] shrink-0 transition-colors",
-
-          active ? "text-sidebar-primary" : "text-sidebar-foreground/60 group-hover:text-white",
-        )}
-        strokeWidth={active ? 2.25 : 1.75}
-      />
-
-      {!collapsed && <span className="truncate flex-1">{label}</span>}
-    </Link>
-  );
-
-  if (!collapsed) return link;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-
-      <TooltipContent side="right" className="font-medium">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function ExpandedUserFooter({
-  userName,
-
-  userRole,
-
-  userEmail,
-
-  avatarPath,
-
-  userId,
-
-  avatarGradient,
-
-  avatarLoading,
-
-  onAvatarClick,
-
-  onLogout,
-
-  isAdmin,
-}: {
-  userName: string;
-
-  userRole: string;
-
-  userEmail?: string;
-
-  avatarPath: string | null;
-
-  userId?: string;
-
-  avatarGradient: string;
-
-  avatarLoading: boolean;
-
-  onAvatarClick: () => void;
-
-  onLogout: () => void;
-
-  isAdmin: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="rounded-xl bg-sidebar-accent/60 p-2.5 space-y-2">
-        <button
-          type="button"
-          onClick={onAvatarClick}
-          className="w-full flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-sidebar-accent transition-colors text-left cursor-pointer group min-h-[44px]"
-          aria-label="Minha conta"
-        >
-          <UserAvatar
-            userId={userId}
-            avatarPath={avatarPath}
-            name={userName}
-            size={36}
-            gradient={avatarGradient}
-            isLoading={avatarLoading}
-          />
-
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-white truncate">{userName || "Usuário"}</div>
-
-            <div className="text-[11px] text-sidebar-primary font-medium truncate">{userRole}</div>
-
-            {userEmail && (
-              <div className="text-[10px] text-sidebar-foreground/50 truncate">{userEmail}</div>
-            )}
-          </div>
-        </button>
-
-        {isAdmin && (
-          <Link
-            to="/app/configuracoes"
-            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-sidebar-foreground/80 hover:text-white hover:bg-sidebar-accent transition-colors min-h-[40px]"
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-
-            <span className="flex-1">Configurações</span>
-
-            <ChevronRight className="h-3.5 w-3.5 opacity-50" />
-          </Link>
-        )}
-      </div>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full justify-start text-sidebar-foreground/75 hover:text-white hover:bg-sidebar-accent min-h-10"
-        onClick={onLogout}
-      >
-        <LogOut className="h-4 w-4 mr-2 shrink-0" /> Sair
-      </Button>
-    </div>
-  );
-}
-
-function CollapsedUserFooter({
-  userName,
-
-  userRole,
-
-  avatarPath,
-
-  userId,
-
-  avatarGradient,
-
-  avatarLoading,
-
-  onAvatarClick,
-
-  onLogout,
-
-  isAdmin,
-}: {
-  userName: string;
-
-  userRole: string;
-
-  avatarPath: string | null;
-
-  userId?: string;
-
-  avatarGradient: string;
-
-  avatarLoading: boolean;
-
-  onAvatarClick: () => void;
-
-  onLogout: () => void;
-
-  isAdmin: boolean;
-}) {
-  return (
-    <div className="space-y-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onAvatarClick}
-            className="w-full flex justify-center py-1 rounded-xl hover:bg-sidebar-accent transition-colors min-h-11"
-            aria-label={`${userName} · ${userRole}`}
-          >
-            <UserAvatar
-              userId={userId}
-              avatarPath={avatarPath}
-              name={userName}
-              size={36}
-              gradient={avatarGradient}
-              isLoading={avatarLoading}
-            />
-          </button>
-        </TooltipTrigger>
-
-        <TooltipContent side="right">
-          <div className="font-semibold">{userName}</div>
-
-          <div className="text-xs opacity-80">{userRole}</div>
-        </TooltipContent>
-      </Tooltip>
-
-      {isAdmin && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/app/configuracoes"
-              className="flex justify-center items-center h-11 w-11 mx-auto rounded-xl hover:bg-sidebar-accent text-sidebar-foreground/80 hover:text-white transition-colors"
-              aria-label="Configurações"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
-          </TooltipTrigger>
-
-          <TooltipContent side="right">Configurações</TooltipContent>
-        </Tooltip>
-      )}
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-full h-11 text-sidebar-foreground/75 hover:text-white hover:bg-sidebar-accent"
-            onClick={onLogout}
-            aria-label="Sair"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-
-        <TooltipContent side="right">Sair</TooltipContent>
-      </Tooltip>
-    </div>
   );
 }

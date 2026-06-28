@@ -32,8 +32,8 @@ export function computeSidebarBrandFit(
 ): SidebarBrandFit {
   const pad = 6;
   const fill = 0.92;
-  const minH = 80;
-  const maxH = 132;
+  const minH = 48;
+  const maxH = 72;
 
   const availW = Math.max(1, containerWidth - pad);
   const availHMax = maxH - pad;
@@ -61,11 +61,11 @@ export function computeSidebarBrandFit(
 export function sidebarBrandContainerHeight(aspect: LogoAspect): number {
   switch (aspect) {
     case "horizontal":
-      return 100;
+      return 56;
     case "square":
-      return 112;
+      return 64;
     case "vertical":
-      return 120;
+      return 72;
   }
 }
 
@@ -89,11 +89,11 @@ export function logoFitMetrics(variant: LogoBoxLayoutVariant, aspect: LogoAspect
         widthPct: 0.92,
         heightCap: 0.94,
         maxWidthPct: 1,
-        absoluteHeightCap: 120,
+        absoluteHeightCap: 72,
       };
     case "sidebar-mark":
       return {
-        containerHeight: 48,
+        containerHeight: 32,
         paddingX: 4,
         paddingY: 4,
         widthPct: 0.92,

@@ -45,7 +45,6 @@ import {
   DollarSign,
   Stethoscope,
   X,
-  Filter,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -58,10 +57,6 @@ import {
   ClinicalSkeleton,
   EmptyState,
   FilterField,
-  InfoCard,
-  KpiCard,
-  KpiGrid,
-  PageHeader,
   PageSection,
   PrimaryActionButton,
   QueryErrorState,
@@ -69,6 +64,7 @@ import {
   StatusBadge,
   clinical,
 } from "@/components/layout";
+import { OpsFiltersPanel, OpsKpiCard, OpsKpiStrip, OpsPageHero } from "@/components/ops";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { calcAge, fmtDate } from "@/lib/format";
@@ -374,7 +370,7 @@ function PacientesPage() {
 
   return (
     <AppShell clinical>
-      <PageHeader
+      <OpsPageHero
         icon={Users}
         eyebrow="CRM clínico"
         breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Pacientes" }]}
@@ -411,23 +407,28 @@ function PacientesPage() {
         <ClinicalSkeleton variant="split" kpiCount={4} />
       ) : (
         <>
-          <KpiGrid columns={4}>
-            <KpiCard icon={Users} label="Total de pacientes" value={kpis.data?.total ?? 0} accent="var(--primary)" hideDelta />
-            <KpiCard icon={UserPlus} label="Novos no mês" value={kpis.data?.novos ?? 0} accent="#059669" hideDelta />
-            <KpiCard icon={Activity} label="Em tratamento" value={kpis.data?.emTratamento ?? 0} accent="#0284c7" hideDelta />
-            <KpiCard icon={LogOut} label="Altas" value={kpis.data?.altas ?? 0} accent="#64748b" hideDelta />
-          </KpiGrid>
+          <OpsKpiStrip>
+            <OpsKpiCard accentKey="primary" icon={Users} label="Total de pacientes" value={kpis.data?.total ?? 0} hideDelta />
+            <OpsKpiCard accentKey="success" icon={UserPlus} label="Novos no mês" value={kpis.data?.novos ?? 0} hideDelta />
+            <OpsKpiCard accentKey="info" icon={Activity} label="Em tratamento" value={kpis.data?.emTratamento ?? 0} hideDelta />
+            <OpsKpiCard accentKey="neutral" icon={LogOut} label="Altas" value={kpis.data?.altas ?? 0} hideDelta />
+          </OpsKpiStrip>
 
-          <InfoCard icon={Search} title="Busca e filtros" description="Pesquisa instantânea e refinamento da lista.">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
+          <OpsFiltersPanel
+            icon={Search}
+            title="Busca e filtros"
+            description="Pesquisa instantânea e refinamento da lista."
+            showMobileFilters={showMobileFilters}
+            onToggleMobileFilters={() => setShowMobileFilters((v) => !v)}
+            hasActiveFilters={hasActiveFilters}
+            toolbar={
+              <>
                 <SearchField
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Buscar nome, CPF, telefone ou convênio…"
                   wrapperClassName="min-w-[200px]"
                 />
-
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
                   <TabsList className="rounded-xl">
                     <TabsTrigger value="cards" className="gap-1.5 rounded-lg">
@@ -440,20 +441,9 @@ function PacientesPage() {
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg lg:hidden"
-                  onClick={() => setShowMobileFilters((v) => !v)}
-                >
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filtros
-                  {hasActiveFilters && <span className="ml-1.5 h-2 w-2 rounded-full bg-primary" />}
-                </Button>
-              </div>
-
-              <div className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-4", showMobileFilters ? "grid" : "hidden lg:grid")}>
+              </>
+            }
+          >
                 <FilterField label="Status">
                   <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
                     <SelectTrigger className={cn("rounded-xl", clinical.select)}>
@@ -512,9 +502,7 @@ function PacientesPage() {
                     </SelectContent>
                   </Select>
                 </FilterField>
-              </div>
-            </div>
-          </InfoCard>
+          </OpsFiltersPanel>
 
           <div className={clinical.splitLayout}>
             <PageSection
