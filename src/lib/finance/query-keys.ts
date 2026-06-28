@@ -32,4 +32,8 @@ export const financeQueryKeys = {
     ["finance", clinicId, "patient-packages", filtersKey] as const,
   packageLookups: (clinicId: string | null | undefined) =>
     ["finance", clinicId, "package-lookups"] as const,
+  packageUsages: (clinicId: string | null | undefined, contractId: string) =>
+    ["finance", clinicId, "package-usages", contractId] as const,
+  patientPackageDetail: (clinicId: string | null | undefined, contractId: string) =>
+    ["finance", clinicId, "patient-package", contractId] as const,
 } as const;

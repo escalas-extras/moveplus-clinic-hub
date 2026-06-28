@@ -2809,6 +2809,86 @@ export type Database = {
           },
         ]
       }
+      patient_package_usages: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          patient_package_contract_id: string
+          professional_id: string | null
+          quantity: number
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          status: Database["public"]["Enums"]["patient_package_usage_status"]
+          usage_date: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          patient_package_contract_id: string
+          professional_id?: string | null
+          quantity?: number
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: Database["public"]["Enums"]["patient_package_usage_status"]
+          usage_date?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          patient_package_contract_id?: string
+          professional_id?: string | null
+          quantity?: number
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: Database["public"]["Enums"]["patient_package_usage_status"]
+          usage_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_package_usages_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_usages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_usages_patient_package_contract_id_fkey"
+            columns: ["patient_package_contract_id"]
+            isOneToOne: false
+            referencedRelation: "patient_package_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_package_usages_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           acompanhante_nome: string | null
@@ -3689,6 +3769,7 @@ export type Database = {
       payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
       payment_status: "pago" | "pendente" | "cancelado"
       patient_package_status: "ativo" | "encerrado" | "cancelado"
+      patient_package_usage_status: "active" | "reversed"
       risk_level: "baixo" | "moderado" | "alto" | "muito_alto"
       scale_type: "barthel" | "katz" | "berg" | "tinetti" | "braden"
       signer_role: "paciente" | "responsavel" | "profissional"
@@ -3887,6 +3968,7 @@ export const Constants = {
       payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
       payment_status: ["pago", "pendente", "cancelado"],
       patient_package_status: ["ativo", "encerrado", "cancelado"],
+      patient_package_usage_status: ["active", "reversed"],
       risk_level: ["baixo", "moderado", "alto", "muito_alto"],
       scale_type: ["barthel", "katz", "berg", "tinetti", "braden"],
       signer_role: ["paciente", "responsavel", "profissional"],

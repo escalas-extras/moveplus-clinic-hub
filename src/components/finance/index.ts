@@ -6,3 +6,4 @@ export { FinanceReceivablesPanel } from "./FinanceReceivablesPanel";
 export { FinancePayablesPanel } from "./FinancePayablesPanel";
 export { FinanceCashFlowPanel } from "./FinanceCashFlowPanel";
 export { FinancePackagesPanel } from "./FinancePackagesPanel";
+export { FinancePackageContractUsageDialog } from "./FinancePackageContractUsageDialog";

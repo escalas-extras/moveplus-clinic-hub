@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import {
   Ban,
   CheckCircle2,
+  History,
   Loader2,
   Package,
   Pencil,
@@ -57,6 +58,7 @@ import {
   type PatientPackageStatus,
 } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
+import { FinancePackageContractUsageDialog } from "./FinancePackageContractUsageDialog";
 
 type FinancePackagesPanelProps = {
   clinicId: string | null;
@@ -123,6 +125,7 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
     type: "cancel" | "close";
     row: PatientPackageRow;
   } | null>(null);
+  const [usageContract, setUsageContract] = useState<PatientPackageRow | null>(null);
 
   const templates = useQuery({
     queryKey: financeQueryKeys.packageTemplates(clinicId),
@@ -600,6 +603,14 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUsageContract(row)}
+                          >
+                            <History className="mr-1 h-3.5 w-3.5" />
+                            Consumo
+                          </Button>
                           {row.status === "ativo" && (
                             <>
                               <SupportGuardButton
@@ -832,6 +843,15 @@ export function FinancePackagesPanel({ clinicId, supportMode }: FinancePackagesP
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FinancePackageContractUsageDialog
+        open={!!usageContract}
+        onOpenChange={(o) => !o && setUsageContract(null)}
+        contract={usageContract}
+        clinicId={clinicId}
+        supportMode={supportMode}
+        professionals={lookups.data?.professionals ?? []}
+      />
 
       <Dialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
         <DialogContent className="max-w-sm">
