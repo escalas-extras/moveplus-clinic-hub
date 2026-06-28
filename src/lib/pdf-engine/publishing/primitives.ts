@@ -7,7 +7,7 @@ import type { ClinicalTrend } from "../types";
 import { PDF_COLORS as C } from "../tokens";
 import { wrapText } from "../text";
 import { drawMiniIcon } from "../icons";
-import { PUB_SPACE, PUB_TYPE } from "./typography";
+import { PUB_SPACE, PUB_TYPE, PUB_LAYOUT } from "./typography";
 import { dashboardIconFor, evaPainZone } from "./dossier-visuals";
 
 export function drawPublishingTitle(doc: jsPDF, label: string, x: number, y: number, w: number): number {
@@ -68,12 +68,14 @@ function drawEvaGradientBar(doc: jsPDF, x: number, y: number, w: number, h: numb
 export function drawPublishingEva(doc: jsPDF, value: number | null, x: number, y: number, w: number): number {
   const safe = value == null ? null : Math.max(0, Math.min(10, Math.round(value)));
   const zone = evaPainZone(safe);
-  const h = 56;
+  const h = PUB_LAYOUT.evaH;
 
   doc.setFillColor(...C.surface);
-  doc.roundedRect(x, y, w, h, 6, 6, "F");
+  doc.setDrawColor(...C.hairline);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, h, PUB_LAYOUT.panelRadius, PUB_LAYOUT.panelRadius, "FD");
   doc.setFillColor(...zone.color);
-  doc.roundedRect(x, y, 3, h, 6, 6, "F");
+  doc.roundedRect(x, y, 3, h, PUB_LAYOUT.panelRadius, PUB_LAYOUT.panelRadius, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(PUB_TYPE.label);
@@ -128,7 +130,7 @@ export function drawCompareBarsRow(
   max: number,
   trend?: ClinicalTrend,
 ): number {
-  const rowH = 38;
+  const rowH = PUB_LAYOUT.compareRowH;
   const labelW = 78;
   const barW = w - labelW - 28;
 
@@ -173,7 +175,7 @@ export function drawPublishingTimeline(
 ): number {
   const lineX = x + 5;
   let cy = y + 4;
-  const itemH = 26;
+  const itemH = PUB_LAYOUT.timelineItemH;
 
   if (items.length > 1) {
     doc.setDrawColor(...C.brand);
@@ -220,10 +222,12 @@ export function drawObjectiveBadge(
   const h = Math.max(34, 12 + lines.length * 12 + 8);
 
   doc.setFillColor(...bg);
-  doc.roundedRect(x, y, w, h, 5, 5, "F");
+  doc.setDrawColor(...C.hairline);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, h, PUB_LAYOUT.cardRadius, PUB_LAYOUT.cardRadius, "FD");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(PUB_TYPE.value);
   doc.setTextColor(...fg);
   doc.text(icon, x + 8, y + 14);
 
@@ -259,13 +263,13 @@ export function drawDocumentCard(
   lastIssued: string,
   hash: string,
 ): number {
-  const h = 56;
+  const h = PUB_LAYOUT.documentCardH;
   doc.setFillColor(...C.paper);
-  doc.setDrawColor(...C.hairlineSoft);
+  doc.setDrawColor(...C.hairline);
   doc.setLineWidth(0.35);
-  doc.roundedRect(x, y, w, h, 5, 5, "FD");
+  doc.roundedRect(x, y, w, h, PUB_LAYOUT.cardRadius, PUB_LAYOUT.cardRadius, "FD");
   doc.setFillColor(...C.brand);
-  doc.roundedRect(x, y, w, 2.5, 5, 5, "F");
+  doc.roundedRect(x, y, w, 2.5, PUB_LAYOUT.cardRadius, PUB_LAYOUT.cardRadius, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(PUB_TYPE.caption);
@@ -302,7 +306,9 @@ export function drawAdaptiveBadge(
   const h = (label ? 10 : 0) + Math.max(lines.length, 1) * 12 + 10;
 
   doc.setFillColor(...colors.bg);
-  doc.roundedRect(x, y, w, h, 4, 4, "F");
+  doc.setDrawColor(...C.hairline);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(x, y, w, h, PUB_LAYOUT.badgeRadius, PUB_LAYOUT.badgeRadius, "FD");
   let textY = y + 10;
   if (label) {
     doc.setFont("helvetica", "bold");
@@ -332,9 +338,9 @@ function drawStatDashboardCard(
   accent: [number, number, number],
 ) {
   doc.setFillColor(...C.paper);
-  doc.setDrawColor(...C.hairlineSoft);
+  doc.setDrawColor(...C.hairline);
   doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, w, h, 5, 5, "FD");
+  doc.roundedRect(x, y, w, h, PUB_LAYOUT.cardRadius, PUB_LAYOUT.cardRadius, "FD");
 
   drawMiniIcon(doc, dashboardIconFor(iconLabel), x + 7, y + 5, 7, accent);
 
@@ -382,7 +388,7 @@ export function drawPublishingDashboard(
 ): number {
   const gap = PUB_SPACE.cardGap;
   const cellW = (w - gap * (columns - 1)) / columns;
-  const cellH = 46;
+  const cellH = PUB_LAYOUT.dashboardCellH;
   let maxY = y;
 
   const kpiLabels = ["sessões", "avaliações", "reavaliações", "evoluções", "documentos", "objetivos"];
@@ -401,7 +407,9 @@ export function drawPublishingDashboard(
       drawStatDashboardCard(doc, cx, cy, cellW, cellH, item.label, item.value, item.label, colors.fg);
     } else {
       doc.setFillColor(...colors.bg);
-      doc.roundedRect(cx, cy, cellW, cellH, 5, 5, "F");
+      doc.setDrawColor(...C.hairline);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(cx, cy, cellW, cellH, PUB_LAYOUT.cardRadius, PUB_LAYOUT.cardRadius, "FD");
       drawMiniIcon(doc, dashboardIconFor(item.label), cx + 7, cy + 5, 7, colors.fg);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(PUB_TYPE.caption);
@@ -440,7 +448,7 @@ export function drawGridAsCards(
   const cols = 2;
   const gap = PUB_SPACE.cardGap;
   const cellW = (w - gap) / cols;
-  const cellH = 34;
+  const cellH = PUB_LAYOUT.gridCellH;
   let maxY = y;
 
   cells.forEach(([label, value], i) => {
@@ -451,7 +459,9 @@ export function drawGridAsCards(
     const cy = y + row * (cellH + gap);
 
     doc.setFillColor(...C.surface);
-    doc.roundedRect(cx, cy, cellW, cellH, 4, 4, "F");
+    doc.setDrawColor(...C.hairline);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(cx, cy, cellW, cellH, PUB_LAYOUT.badgeRadius, PUB_LAYOUT.badgeRadius, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(PUB_TYPE.caption);
     doc.setTextColor(...C.meta);
@@ -476,6 +486,6 @@ export function drawMiniBarChart(
   max: number,
   color: [number, number, number],
 ): number {
-  drawStatDashboardCard(doc, x, y, w, 46, label, String(value), label, color);
-  return y + 46 + PUB_SPACE.cardGap;
+  drawStatDashboardCard(doc, x, y, w, PUB_LAYOUT.dashboardCellH, label, String(value), label, color);
+  return y + PUB_LAYOUT.dashboardCellH + PUB_SPACE.cardGap;
 }

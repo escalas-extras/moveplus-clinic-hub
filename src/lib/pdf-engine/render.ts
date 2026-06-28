@@ -33,6 +33,7 @@ import {
   PUBLISHING_FOOTER_H,
   PUBLISHING_FRONT_PAGES,
 } from "./publishing";
+import { PUB_LAYOUT, PUB_SPACE } from "./publishing/typography";
 
 // ---------- Sanitização contrato ----------
 
@@ -794,7 +795,7 @@ async function renderClinicalDossierPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): 
   const topYFirst = M + PUBLISHING_HEADER_H + 6;
   const topYRest = M + PUBLISHING_HEADER_H + 6;
   const bottomY = H - PUBLISHING_FOOTER_H - 12;
-  const editorialGap = 5;
+  const editorialGap = PUB_SPACE.blockGap;
 
   const { pages, densities, avgDensity, rebalancePasses } = composeAndBalance(
     groups,
@@ -802,7 +803,7 @@ async function renderClinicalDossierPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): 
     topYRest,
     bottomY,
     editorialGap,
-    13,
+    PUB_LAYOUT.lineH,
   );
 
   if (opts.dossier) {

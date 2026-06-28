@@ -4,10 +4,10 @@
 
 import type { jsPDF } from "jspdf";
 import type { PdfBlock } from "../types";
-import { PDF_SPACING as S, PDF_TYPOGRAPHY as T } from "../tokens";
 import { cleanText, isEmptyText, wrapText } from "../text";
 import { documentCardColumns } from "./dossier-visuals";
 import type { PublishingBlockGroup, PublishingAtom } from "./compose";
+import { PUB_LAYOUT, PUB_SPACE, PUB_TYPE } from "./typography";
 
 function isClosingClause(title: string): boolean {
   return /foro|oitava|encerramento/i.test(title || "");
@@ -28,10 +28,10 @@ export function measurePublishingBlock(
   isContract = false,
 ): PublishingBlockGroup {
   const atoms: PublishingAtom[] = [];
-  const padX2 = S.PAD_X * 2;
+  const padX2 = PUB_SPACE.contentPadX * 2;
   const innerW = contentW - padX2;
-  const lineH = 13;
-  const titleH = 20;
+  const lineH = PUB_LAYOUT.lineH;
+  const titleH = PUB_LAYOUT.titleH;
 
   atoms.push({ kind: "title", label: block.title, h: titleH, blockId: id });
 
@@ -41,12 +41,12 @@ export function measurePublishingBlock(
       if (isContract && isClosingClause(block.title)) text = sanitizeContractParagraph(text);
       const cleaned = cleanText(text);
       if (!cleaned) {
-        if (ch.label) atoms.push({ kind: "label", text: ch.label, h: 12, blockId: id });
+        if (ch.label) atoms.push({ kind: "label", text: ch.label, h: PUB_LAYOUT.labelH, blockId: id });
         continue;
       }
-      if (ch.label) atoms.push({ kind: "label", text: ch.label, h: 12, blockId: id });
+      if (ch.label) atoms.push({ kind: "label", text: ch.label, h: PUB_LAYOUT.labelH, blockId: id });
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.body);
+      doc.setFontSize(PUB_TYPE.body);
       wrapText(doc, cleaned, innerW).forEach((ln, i) => {
         atoms.push({
           kind: "para-line",
@@ -71,7 +71,12 @@ export function measurePublishingBlock(
       }
       if (visibleRows.length <= 4) {
         const rows = Math.ceil(visibleRows.length / 2);
-        atoms.push({ kind: "grid-cards", cells: visibleRows, h: rows * 42 + 4, blockId: id });
+        atoms.push({
+          kind: "grid-cards",
+          cells: visibleRows,
+          h: rows * (PUB_LAYOUT.gridCellH + PUB_SPACE.cardGap) + 2,
+          blockId: id,
+        });
       } else {
         const colW = innerW / cols;
         for (let i = 0; i < ch.rows.length; i += cols) {
@@ -79,7 +84,7 @@ export function measurePublishingBlock(
           if (rowCells.every(([, v]) => isEmptyText(v))) continue;
           const visibleCells = rowCells.map(([k, v]) => [k, isEmptyText(v) ? "" : v] as [string, string]);
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(T.body);
+          doc.setFontSize(PUB_TYPE.body);
           const cellH = visibleCells.map(([, v]) =>
             v ? wrapText(doc, v, colW - 8).length * lineH : 0,
           );
@@ -99,10 +104,10 @@ export function measurePublishingBlock(
       const text = cleanText(ch.text);
       if (!text) continue;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.body);
+      doc.setFontSize(PUB_TYPE.body);
       const lines = wrapText(doc, text, innerW - 20);
       const labelH = ch.label ? 14 : 0;
-      const textLineH = 12;
+      const textLineH = PUB_LAYOUT.lineH;
       const h = labelH + 12 + lines.length * textLineH + 10;
       atoms.push({
         kind: "highlight",
@@ -115,12 +120,12 @@ export function measurePublishingBlock(
     }
 
     if (ch.kind === "eva") {
-      atoms.push({ kind: "eva", value: ch.value, h: 56, blockId: id });
+      atoms.push({ kind: "eva", value: ch.value, h: PUB_LAYOUT.evaH, blockId: id });
       continue;
     }
 
     if (ch.kind === "checks") {
-      if (ch.label) atoms.push({ kind: "label", text: ch.label, h: 12, blockId: id });
+      if (ch.label) atoms.push({ kind: "label", text: ch.label, h: PUB_LAYOUT.labelH, blockId: id });
       for (let i = 0; i < ch.items.length; i += 3) {
         atoms.push({ kind: "checks-row", items: ch.items.slice(i, i + 3), h: 16, blockId: id });
       }
@@ -129,14 +134,14 @@ export function measurePublishingBlock(
 
     if (ch.kind === "objective") {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.body);
+      doc.setFontSize(PUB_TYPE.body);
       const lines = wrapText(doc, ch.text, innerW - 52).length;
       atoms.push({
         kind: "objective",
         label: ch.label,
         text: ch.text,
         status: ch.status,
-        h: Math.max(36, 14 + lines * 13 + 10),
+        h: Math.max(PUB_LAYOUT.gridCellH, 14 + lines * lineH + 10),
         blockId: id,
       });
       continue;
@@ -145,7 +150,12 @@ export function measurePublishingBlock(
     if (ch.kind === "document-cards") {
       const cols = documentCardColumns(ch.items.length);
       const rows = Math.ceil(ch.items.length / cols);
-      atoms.push({ kind: "document-cards", items: ch.items, h: rows * 62 + 4, blockId: id });
+      atoms.push({
+        kind: "document-cards",
+        items: ch.items,
+        h: rows * (PUB_LAYOUT.documentCardH + PUB_SPACE.cardGap) + 2,
+        blockId: id,
+      });
       continue;
     }
 
@@ -153,7 +163,7 @@ export function measurePublishingBlock(
       atoms.push({
         kind: "compare-bars",
         rows: ch.rows,
-        h: 8 + ch.rows.length * 38,
+        h: 8 + ch.rows.length * PUB_LAYOUT.compareRowH,
         blockId: id,
       });
       continue;
@@ -161,7 +171,7 @@ export function measurePublishingBlock(
 
     if (ch.kind === "badge") {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.body);
+      doc.setFontSize(PUB_TYPE.body);
       const lines = wrapText(doc, ch.text, innerW - 20).length;
       atoms.push({
         kind: "badge",
@@ -176,10 +186,8 @@ export function measurePublishingBlock(
 
     if (ch.kind === "dashboard") {
       if (!ch.items.length) continue;
-      const cellH = 46;
-      const gap = 5;
       const rows = Math.ceil(ch.items.length / ch.columns);
-      const h = rows * cellH + Math.max(0, rows - 1) * gap;
+      const h = rows * PUB_LAYOUT.dashboardCellH + Math.max(0, rows - 1) * PUB_SPACE.cardGap;
       atoms.push({
         kind: "dashboard",
         columns: ch.columns,
@@ -195,7 +203,7 @@ export function measurePublishingBlock(
       atoms.push({
         kind: "timeline",
         items: ch.items,
-        h: ch.items.length * 28 + 4,
+        h: ch.items.length * PUB_LAYOUT.timelineItemH + 4,
         blockId: id,
       });
       continue;
@@ -217,7 +225,7 @@ export function measurePublishingBlock(
           atoms.push({
             kind: "compare-bars",
             rows: numericRows.map((r) => ({ ...r, max })),
-            h: 8 + numericRows.length * 38,
+            h: 8 + numericRows.length * PUB_LAYOUT.compareRowH,
             blockId: id,
           });
           continue;
@@ -227,7 +235,7 @@ export function measurePublishingBlock(
       let tableH = 20;
       for (const row of ch.rows) {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(T.body);
+        doc.setFontSize(PUB_TYPE.body);
         const heights = [
           wrapText(doc, row.label, colW - 4).length,
           wrapText(doc, row.inicial, colW - 4).length,
@@ -247,7 +255,7 @@ export function measurePublishingBlock(
           const v = cleanText(val);
           if (!v) return;
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(T.body);
+          doc.setFontSize(PUB_TYPE.body);
           fields.push({ label, text: wrapText(doc, v, innerW - 8) });
         };
         add("Conduta", e.conduta);
@@ -261,7 +269,7 @@ export function measurePublishingBlock(
     }
   }
 
-  atoms.push({ kind: "block-gap", h: 5, blockId: id });
+  atoms.push({ kind: "block-gap", h: PUB_SPACE.blockGap, blockId: id });
   const totalH = atoms.reduce((s, a) => s + a.h, 0);
   return { id, title: block.title, atoms, totalH, indexLabel: block.indexLabel };
 }

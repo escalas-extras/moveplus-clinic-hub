@@ -35,7 +35,7 @@ export function buildClinicalDossierPdfOpts(
     clinicId: assembled.ctx.clinicId,
     hideSignature: true,
     skipProfessionalValidation: true,
-    documentVersion: "D4",
+    documentVersion: "D5",
     dossier: {
       patientName: String(input.patient.nome_completo ?? "Paciente"),
       generatedAt: fmtDateTime(generatedAt),

@@ -1,14 +1,15 @@
 /**
- * Sprint D3.2 — renderização de conteúdo editorial (dossiê).
+ * Sprint D3.2 + D5 — renderização editorial do dossiê (tokens unificados).
  */
 
 import type { jsPDF } from "jspdf";
 import type { ClinicalTrend } from "../types";
-import { PDF_COLORS as C, PDF_SPACING as S, PDF_TYPOGRAPHY as T } from "../tokens";
+import { PDF_COLORS as C } from "../tokens";
 import { wrapText } from "../text";
 import { drawMiniIcon, fieldIconFor } from "../icons";
 import type { PublishingAtom, PublishingPage } from "./compose";
 import { documentCardColumns } from "./dossier-visuals";
+import { PUB_LAYOUT, PUB_SPACE, PUB_TYPE } from "./typography";
 import {
   drawAdaptiveBadge,
   drawCompareBarsRow,
@@ -20,6 +21,8 @@ import {
   drawPublishingTimeline,
   drawPublishingTitle,
 } from "./primitives";
+
+const PAD = PUB_SPACE.contentPadX;
 
 export function renderPublishingPageContent(
   doc: jsPDF,
@@ -38,47 +41,45 @@ export function renderPublishingPageContent(
 
     if (a.kind === "label") {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(T.label);
+      doc.setFontSize(PUB_TYPE.label);
       doc.setTextColor(...C.brand);
-      doc.text(String(a.text).toUpperCase(), M + S.PAD_X, y + 8);
-      y += 12;
+      doc.text(String(a.text).toUpperCase(), M + PAD, y + 8);
+      y += PUB_LAYOUT.labelH;
       continue;
     }
 
     if (a.kind === "para-line") {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.body);
+      doc.setFontSize(PUB_TYPE.body);
       doc.setTextColor(...C.ink);
-      doc.text(String(a.line), M + S.PAD_X, y + 9);
+      doc.text(String(a.line), M + PAD, y + 9);
       y += a.h;
       continue;
     }
 
     if (a.kind === "grid-cards") {
-      y = drawGridAsCards(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.cells as Array<[string, string]>);
+      y = drawGridAsCards(doc, M + PAD, y, contentW - 2 * PAD, a.cells as Array<[string, string]>);
       continue;
     }
 
     if (a.kind === "grid-row") {
-      const innerW = contentW - 2 * S.PAD_X;
+      const innerW = contentW - 2 * PAD;
       const colW = innerW / (a.cols as number);
       const cells = a.cells as Array<[string, string]>;
-      let maxLines = 1;
       cells.forEach(([label, value], ci) => {
-        const x = M + S.PAD_X + ci * colW;
+        const x = M + PAD + ci * colW;
         drawMiniIcon(doc, fieldIconFor(label), x, y + 1, 8, C.brand);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(T.label);
+        doc.setFontSize(PUB_TYPE.label);
         doc.setTextColor(...C.meta);
-        doc.text(label, x + 12, y + 7);
+        doc.text(label.toUpperCase(), x + 12, y + 7);
         if (value) {
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(T.body);
+          doc.setFontSize(PUB_TYPE.body);
           doc.setTextColor(...C.ink);
           const lines = wrapText(doc, value, colW - 12);
-          maxLines = Math.max(maxLines, lines.length);
           lines.forEach((ln, li) => {
-            doc.text(ln, x, y + 18 + li * 13);
+            doc.text(ln, x, y + 18 + li * PUB_LAYOUT.lineH);
           });
         }
       });
@@ -87,30 +88,32 @@ export function renderPublishingPageContent(
     }
 
     if (a.kind === "highlight") {
-      const boxX = M + S.PAD_X;
-      const boxW = contentW - 2 * S.PAD_X;
+      const boxX = M + PAD;
+      const boxW = contentW - 2 * PAD;
       const lines = a.lines as string[];
       const labelH = a.label ? 14 : 0;
-      const textLineH = 12;
+      const textLineH = PUB_LAYOUT.lineH;
       const boxH = a.h as number;
 
       doc.setFillColor(...C.highlightBg);
-      doc.roundedRect(boxX, y, boxW, boxH, 5, 5, "F");
+      doc.setDrawColor(...C.hairline);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(boxX, y, boxW, boxH, PUB_LAYOUT.cardRadius, PUB_LAYOUT.cardRadius, "FD");
 
       let textY = y + 11;
       if (a.label) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(T.label);
+        doc.setFontSize(PUB_TYPE.label);
         doc.setTextColor(...C.brand);
-        doc.text(String(a.label).toUpperCase(), boxX + 10, textY);
+        doc.text(String(a.label).toUpperCase(), boxX + PUB_SPACE.cardPad, textY);
         textY += labelH;
       }
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(T.body);
+      doc.setFontSize(PUB_TYPE.body);
       doc.setTextColor(...C.ink);
       lines.forEach((ln, i) => {
-        doc.text(ln, boxX + 10, textY + i * textLineH);
+        doc.text(ln, boxX + PUB_SPACE.cardPad, textY + i * textLineH);
       });
 
       y += boxH;
@@ -118,16 +121,16 @@ export function renderPublishingPageContent(
     }
 
     if (a.kind === "eva") {
-      y = drawPublishingEva(doc, a.value as number | null, M + S.PAD_X, y, contentW - 2 * S.PAD_X);
+      y = drawPublishingEva(doc, a.value as number | null, M + PAD, y, contentW - 2 * PAD);
       continue;
     }
 
     if (a.kind === "objective") {
       y = drawObjectiveBadge(
         doc,
-        M + S.PAD_X,
+        M + PAD,
         y,
-        contentW - 2 * S.PAD_X,
+        contentW - 2 * PAD,
         a.label as string | undefined,
         String(a.text),
         a.status as "achieved" | "pending" | "progress",
@@ -143,13 +146,13 @@ export function renderPublishingPageContent(
         hash: string;
       }>;
       const cols = documentCardColumns(items.length);
-      const gap = 6;
-      const cardW = (contentW - 2 * S.PAD_X - gap * (cols - 1)) / cols;
-      const cardH = 58;
+      const gap = PUB_SPACE.cardGap;
+      const cardW = (contentW - 2 * PAD - gap * (cols - 1)) / cols;
+      const cardH = PUB_LAYOUT.documentCardH;
       items.forEach((item, i) => {
         const col = i % cols;
         const row = Math.floor(i / cols);
-        const cx = M + S.PAD_X + col * (cardW + gap);
+        const cx = M + PAD + col * (cardW + gap);
         const cy = y + row * (cardH + gap);
         drawDocumentCard(doc, cx, cy, cardW, item.docType, item.quantity, item.lastIssued, item.hash);
       });
@@ -168,7 +171,17 @@ export function renderPublishingPageContent(
       }>;
       for (const row of rows) {
         const max = row.max ?? Math.max(row.inicial, row.atual, 10);
-        y = drawCompareBarsRow(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, row.label, row.inicial, row.atual, max, row.trend);
+        y = drawCompareBarsRow(
+          doc,
+          M + PAD,
+          y,
+          contentW - 2 * PAD,
+          row.label,
+          row.inicial,
+          row.atual,
+          max,
+          row.trend,
+        );
       }
       continue;
     }
@@ -176,9 +189,9 @@ export function renderPublishingPageContent(
     if (a.kind === "badge") {
       y = drawAdaptiveBadge(
         doc,
-        M + S.PAD_X,
+        M + PAD,
         y,
-        contentW - 2 * S.PAD_X,
+        contentW - 2 * PAD,
         a.label as string | undefined,
         String(a.text),
         a.variant as "success" | "warning" | "danger" | "neutral" | "info",
@@ -189,9 +202,9 @@ export function renderPublishingPageContent(
     if (a.kind === "dashboard") {
       y = drawPublishingDashboard(
         doc,
-        M + S.PAD_X,
+        M + PAD,
         y,
-        contentW - 2 * S.PAD_X,
+        contentW - 2 * PAD,
         a.columns as 2 | 3,
         a.items as Array<{
           label: string;
@@ -207,42 +220,49 @@ export function renderPublishingPageContent(
     if (a.kind === "timeline") {
       y = drawPublishingTimeline(
         doc,
-        M + S.PAD_X,
+        M + PAD,
         y,
-        contentW - 2 * S.PAD_X,
+        contentW - 2 * PAD,
         a.items as Array<{ date: string; title: string }>,
       );
       continue;
     }
 
     if (a.kind === "compare-table") {
-      drawCompareTableCompact(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.rows as Array<{
-        label: string;
-        inicial: string;
-        anterior: string;
-        atual: string;
-        trend?: ClinicalTrend;
-      }>);
+      drawCompareTableCompact(
+        doc,
+        M + PAD,
+        y,
+        contentW - 2 * PAD,
+        a.rows as Array<{
+          label: string;
+          inicial: string;
+          anterior: string;
+          atual: string;
+          trend?: ClinicalTrend;
+        }>,
+      );
       y += a.h;
       continue;
     }
 
     if (a.kind === "checks-row") {
-      const innerW = contentW - 2 * S.PAD_X;
+      const innerW = contentW - 2 * PAD;
       const items = a.items as Array<{ label: string; checked: boolean }>;
       const colW = innerW / items.length;
       items.forEach((it, ci) => {
-        const x = M + S.PAD_X + ci * colW;
-        doc.setDrawColor(...C.hairlineSoft);
+        const x = M + PAD + ci * colW;
+        doc.setDrawColor(...C.hairline);
+        doc.setLineWidth(0.35);
         doc.rect(x, y + 2, 9, 9, "S");
         if (it.checked) {
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(8);
+          doc.setFontSize(PUB_TYPE.body);
           doc.setTextColor(...C.brand);
           doc.text("✓", x + 2, y + 9);
         }
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
+        doc.setFontSize(PUB_TYPE.body);
         doc.setTextColor(...C.ink);
         doc.text(it.label, x + 14, y + 9);
       });
@@ -254,20 +274,20 @@ export function renderPublishingPageContent(
       const e = a.item as { index?: number; data: string; hora?: string | null };
       const head = `${e.index != null ? `#${e.index} — ` : ""}${e.data}${e.hora ? ` · ${e.hora}` : ""}`;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(T.label);
+      doc.setFontSize(PUB_TYPE.label);
       doc.setTextColor(...C.brand);
-      doc.text(head.toUpperCase(), M + S.PAD_X, y + 9);
+      doc.text(head.toUpperCase(), M + PAD, y + 9);
       let ey = y + 16;
       for (const f of a.lines as Array<{ label: string; text: string[] }>) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
+        doc.setFontSize(PUB_TYPE.caption);
         doc.setTextColor(...C.meta);
-        doc.text(f.label.toUpperCase(), M + S.PAD_X, ey);
+        doc.text(f.label.toUpperCase(), M + PAD, ey);
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
+        doc.setFontSize(PUB_TYPE.body);
         doc.setTextColor(...C.ink);
-        doc.text(f.text, M + S.PAD_X, ey + 10);
-        ey += 10 + f.text.length * 13;
+        doc.text(f.text, M + PAD, ey + 10);
+        ey += 10 + f.text.length * PUB_LAYOUT.lineH;
       }
       y += a.h;
       continue;
@@ -288,9 +308,11 @@ function drawCompareTableCompact(
 ) {
   const colW = w / 4;
   doc.setFillColor(...C.surface);
-  doc.roundedRect(x, y, w, 16, 3, 3, "F");
+  doc.setDrawColor(...C.hairline);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, 16, PUB_LAYOUT.badgeRadius, PUB_LAYOUT.badgeRadius, "FD");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
+  doc.setFontSize(PUB_TYPE.caption);
   doc.setTextColor(...C.brand);
   ["Indicador", "Inicial", "Anterior", "Atual"].forEach((h, i) => {
     doc.text(h.toUpperCase(), x + i * colW + 4, y + 10);
@@ -298,15 +320,15 @@ function drawCompareTableCompact(
   let rowY = y + 18;
   rows.forEach((row, ri) => {
     const cells = [row.label, row.inicial, row.anterior, row.atual];
-    const lineCounts = cells.map((cell, i) => wrapText(doc, cell, colW - 6).length);
-    const rowH = Math.max(...lineCounts, 1) * 13 + 4;
+    const lineCounts = cells.map((cell) => wrapText(doc, cell, colW - 6).length);
+    const rowH = Math.max(...lineCounts, 1) * PUB_LAYOUT.lineH + 4;
     if (ri % 2 === 0) {
       doc.setFillColor(...C.brandSoft);
       doc.rect(x, rowY - 1, w, rowH, "F");
     }
     cells.forEach((cell, i) => {
       doc.setFont("helvetica", i === 0 ? "bold" : "normal");
-      doc.setFontSize(8.5);
+      doc.setFontSize(PUB_TYPE.subtitle);
       doc.setTextColor(...(i === 0 ? C.ink : C.meta));
       doc.text(wrapText(doc, cell, colW - 6), x + i * colW + 4, rowY + 9);
     });

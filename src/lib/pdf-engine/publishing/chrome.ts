@@ -10,7 +10,7 @@ import { cleanText, truncateLine, wrapText } from "../text";
 import { drawLogoBox } from "../images";
 import { prepareLogoInput } from "../logo";
 import { drawLeftBand } from "../header-engine";
-import { PUB_TYPE } from "./typography";
+import { PUB_TYPE, PUB_LAYOUT } from "./typography";
 import { parsePeriodDates } from "./dossier-visuals";
 
 export const PUBLISHING_HEADER_H = 46;
@@ -391,11 +391,11 @@ function drawSummaryPanel(
 ): number {
   const panelH = 88;
   doc.setFillColor(...C.surface);
-  doc.setDrawColor(...C.hairlineSoft);
+  doc.setDrawColor(...C.hairline);
   doc.setLineWidth(0.35);
-  doc.roundedRect(x, y, w, panelH, 6, 6, "FD");
+  doc.roundedRect(x, y, w, panelH, PUB_LAYOUT.panelRadius, PUB_LAYOUT.panelRadius, "FD");
   doc.setFillColor(...C.brand);
-  doc.roundedRect(x, y, 3, panelH, 6, 6, "F");
+  doc.roundedRect(x, y, 3, panelH, PUB_LAYOUT.panelRadius, PUB_LAYOUT.panelRadius, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(PUB_TYPE.label);
@@ -470,10 +470,11 @@ function drawInstitutionalSignature(
   const boxW = Math.min(260, contentW);
   const boxX = sigX - boxW / 2;
 
+  const sigBoxH = PUB_LAYOUT.signatureMinH;
   doc.setFillColor(...C.paper);
-  doc.setDrawColor(...C.brand);
-  doc.setLineWidth(0.6);
-  doc.roundedRect(boxX, y, boxW, 68, 6, 6, "FD");
+  doc.setDrawColor(...C.ink);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(boxX, y, boxW, sigBoxH, PUB_LAYOUT.panelRadius, PUB_LAYOUT.panelRadius, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(PUB_TYPE.caption);
@@ -481,7 +482,7 @@ function drawInstitutionalSignature(
   doc.text("RESPONSÁVEL TÉCNICO", sigX, y + 12, { align: "center" });
 
   doc.setDrawColor(...C.ink);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(0.45);
   doc.line(sigX - 70, y + 36, sigX + 70, y + 36);
 
   const profNome = cleanText(prof?.nome ?? "");
@@ -498,5 +499,5 @@ function drawInstitutionalSignature(
     doc.text(`${council} nº ${prof.registro}`, sigX, y + 58, { align: "center" });
   }
 
-  return y + 78;
+  return y + sigBoxH + 10;
 }

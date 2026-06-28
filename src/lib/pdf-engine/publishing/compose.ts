@@ -4,6 +4,7 @@
  */
 
 import { DENSITY_TARGET } from "./block-bounds";
+import { PUB_LAYOUT, PUB_SPACE } from "./typography";
 
 export type PublishingAtom = {
   kind: string;
@@ -126,11 +127,14 @@ export function composePublishing(
 
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi];
-    const headroomLines = 3;
     const titleAtom = g.atoms[0];
-    const headroom = titleAtom ? titleAtom.h + headroomLines * lineH + 2 : lineH * 3;
+    const firstContent = g.atoms.find((a) => a.kind !== "title" && a.kind !== "block-gap");
+    const orphanGuard =
+      (titleAtom?.h ?? PUB_LAYOUT.titleH) +
+      (firstContent?.h ?? PUB_LAYOUT.lineH * PUB_LAYOUT.titleOrphanLines) +
+      2;
 
-    if (y + headroom > bottomY && cur.atoms.length > 0) flush();
+    if (y + orphanGuard > bottomY && cur.atoms.length > 0) flush();
 
     let segStartIdx = cur.atoms.length;
     let isContinuation = false;
@@ -138,9 +142,38 @@ export function composePublishing(
     for (let ai = 0; ai < g.atoms.length; ai++) {
       const a = g.atoms[ai];
       const atom: PublishingAtom = a.kind === "block-gap" ? { ...a, h: blockGap } : a;
+
+      if (atom.kind === "title" && !atom.continuation) {
+        const nextContent = g.atoms.slice(ai + 1).find((x) => x.kind !== "block-gap");
+        const keepWithNext =
+          (atom.h ?? PUB_LAYOUT.titleH) + (nextContent?.h ?? PUB_LAYOUT.lineH);
+        if (nextContent && y + keepWithNext > bottomY && cur.atoms.length > 0) {
+          cur.blockSegments.push({
+            blockId: g.id,
+            startIdx: segStartIdx,
+            endIdx: cur.atoms.length - 1,
+            isContinuation,
+          });
+          flush();
+          segStartIdx = 0;
+          isContinuation = false;
+        }
+      }
+
       const fits = y + atom.h <= bottomY;
 
       if (atom.kind === "title") {
+        if (!fits && cur.atoms.length > 0) {
+          cur.blockSegments.push({
+            blockId: g.id,
+            startIdx: segStartIdx,
+            endIdx: cur.atoms.length - 1,
+            isContinuation,
+          });
+          flush();
+          segStartIdx = 0;
+          isContinuation = !!atom.continuation;
+        }
         cur.atoms.push(atom);
         cur.contentH += atom.h;
         y += atom.h;
@@ -155,12 +188,19 @@ export function composePublishing(
       }
 
       if (atom.kind === "para-line") {
-        cur.blockSegments.push({ blockId: g.id, startIdx: segStartIdx, endIdx: cur.atoms.length - 1, isContinuation });
+        if (cur.atoms.length > segStartIdx) {
+          cur.blockSegments.push({
+            blockId: g.id,
+            startIdx: segStartIdx,
+            endIdx: cur.atoms.length - 1,
+            isContinuation,
+          });
+        }
         flush();
         const contTitle: PublishingAtom = {
           kind: "title",
           label: `${g.title} (continuação)`,
-          h: 20,
+          h: PUB_LAYOUT.titleH,
           blockId: g.id,
           continuation: true,
         };
@@ -175,12 +215,19 @@ export function composePublishing(
         continue;
       }
 
-      cur.blockSegments.push({ blockId: g.id, startIdx: segStartIdx, endIdx: cur.atoms.length - 1, isContinuation });
+      if (cur.atoms.length > segStartIdx) {
+        cur.blockSegments.push({
+          blockId: g.id,
+          startIdx: segStartIdx,
+          endIdx: cur.atoms.length - 1,
+          isContinuation,
+        });
+      }
       flush();
       const contTitle: PublishingAtom = {
         kind: "title",
         label: `${g.title} (continuação)`,
-        h: 20,
+        h: PUB_LAYOUT.titleH,
         blockId: g.id,
         continuation: true,
       };

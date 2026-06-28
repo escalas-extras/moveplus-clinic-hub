@@ -60,7 +60,7 @@ export function estimateContentBounds(ch: PdfContent): BlockBounds {
     case "timeline":
       return {
         ...PUBLISHING_BOUNDS.timeline,
-        ideal: Math.min(PUBLISHING_BOUNDS.timeline.max, 24 * ch.items.length + 12),
+        ideal: Math.min(PUBLISHING_BOUNDS.timeline.max, 26 * ch.items.length + 12),
       };
     case "dashboard": {
       const rows = Math.ceil(ch.items.length / ch.columns);
