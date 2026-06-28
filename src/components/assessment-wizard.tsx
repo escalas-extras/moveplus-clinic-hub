@@ -4,10 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +16,9 @@ import {
   ClipboardList, Activity, Target, Pen, User, Save, AlertCircle, History, Circle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton, FormHeaderField, FieldLabel } from "@/components/layout";
+import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton, FieldLabel, PrimaryActionButton, SecondaryActionButton } from "@/components/layout";
+import { HomeHeroV2 } from "@/components/dashboard";
+import { useBranding } from "@/lib/branding";
 import { calcAge, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -39,7 +39,13 @@ const STEPS = [
   { key: "assinaturas", label: "Assinaturas", icon: Pen },
 ] as const;
 
-const ASSESSMENT_TEXTAREA = "mt-1.5 w-full min-w-0 max-w-full rounded-xl";
+const ASSESSMENT_TEXTAREA =
+  "mt-2 w-full min-w-0 max-w-full rounded-xl border-[rgba(15,76,92,0.1)] bg-[rgba(15,76,92,0.02)] text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-[var(--fos-primary)]/30 focus:bg-white focus:ring-2 focus:ring-[var(--fos-primary)]/10";
+
+const ASSESSMENT_STEP_CARD = "assessment-step-card border-[rgba(15,76,92,0.08)] bg-white/80 shadow-[0_1px_4px_rgba(15,76,92,0.04)]";
+
+const ASSESSMENT_INPUT =
+  "mt-2 rounded-xl border-[rgba(15,76,92,0.1)] bg-[rgba(15,76,92,0.02)] text-sm focus:border-[var(--fos-primary)]/30 focus:bg-white focus:ring-2 focus:ring-[var(--fos-primary)]/10";
 
 type StepKey = (typeof STEPS)[number]["key"];
 
@@ -227,6 +233,7 @@ type Props = {
 export function AssessmentWizard({ patientId, patient, assessment, onDone }: Props) {
   const isEdit = !!assessment?.id;
   const { clinicId } = useActiveClinic();
+  const brand = useBranding();
   const qc = useQueryClient();
   const [stepIdx, setStepIdx] = useState<number>(assessment?.wizard_step ?? 0);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -493,9 +500,18 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
     [profs.data, formValues.professional_id],
   );
 
+  const profSpecialty = useMemo(() => {
+    const prof = (profs.data ?? []).find((p) => p.id === formValues.professional_id);
+    if (profiles.length > 0) return PROFILE_LABEL[profiles[0]];
+    return prof?.profissao?.trim() || "Fisioterapia";
+  }, [profs.data, formValues.professional_id, profiles]);
+
   const assessmentStatus = assessment?.locked_at
     ? "finalizada"
     : (assessment?.status ?? "rascunho");
+
+  const statusDisplay =
+    assessmentStatus === "finalizada" ? "Finalizada" : assessmentStatus === "rascunho" ? "Rascunho" : assessmentStatus;
 
   const stepStates = useMemo(
     () => STEPS.map((s) => getStepFillState(s.key, formValues)),
@@ -509,34 +525,65 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   }
 
   return (
-    <div className="dashboard-premium clinical-module space-y-4 pb-4">
-      <AssessmentPremiumHeader
-        patient={patient}
-        ageYears={ageYears}
-        diagnosis={formValues.diagnostico_clinico || formValues.diagnostico_fisio}
-        date={formValues.data}
-        professional={profName}
-        status={assessmentStatus}
-        tipo={formValues.tipo}
-        profiles={profiles}
+    <div className="assessment-wizard dashboard-premium clinical-module space-y-5 pb-6">
+      <HomeHeroV2
+        title={formValues.tipo === "reavaliacao" ? "Reavaliação clínica" : "Avaliação clínica"}
+        clinicName={patient?.nome_completo ?? "Paciente"}
+        dateLabel={`${fmtDate(formValues.data)} · ${profName}`}
+        primaryColor={brand.primaryColor}
+        secondaryColor={brand.secondaryColor}
+        daySummary={[
+          { label: "paciente", value: patient?.nome_completo ?? "—" },
+          { label: "especialidade", value: profSpecialty },
+          { label: "status", value: statusDisplay },
+        ]}
       />
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-            <current.icon className="h-4 w-4 text-primary" />
-            {current.label}
-            <span className="text-xs font-normal text-muted-foreground">
-              · Etapa {stepIdx + 1} de {STEPS.length}
-            </span>
+      <section className="assessment-wizard-progress rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/85 px-5 py-4 shadow-[var(--fos-card-shadow)] sm:px-6">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[rgba(15,76,92,0.08)] text-[var(--fos-primary)]">
+                <current.icon className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              </span>
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-slate-950 sm:text-lg">{current.label}</h2>
+                <p className="text-xs text-slate-500">
+                  Etapa {stepIdx + 1} de {STEPS.length} · {Math.round(progress)}% concluído
+                </p>
+              </div>
+            </div>
           </div>
           <AutosaveIndicator saving={savingDraft} lastSavedAt={lastSavedAt} />
         </div>
-        <Progress value={progress} className="h-2" />
-        <p className="mt-1.5 text-xs text-muted-foreground">{Math.round(progress)}% concluído</p>
-      </div>
+        <div className="flex gap-1.5" role="progressbar" aria-valuenow={stepIdx + 1} aria-valuemin={1} aria-valuemax={STEPS.length}>
+          {STEPS.map((s, i) => (
+            <div
+              key={s.key}
+              className={cn(
+                "h-1.5 flex-1 rounded-full transition-all duration-300",
+                i < stepIdx
+                  ? "bg-[var(--fos-primary)]"
+                  : i === stepIdx
+                    ? "bg-[var(--fos-primary)]/70"
+                    : "bg-slate-200/90",
+              )}
+              title={s.label}
+            />
+          ))}
+        </div>
+        {profiles.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-[rgba(15,76,92,0.06)] pt-3">
+            {profiles.map((p) => (
+              <Badge key={p} variant="outline" className={cn("text-[10px]", PROFILE_COLOR[p])}>
+                {PROFILE_LABEL[p]}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </section>
 
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_260px]">
+      <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_260px]">
         <WizardStepNav
           steps={STEPS}
           currentIdx={stepIdx}
@@ -545,7 +592,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
           className="hidden lg:block"
         />
 
-        <div className="space-y-4 min-w-0">
+        <div className="min-w-0 space-y-5">
           <WizardStepNav
             steps={STEPS}
             currentIdx={stepIdx}
@@ -555,6 +602,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
             compact
           />
 
+          <div className="assessment-wizard-step space-y-5 rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/90 p-4 shadow-[var(--fos-card-shadow)] sm:p-6">
           {current.key === "identificacao" && (
             <StepIdentificacao
               values={formValues}
@@ -586,7 +634,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
             />
           )}
           {current.key === "escalas" && (
-            <InfoCard icon={ClipboardList} title="Escalas clínicas" description="Instrumentos de mensuração vinculados ao paciente.">
+            <InfoCard className={ASSESSMENT_STEP_CARD} icon={ClipboardList} title="Escalas clínicas" description="Instrumentos de mensuração vinculados ao paciente.">
               <ClinicalTabs patientId={patientId} assessmentId={assessment?.id} />
             </InfoCard>
           )}
@@ -600,6 +648,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
               description="Captura de assinatura por toque/mouse para fisioterapeuta, paciente e responsável, com selo de data/hora e bloqueio da avaliação ao assinar."
             />
           )}
+          </div>
         </div>
 
         <PreviousAssessmentsPanel
@@ -609,31 +658,44 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         />
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.15)] backdrop-blur sm:px-5">
-        <Button variant="outline" onClick={goPrev} disabled={stepIdx === 0} className="rounded-xl">
-          <ArrowLeft className="mr-1 h-4 w-4" />
+      <div className="assessment-wizard-footer sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/95 px-4 py-3.5 shadow-[0_-8px_28px_-12px_rgba(15,76,92,0.18)] backdrop-blur-sm sm:px-5">
+        <SecondaryActionButton onClick={goPrev} disabled={stepIdx === 0} className="h-10 gap-2 px-4 text-sm">
+          <ArrowLeft className="h-4 w-4" />
           Anterior
-        </Button>
+        </SecondaryActionButton>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => persistDraft(false)} disabled={savingDraft} className="rounded-xl">
-            <Save className="mr-1 h-4 w-4" />
-            Salvar rascunho
-          </Button>
+          <SecondaryActionButton
+            onClick={() => persistDraft(false)}
+            disabled={savingDraft}
+            className="h-10 gap-2 px-4 text-sm"
+          >
+            {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar
+          </SecondaryActionButton>
           {stepIdx < STEPS.length - 1 ? (
-            <Button onClick={goNext} className="rounded-xl">
+            <PrimaryActionButton onClick={goNext} className="h-10 gap-2 px-4 text-sm" style={{ background: brand.primaryColor }}>
               Próximo
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
+              <ArrowRight className="h-4 w-4" />
+            </PrimaryActionButton>
           ) : (
             <>
-              <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending} className="rounded-xl">
-                {save.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              <SecondaryActionButton
+                onClick={() => save.mutate(false)}
+                disabled={save.isPending}
+                className="h-10 gap-2 px-4 text-sm"
+              >
+                {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Salvar
-              </Button>
-              <Button onClick={() => save.mutate(true)} disabled={save.isPending} className="rounded-xl">
-                <CheckCircle2 className="mr-1 h-4 w-4" />
+              </SecondaryActionButton>
+              <PrimaryActionButton
+                onClick={() => save.mutate(true)}
+                disabled={save.isPending}
+                className="h-10 gap-2 px-4 text-sm"
+                style={{ background: brand.primaryColor }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
                 Finalizar
-              </Button>
+              </PrimaryActionButton>
             </>
           )}
         </div>
@@ -674,59 +736,6 @@ function getStepFillState(key: StepKey, v: WizardPayload): StepFillState {
   }
 }
 
-function AssessmentPremiumHeader({
-  patient,
-  ageYears,
-  diagnosis,
-  date,
-  professional,
-  status,
-  tipo,
-  profiles,
-}: {
-  patient?: any;
-  ageYears: number | null;
-  diagnosis?: string;
-  date: string;
-  professional: string;
-  status: string;
-  tipo: string;
-  profiles: ClinicalProfile[];
-}) {
-  const statusVariant =
-    status === "finalizada" ? "success" : status === "rascunho" ? "warning" : "info";
-
-  return (
-    <InfoCard icon={Stethoscope} title="Prontuário de avaliação" description="Registro clínico premium para uso diário.">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <FormHeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
-        <FormHeaderField label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
-        <FormHeaderField label="Diagnóstico" value={diagnosis?.trim() || "—"} className="sm:col-span-2 lg:col-span-1 xl:col-span-2" />
-        <FormHeaderField label="Data" value={fmtDate(date)} />
-        <FormHeaderField label="Profissional" value={professional} />
-        <div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Status</div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <StatusBadge variant={statusVariant}>{status}</StatusBadge>
-            <Badge variant="outline" className="text-[10px] uppercase">
-              {tipo}
-            </Badge>
-          </div>
-        </div>
-      </div>
-      {profiles.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-4">
-          {profiles.map((p) => (
-            <Badge key={p} variant="outline" className={PROFILE_COLOR[p]}>
-              {PROFILE_LABEL[p]}
-            </Badge>
-          ))}
-        </div>
-      )}
-    </InfoCard>
-  );
-}
-
 function WizardStepNav({
   steps,
   currentIdx,
@@ -744,23 +753,29 @@ function WizardStepNav({
 }) {
   if (compact) {
     return (
-      <div className={cn("flex gap-1 overflow-x-auto pb-1", className)}>
+      <div className={cn("flex gap-2 overflow-x-auto pb-1", className)} role="tablist" aria-label="Etapas">
         {steps.map((s, i) => {
           const Icon = s.icon;
+          const state = stepStates[i];
           return (
             <button
               key={s.key}
               type="button"
+              role="tab"
+              aria-selected={i === currentIdx}
               onClick={() => onSelect(i)}
               className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition",
+                "inline-flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all",
                 i === currentIdx
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : stepStates[i] === "complete"
-                    ? "border-primary/30 bg-primary/5 text-primary"
-                    : "border-slate-200 bg-white text-muted-foreground",
+                  ? "border-[var(--fos-primary)]/30 bg-[var(--fos-primary)] text-white shadow-sm"
+                  : state === "complete"
+                    ? "border-emerald-200/80 bg-emerald-50/80 text-emerald-800"
+                    : "border-[rgba(15,76,92,0.1)] bg-white/80 text-slate-600 hover:border-[rgba(15,76,92,0.18)]",
               )}
             >
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/20 text-[10px] font-bold tabular-nums">
+                {i + 1}
+              </span>
               <Icon className="h-3.5 w-3.5" />
               {s.label}
             </button>
@@ -771,37 +786,45 @@ function WizardStepNav({
   }
 
   return (
-    <nav className={cn("space-y-1", className)} aria-label="Etapas da avaliação">
+    <nav className={cn("assessment-wizard-nav space-y-1.5", className)} aria-label="Etapas da avaliação">
       {steps.map((s, i) => {
         const Icon = s.icon;
         const state = stepStates[i];
+        const isActive = i === currentIdx;
         return (
           <button
             key={s.key}
             type="button"
             onClick={() => onSelect(i)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition",
-              i === currentIdx
-                ? "border-primary bg-primary/5 font-semibold text-primary"
-                : "border-transparent hover:border-slate-200 hover:bg-slate-50",
+              "group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transition-all duration-200",
+              isActive
+                ? "border-[var(--fos-primary)]/25 bg-[rgba(15,76,92,0.06)] font-semibold text-[var(--fos-primary)] shadow-sm"
+                : "border-transparent text-slate-600 hover:border-[rgba(15,76,92,0.1)] hover:bg-white/80",
             )}
           >
             <span
               className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                i === currentIdx ? "bg-primary text-primary-foreground" : "bg-slate-100 text-muted-foreground",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold tabular-nums transition-colors",
+                isActive
+                  ? "bg-[var(--fos-primary)] text-white"
+                  : state === "complete"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-slate-100 text-slate-500 group-hover:bg-slate-200/80",
               )}
             >
-              <Icon className="h-4 w-4" />
+              {state === "complete" && !isActive ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                i + 1
+              )}
             </span>
-            <span className="min-w-0 flex-1 truncate">{s.label}</span>
-            {state === "complete" ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-            ) : state === "partial" ? (
-              <Circle className="h-4 w-4 shrink-0 text-amber-500" />
-            ) : (
-              <Circle className="h-4 w-4 shrink-0 text-slate-300" />
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--fos-primary)]" : "text-slate-400")} />
+              <span className="truncate">{s.label}</span>
+            </span>
+            {state === "partial" && (
+              <Circle className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" />
             )}
           </button>
         );
@@ -840,7 +863,7 @@ function PreviousAssessmentsPanel({
 
   return (
     <aside className={className}>
-      <InfoCard icon={History} title="Avaliações anteriores" description="Histórico resumido do paciente.">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={History} title="Avaliações anteriores" description="Histórico resumido do paciente.">
         {history.isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -892,9 +915,9 @@ function PreviousAssessmentsPanel({
 
 function StepIdentificacao({ values, setValue, register, profs, patient, ageYears }: any) {
   return (
-    <div className="space-y-4">
-      <InfoCard icon={User} title="Identificação" description="Profissional responsável e dados da sessão.">
-        <div className="grid gap-3 sm:grid-cols-3">
+    <div className="space-y-5">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={User} title="Identificação" description="Profissional responsável e dados da sessão.">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <FieldLabel required filled={!!values.professional_id}>
               Profissional
@@ -903,7 +926,7 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
               value={values.professional_id}
               onValueChange={(v) => setValue("professional_id", v, { shouldDirty: true })}
             >
-              <SelectTrigger className={cn("rounded-xl mt-1.5", !values.professional_id && "border-destructive ring-1 ring-destructive/30")}>
+              <SelectTrigger className={cn(ASSESSMENT_INPUT, !values.professional_id && "border-destructive ring-1 ring-destructive/30")}>
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -921,7 +944,7 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
           <div>
             <FieldLabel>Tipo</FieldLabel>
             <Select value={values.tipo} onValueChange={(v) => setValue("tipo", v, { shouldDirty: true })}>
-              <SelectTrigger className="rounded-xl mt-1.5">
+              <SelectTrigger className={ASSESSMENT_INPUT}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -934,12 +957,12 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
             <FieldLabel required filled={!!values.data}>
               Data
             </FieldLabel>
-            <Input type="date" className="rounded-xl mt-1.5" {...register("data")} />
+            <Input type="date" className={ASSESSMENT_INPUT} {...register("data")} />
           </div>
         </div>
       </InfoCard>
       {patient && (
-        <InfoCard icon={User} title="Dados do paciente" description="Referência rápida do cadastro.">
+        <InfoCard className={ASSESSMENT_STEP_CARD} icon={User} title="Dados do paciente" description="Referência rápida do cadastro.">
           <div className="grid gap-3 sm:grid-cols-3 text-sm">
             <Info label="Paciente" value={patient.nome_completo} />
             <Info label="Idade" value={ageYears != null ? `${ageYears} anos` : "—"} />
@@ -954,9 +977,9 @@ function StepIdentificacao({ values, setValue, register, profs, patient, ageYear
 function StepDiagnostico({ values, register, detection, catalog, applyTemplate, applied }: any) {
   const suggestions: DiagnosisCatalogItem[] = detection.items;
   return (
-    <div className="space-y-4">
-      <InfoCard icon={Stethoscope} title="Diagnóstico clínico" description="CID, descrição e diagnóstico fisioterapêutico.">
-        <div className="space-y-3">
+    <div className="space-y-5">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={Stethoscope} title="Diagnóstico clínico" description="CID, descrição e diagnóstico fisioterapêutico.">
+        <div className="space-y-5">
           <div>
             <FieldLabel filled={!!values.diagnostico_clinico?.trim()}>Diagnóstico clínico (CID / descrição)</FieldLabel>
             <Textarea
@@ -969,7 +992,7 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
               Conforme você digita, o sistema detecta o perfil clínico e sugere modelos clínicos.
             </p>
           </div>
-          <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
+          <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
             <div className="min-w-0 w-full">
               <FieldLabel>Médico responsável</FieldLabel>
               <Input className={cn(ASSESSMENT_TEXTAREA, "h-11")} placeholder="Nome / CRM" {...register("medico_responsavel")} />
@@ -983,6 +1006,7 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
       </InfoCard>
 
       <InfoCard
+        className={ASSESSMENT_STEP_CARD}
         icon={Sparkles}
         title="Biblioteca de modelos clínicos"
         description={`${catalog.length} modelos disponíveis para aplicar na anamnese e plano.`}
@@ -1048,8 +1072,8 @@ function StepDiagnostico({ values, register, detection, catalog, applyTemplate, 
 
 function StepAnamnese({ register, values }: any) {
   return (
-    <div className="space-y-4 w-full min-w-0">
-      <InfoCard icon={FileText} title="Queixa principal" description="Motivo da consulta e início do atendimento.">
+    <div className="space-y-5 w-full min-w-0">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={FileText} title="Queixa principal" description="Motivo da consulta e início do atendimento.">
         <FieldLabel required filled={!!values.queixa_principal?.trim()}>
           Queixa principal
         </FieldLabel>
@@ -1062,13 +1086,13 @@ function StepAnamnese({ register, values }: any) {
           <p className="mt-1 text-[11px] text-destructive">Obrigatório para finalizar a avaliação</p>
         )}
       </InfoCard>
-      <InfoCard icon={FileText} title="História da moléstia atual (HMA)">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={FileText} title="História da moléstia atual (HMA)">
         <Textarea rows={4} className={ASSESSMENT_TEXTAREA} {...register("hma")} />
       </InfoCard>
-      <InfoCard icon={FileText} title="História da moléstia pregressa (HMP)">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={FileText} title="História da moléstia pregressa (HMP)">
         <Textarea rows={3} className={ASSESSMENT_TEXTAREA} {...register("hmp")} />
       </InfoCard>
-      <InfoCard icon={FileText} title="Antecedentes pessoais e familiares">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={FileText} title="Antecedentes pessoais e familiares">
         <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
           <div className="min-w-0 w-full">
             <FieldLabel>Pessoais</FieldLabel>
@@ -1080,7 +1104,7 @@ function StepAnamnese({ register, values }: any) {
           </div>
         </div>
       </InfoCard>
-      <InfoCard icon={FileText} title="Medicamentos e hábitos">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={FileText} title="Medicamentos e hábitos">
         <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
           <div className="min-w-0 w-full">
             <FieldLabel>Medicamentos em uso</FieldLabel>
@@ -1099,9 +1123,9 @@ function StepAnamnese({ register, values }: any) {
 function StepExame({ register, values, setValue, control, profiles }: any) {
   const show = (p: ClinicalProfile) => profiles?.includes(p);
   return (
-    <div className="space-y-4">
-      <InfoCard icon={Activity} title="Avaliação geral" description="EVA, inspeção e palpação.">
-        <div className="space-y-3">
+    <div className="space-y-5">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={Activity} title="Avaliação geral" description="EVA, inspeção e palpação.">
+        <div className="space-y-5">
           <Controller
             control={control}
             name="eva"
@@ -1122,7 +1146,7 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
               />
             )}
           />
-          <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2">
+          <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
             <Field label="Inspeção" reg={register("inspecao")} />
             <Field label="Palpação" reg={register("palpacao")} />
           </div>
@@ -1130,8 +1154,8 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
       </InfoCard>
 
       {show("neuro") && (
-        <InfoCard icon={Activity} title="Avaliação neurológica" description="Perfil neuro detectado automaticamente.">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <InfoCard className={ASSESSMENT_STEP_CARD} icon={Activity} title="Avaliação neurológica" description="Perfil neuro detectado automaticamente.">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Nível de consciência" reg={register("neuro_consciencia")} />
             <Field label="Comunicação" reg={register("neuro_comunicacao")} />
             <Field label="Cognição" reg={register("neuro_cognicao")} />
@@ -1146,8 +1170,8 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
       )}
 
       {show("orto") && (
-        <InfoCard icon={Activity} title="Avaliação ortopédica">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <InfoCard className={ASSESSMENT_STEP_CARD} icon={Activity} title="Avaliação ortopédica">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Dor por movimento" reg={register("orto_dor_movimento")} />
             <Field label="Limitações funcionais" reg={register("orto_limitacoes")} />
             <Field label="Testes especiais" reg={register("orto_testes")} multiline />
@@ -1156,8 +1180,8 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
       )}
 
       {show("respiratorio") && (
-        <InfoCard icon={Activity} title="Avaliação respiratória">
-          <div className="grid gap-3 sm:grid-cols-3">
+        <InfoCard className={ASSESSMENT_STEP_CARD} icon={Activity} title="Avaliação respiratória">
+          <div className="grid gap-4 sm:grid-cols-3">
             <Field label="FR (irpm)" reg={register("resp_fr")} />
             <Field label="SpO₂ (%)" reg={register("resp_spo2")} />
             <Field label="Uso de O₂" reg={register("resp_oxigenio")} />
@@ -1183,9 +1207,9 @@ function StepExame({ register, values, setValue, control, profiles }: any) {
 function StepPlano({ register, suggested }: any) {
   const uniqueSuggested: string[] = Array.from(new Set(suggested ?? []));
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {uniqueSuggested.length > 0 && (
-        <InfoCard icon={Sparkles} title="Objetivos sugeridos" description="Baseados no diagnóstico detectado.">
+        <InfoCard className={ASSESSMENT_STEP_CARD} icon={Sparkles} title="Objetivos sugeridos" description="Baseados no diagnóstico detectado.">
           <div className="flex flex-wrap gap-1.5">
             {uniqueSuggested.map((o) => (
               <Badge key={o} variant="secondary" className="rounded-lg">
@@ -1195,8 +1219,8 @@ function StepPlano({ register, suggested }: any) {
           </div>
         </InfoCard>
       )}
-      <InfoCard icon={Target} title="Plano terapêutico" description="Objetivos, condutas e recursos.">
-        <div className="space-y-3 w-full min-w-0">
+      <InfoCard className={ASSESSMENT_STEP_CARD} icon={Target} title="Plano terapêutico" description="Objetivos, condutas e recursos.">
+        <div className="space-y-4 w-full min-w-0">
           <div className="w-full min-w-0">
             <FieldLabel>Objetivos terapêuticos</FieldLabel>
             <Textarea rows={4} className={ASSESSMENT_TEXTAREA} {...register("objetivos")} />
@@ -1220,7 +1244,7 @@ function PlaceholderPhase({
 }: { title: string; phase: string; description: string; scales?: string[] }) {
   const uniqueScales = scales ? Array.from(new Set(scales)) : [];
   return (
-    <InfoCard icon={Pen} title={title} description={description} className="border-dashed">
+    <InfoCard className={cn(ASSESSMENT_STEP_CARD, "border-dashed")} icon={Pen} title={title} description={description}>
       <div className="text-center">
         <Badge variant="outline" className="mx-auto">{phase}</Badge>
         {uniqueScales.length > 0 && (
@@ -1255,9 +1279,9 @@ function Field({ label, reg, multiline }: { label: string; reg: any; multiline?:
 
 function Info({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div>
-      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="mt-1 font-medium">{value ?? "—"}</div>
+    <div className="rounded-xl border border-[rgba(15,76,92,0.06)] bg-[rgba(15,76,92,0.02)] px-3 py-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</div>
+      <div className="mt-1 text-sm font-medium text-slate-800">{value ?? "—"}</div>
     </div>
   );
 }

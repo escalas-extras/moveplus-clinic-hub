@@ -1090,3 +1090,47 @@ textarea.fos-field,
   outline-offset: 2px;
 }
 
+/* ── UX-09 — Avaliação wizard premium ── */
+
+.assessment-wizard {
+  min-width: 0;
+}
+
+.assessment-wizard .home-hero-v2 {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
+.assessment-wizard .home-hero-v2 .inline-flex.items-baseline {
+  max-width: 100%;
+}
+
+.assessment-wizard .home-hero-v2 .inline-flex.items-baseline span:first-child {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.assessment-wizard-progress,
+.assessment-wizard-step {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
+.assessment-wizard-nav button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--fos-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.assessment-step-card {
+  border-radius: 1rem;
+}
+
+.assessment-wizard-step .assessment-step-card + .assessment-step-card {
+  margin-top: 0;
+}
+
+.assessment-wizard-footer {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
