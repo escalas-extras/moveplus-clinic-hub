@@ -24,7 +24,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
@@ -51,11 +50,18 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   AppShell,
+  ClinicalSkeleton,
   EmptyState,
+  FilterField,
   InfoCard,
+  KpiCard,
+  KpiGrid,
   PageHeader,
   PageSection,
+  PrimaryActionButton,
+  SearchField,
   StatusBadge,
+  clinical,
 } from "@/components/layout";
 import { toast } from "sonner";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
@@ -361,19 +367,20 @@ function PacientesPage() {
   const loading = list.isLoading || kpis.isLoading;
 
   return (
-    <AppShell className="dashboard-premium">
+    <AppShell clinical>
       <PageHeader
         icon={Users}
         eyebrow="CRM clínico"
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Pacientes" }]}
         title="Pacientes"
         description="Gestão premium de cadastros, histórico clínico e ações rápidas."
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-soft hover:bg-primary/90">
+              <PrimaryActionButton>
                 <Plus className="mr-2 h-4 w-4" />
                 Novo paciente
-              </Button>
+              </PrimaryActionButton>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
               <DialogHeader>
@@ -386,28 +393,25 @@ function PacientesPage() {
       />
 
       {loading ? (
-        <PacientesSkeleton />
+        <ClinicalSkeleton variant="split" kpiCount={4} />
       ) : (
         <>
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
-            <KpiCard icon={Users} label="Total de pacientes" value={kpis.data?.total ?? 0} accent="var(--primary)" />
-            <KpiCard icon={UserPlus} label="Novos no mês" value={kpis.data?.novos ?? 0} accent="#059669" />
-            <KpiCard icon={Activity} label="Em tratamento" value={kpis.data?.emTratamento ?? 0} accent="#0284c7" />
-            <KpiCard icon={LogOut} label="Altas" value={kpis.data?.altas ?? 0} accent="#64748b" />
-          </section>
+          <KpiGrid columns={4}>
+            <KpiCard icon={Users} label="Total de pacientes" value={kpis.data?.total ?? 0} accent="var(--primary)" hideDelta />
+            <KpiCard icon={UserPlus} label="Novos no mês" value={kpis.data?.novos ?? 0} accent="#059669" hideDelta />
+            <KpiCard icon={Activity} label="Em tratamento" value={kpis.data?.emTratamento ?? 0} accent="#0284c7" hideDelta />
+            <KpiCard icon={LogOut} label="Altas" value={kpis.data?.altas ?? 0} accent="#64748b" hideDelta />
+          </KpiGrid>
 
           <InfoCard icon={Search} title="Busca e filtros" description="Pesquisa instantânea e refinamento da lista.">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[200px] flex-1 sm:max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Buscar nome, CPF, telefone ou convênio…"
-                    className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9"
-                  />
-                </div>
+                <SearchField
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Buscar nome, CPF, telefone ou convênio…"
+                  wrapperClassName="min-w-[200px]"
+                />
 
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
                   <TabsList className="rounded-xl">
@@ -437,7 +441,7 @@ function PacientesPage() {
               <div className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-4", showMobileFilters ? "grid" : "hidden lg:grid")}>
                 <FilterField label="Status">
                   <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
-                    <SelectTrigger className="rounded-xl">
+                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -451,7 +455,7 @@ function PacientesPage() {
                 </FilterField>
                 <FilterField label="Profissional">
                   <Select value={filterProf} onValueChange={setFilterProf}>
-                    <SelectTrigger className="rounded-xl">
+                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -466,7 +470,7 @@ function PacientesPage() {
                 </FilterField>
                 <FilterField label="Convênio">
                   <Select value={filterConvenio} onValueChange={setFilterConvenio}>
-                    <SelectTrigger className="rounded-xl">
+                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -482,7 +486,7 @@ function PacientesPage() {
                 </FilterField>
                 <FilterField label="Ordenação">
                   <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
-                    <SelectTrigger className="rounded-xl">
+                    <SelectTrigger className={cn("rounded-xl", clinical.select)}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -497,7 +501,7 @@ function PacientesPage() {
             </div>
           </InfoCard>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className={clinical.splitLayout}>
             <PageSection
               icon={Users}
               title={viewMode === "cards" ? "Pacientes" : "Lista de pacientes"}
@@ -669,59 +673,6 @@ function PacientesPage() {
         </>
       )}
     </AppShell>
-  );
-}
-
-function PacientesSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
-      <Skeleton className="h-36 rounded-2xl" />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Skeleton className="h-[480px] rounded-2xl" />
-        <Skeleton className="h-[480px] rounded-2xl" />
-      </div>
-    </div>
-  );
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-xl"
-        style={{ background: `${accent}18`, color: accent }}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="mt-3 text-2xl font-bold tabular-nums tracking-tight">{value}</div>
-      <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function FilterField({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </Label>
-      {children}
-    </div>
   );
 }
 

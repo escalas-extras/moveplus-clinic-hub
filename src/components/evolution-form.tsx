@@ -13,9 +13,6 @@ import { toast } from "sonner";
 import {
   Eye,
   Star,
-  Cloud,
-  CloudOff,
-  Loader2,
   TrendingUp,
   Minus,
   TrendingDown,
@@ -29,7 +26,7 @@ import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { buildEvolutionPdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { EvaScale } from "@/components/clinical/eva-scale";
-import { EmptyState, InfoCard, StatusBadge } from "@/components/layout";
+import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton } from "@/components/layout";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -347,11 +344,11 @@ export function EvolutionForm({
   };
 
   if (profs.isLoading) {
-    return <EvolutionFormSkeleton />;
+    return <ClinicalSkeleton variant="wizard" />;
   }
 
   return (
-    <div className="dashboard-premium space-y-4">
+    <div className="dashboard-premium clinical-module space-y-4">
       <InfoCard icon={Stethoscope} title="Evolução clínica" description="Prontuário evolutivo premium da sessão.">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <HeaderField label="Paciente" value={patient?.nome_completo ?? "—"} />
@@ -714,31 +711,6 @@ function RequiredLabel({ children, filled }: { children: ReactNode; filled?: boo
   );
 }
 
-function AutosaveIndicator({ saving, lastSavedAt }: { saving: boolean; lastSavedAt: Date | null }) {
-  if (saving) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        Salvando rascunho…
-      </span>
-    );
-  }
-  if (lastSavedAt) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-        <Cloud className="h-3 w-3" />
-        Rascunho {lastSavedAt.toLocaleTimeString().slice(0, 5)}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted-foreground ring-1 ring-slate-200">
-      <CloudOff className="h-3 w-3" />
-      Autosave local
-    </span>
-  );
-}
-
 function IndicatorPicker({
   value,
   onChange,
@@ -859,19 +831,6 @@ function FavoriteField({
         </Button>
       </div>
       <Textarea rows={rows} className="rounded-xl" {...register(field)} />
-    </div>
-  );
-}
-
-function EvolutionFormSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-24 rounded-2xl" />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <Skeleton className="h-[480px] rounded-2xl" />
-        <Skeleton className="h-[480px] rounded-2xl" />
-      </div>
     </div>
   );
 }

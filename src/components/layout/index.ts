@@ -1,6 +1,16 @@
-export { AppShell } from "./AppShell";
+export { AppShell, clinical } from "./AppShell";
+export { AutosaveIndicator } from "./AutosaveIndicator";
+export { ClinicalSkeleton } from "./ClinicalSkeleton";
 export { EmptyState } from "./EmptyState";
+export { FilterField } from "./FilterField";
 export { InfoCard } from "./InfoCard";
+export { KpiCard } from "./KpiCard";
+export { KpiGrid } from "./KpiGrid";
+export { PageActions, PrimaryActionButton, SecondaryActionButton } from "./PageActions";
+export { PageBreadcrumb } from "./PageBreadcrumb";
 export { PageHeader } from "./PageHeader";
+export type { BreadcrumbItem } from "./PageHeader";
 export { PageSection } from "./PageSection";
+export { SearchField } from "./SearchField";
 export { StatusBadge } from "./StatusBadge";
+export { clinical as clinicalClasses } from "./clinical-classes";

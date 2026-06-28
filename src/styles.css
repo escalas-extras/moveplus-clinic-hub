@@ -498,3 +498,45 @@
   filter: none !important;
 }
 
+/* ===========================================================
+ * Clinical Module — refinamento global (Sprint 5.5)
+ * Escopo: Dashboard, Agenda, Pacientes, Avaliação, Evolução
+ * =========================================================== */
+.clinical-module {
+  --clinical-radius: 1rem;
+  --clinical-border: rgba(226, 232, 240, 0.8);
+}
+
+.clinical-module :is(button, a, input, select, textarea, [role="button"]):focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+.clinical-module .clinical-btn-primary,
+.clinical-module .clinical-btn-secondary,
+.clinical-module .clinical-btn-ghost {
+  min-height: 2.5rem;
+  min-width: 2.75rem;
+}
+
+.clinical-module table {
+  border-collapse: collapse;
+}
+
+.clinical-module tbody tr:focus-within {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+@media (max-width: 639px) {
+  .clinical-module .clinical-split-hide-mobile {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clinical-module * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

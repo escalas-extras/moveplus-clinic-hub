@@ -5,24 +5,25 @@ import { useActiveClinic } from "@/lib/active-clinic";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
 import { fmtDate } from "@/lib/format";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   AppShell,
+  ClinicalSkeleton,
   EmptyState,
   InfoCard,
+  KpiCard,
+  KpiGrid,
   PageHeader,
   PageSection,
+  PrimaryActionButton,
+  SecondaryActionButton,
   StatusBadge,
+  clinical,
 } from "@/components/layout";
 import {
   Users,
   CalendarDays,
   FileText,
   RefreshCw,
-  ArrowUpRight,
-  ArrowDownRight,
-  Minus,
   Sparkles,
   AlertTriangle,
   FileSignature,
@@ -298,36 +299,33 @@ function PainelClinico() {
   const loading = stats.isLoading;
 
   return (
-    <AppShell className="dashboard-premium">
+    <AppShell clinical>
       <PageHeader
         icon={Sparkles}
         eyebrow={brand.clinicName}
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Painel" }]}
         title={headerTitle}
         description={headerDescription}
         actions={
           <>
-            <Button
-              asChild
-              className="dash-btn-primary rounded-xl font-semibold shadow-soft"
-              style={{ background: brand.primaryColor }}
-            >
+            <PrimaryActionButton asChild style={{ background: brand.primaryColor }}>
               <Link to="/app/pacientes">
                 <Plus className="h-4 w-4" />
                 Novo paciente
               </Link>
-            </Button>
-            <Button asChild variant="outline" className="dash-btn-ghost rounded-xl font-medium">
+            </PrimaryActionButton>
+            <SecondaryActionButton asChild>
               <Link to="/app/agenda">
                 <CalendarDays className="h-4 w-4" />
                 Agendar
               </Link>
-            </Button>
+            </SecondaryActionButton>
           </>
         }
       />
 
       {loading ? (
-        <DashboardSkeleton />
+        <ClinicalSkeleton variant="dashboard" kpiCount={6} />
       ) : (
         <>
           {isNewClinic && (
@@ -364,8 +362,8 @@ function PainelClinico() {
             </InfoCard>
           )}
 
-          <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-            <StatCard
+          <KpiGrid columns={6}>
+            <KpiCard
               icon={Users}
               label="Pacientes ativos"
               value={s?.pacientesAtivos ?? 0}
@@ -374,7 +372,7 @@ function PainelClinico() {
               to="/app/pacientes"
               accent={brand.primaryColor}
             />
-            <StatCard
+            <KpiCard
               icon={Clock}
               label="Atendimentos hoje"
               value={s?.atendHoje ?? 0}
@@ -383,7 +381,7 @@ function PainelClinico() {
               hideDelta
               subtitle={s?.atendHoje ? "Agendados para hoje" : "Nenhum hoje"}
             />
-            <StatCard
+            <KpiCard
               icon={CalendarRange}
               label="Agenda desta semana"
               value={s?.agendaSemana ?? 0}
@@ -392,7 +390,7 @@ function PainelClinico() {
               hideDelta
               subtitle="Seg — Dom"
             />
-            <StatCard
+            <KpiCard
               icon={RefreshCw}
               label="Reavaliações pendentes"
               value={reavalCount}
@@ -402,7 +400,7 @@ function PainelClinico() {
               hideDelta
               subtitle={reavalCount > 0 ? "Requer atenção" : "Em dia"}
             />
-            <StatCard
+            <KpiCard
               icon={FileText}
               label="Documentos emitidos"
               value={s?.docsMes ?? 0}
@@ -411,7 +409,7 @@ function PainelClinico() {
               to="/app/documentos"
               accent={brand.secondaryColor}
             />
-            <StatCard
+            <KpiCard
               icon={DollarSign}
               label="Receita do mês"
               value="—"
@@ -421,9 +419,9 @@ function PainelClinico() {
               subtitle="Em breve"
               isPlaceholder
             />
-          </section>
+          </KpiGrid>
 
-          <div className="grid gap-6 lg:grid-cols-[1.65fr_1fr]">
+          <div className={cn("grid gap-6 lg:grid-cols-[1.65fr_1fr]", clinical.splitLayout)}>
             <PageSection
               icon={CalendarDays}
               title="Agenda do dia"
@@ -635,33 +633,6 @@ function PainelClinico() {
   );
 }
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)]"
-          >
-            <Skeleton className="h-9 w-9 rounded-xl" />
-            <Skeleton className="mt-5 h-9 w-16" />
-            <Skeleton className="mt-3 h-4 w-24" />
-            <Skeleton className="mt-2 h-3 w-20" />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-[1.65fr_1fr]">
-        <Skeleton className="h-80 rounded-2xl" />
-        <Skeleton className="h-80 rounded-2xl" />
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Skeleton className="h-72 rounded-2xl" />
-        <Skeleton className="h-72 rounded-2xl" />
-      </div>
-    </div>
-  );
-}
 
 function AgendaRow({ appt, accent }: { appt: ApptRow; accent: string }) {
   return (
@@ -681,101 +652,6 @@ function AgendaRow({ appt, accent }: { appt: ApptRow; accent: string }) {
         </StatusBadge>
       </td>
     </tr>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  previous,
-  period,
-  to,
-  accent,
-  tone = "default",
-  hideDelta,
-  subtitle,
-  isPlaceholder,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number | string;
-  previous?: number;
-  period?: string;
-  to?: string;
-  accent: string;
-  tone?: "default" | "warning";
-  hideDelta?: boolean;
-  subtitle?: string;
-  isPlaceholder?: boolean;
-}) {
-  const numValue = typeof value === "number" ? value : 0;
-  const hasPrev = typeof previous === "number" && previous > 0;
-  const delta = hasPrev ? ((numValue - previous!) / previous!) * 100 : numValue > 0 ? 100 : 0;
-  const up = delta > 0;
-  const down = delta < 0;
-  const DeltaIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
-  const deltaCls = up
-    ? "text-emerald-700 bg-emerald-50 ring-emerald-200"
-    : down
-      ? "text-rose-700 bg-rose-50 ring-rose-200"
-      : "text-muted-foreground bg-muted ring-border";
-
-  const inner = (
-    <div
-      className={cn(
-        "relative h-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] transition-shadow sm:p-6",
-        to && "hover:shadow-[0_18px_44px_-32px_rgba(15,23,42,0.65)]",
-      )}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-12 -top-12 h-24 w-24 rounded-full opacity-[0.07] blur-2xl"
-        style={{ background: accent }}
-      />
-      <div className="relative flex items-start justify-between">
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ background: `${accent}14`, color: accent }}
-        >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-        </div>
-        {!hideDelta && !isPlaceholder && (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
-              deltaCls,
-            )}
-          >
-            <DeltaIcon className="h-3 w-3" />
-            {hasPrev ? `${Math.abs(delta).toFixed(0)}%` : numValue > 0 ? "Novo" : "0%"}
-          </span>
-        )}
-        {hideDelta && tone === "warning" && numValue > 0 && (
-          <StatusBadge variant="warning">Atenção</StatusBadge>
-        )}
-      </div>
-      <div
-        className={cn(
-          "mt-5 text-3xl font-bold tabular-nums tracking-tight sm:text-[2rem]",
-          tone === "warning" && numValue > 0 && "text-amber-700",
-          isPlaceholder && "text-muted-foreground",
-        )}
-      >
-        {value}
-      </div>
-      <div className="mt-2 truncate text-[13px] font-semibold text-foreground">{label}</div>
-      <div className="mt-1 text-[12px] text-muted-foreground">
-        {subtitle ?? (hasPrev ? `${previous} ${period ?? ""}`.trim() : period ?? "Período inicial")}
-      </div>
-    </div>
-  );
-
-  if (!to) return inner;
-  return (
-    <Link to={to} className="block h-full">
-      {inner}
-    </Link>
   );
 }
 

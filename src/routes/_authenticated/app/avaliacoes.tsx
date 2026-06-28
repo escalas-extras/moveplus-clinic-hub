@@ -2,16 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, Search, ArrowRight, Lock, Clock, CheckCircle2, FileEdit } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import {
   AppShell,
+  ClinicalSkeleton,
   EmptyState,
   InfoCard,
+  KpiCard,
+  KpiGrid,
   PageHeader,
   PageSection,
+  SearchField,
   StatusBadge,
 } from "@/components/layout";
 import { fmtDate } from "@/lib/format";
@@ -61,34 +62,32 @@ function AvaliacoesPage() {
   }, [items]);
 
   return (
-    <AppShell className="dashboard-premium">
+    <AppShell clinical>
       <PageHeader
         icon={ClipboardList}
         eyebrow="Prontuário clínico"
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Avaliações" }]}
         title="Avaliações"
         description="Avaliações fisioterapêuticas registradas em todos os prontuários da clínica."
       />
 
       {isLoading ? (
-        <AvaliacoesSkeleton />
+        <ClinicalSkeleton variant="list" kpiCount={3} />
       ) : (
         <>
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4">
-            <KpiCard icon={ClipboardList} label="Total" value={kpis.total} accent="var(--primary)" />
-            <KpiCard icon={CheckCircle2} label="Finalizadas" value={kpis.finalizadas} accent="#059669" />
-            <KpiCard icon={FileEdit} label="Rascunhos" value={kpis.rascunhos} accent="#d97706" />
-          </section>
+          <KpiGrid columns={3}>
+            <KpiCard icon={ClipboardList} label="Total" value={kpis.total} accent="var(--primary)" hideDelta />
+            <KpiCard icon={CheckCircle2} label="Finalizadas" value={kpis.finalizadas} accent="#059669" hideDelta />
+            <KpiCard icon={FileEdit} label="Rascunhos" value={kpis.rascunhos} accent="#d97706" hideDelta />
+          </KpiGrid>
 
           <InfoCard icon={Search} title="Pesquisa rápida" description="Busque por paciente, profissional, tipo ou diagnóstico.">
-            <div className="relative max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar avaliações…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9"
-              />
-            </div>
+            <SearchField
+              placeholder="Buscar avaliações…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              wrapperClassName="max-w-xl"
+            />
           </InfoCard>
 
           <PageSection
@@ -168,44 +167,5 @@ function AvaliacoesPage() {
         </>
       )}
     </AppShell>
-  );
-}
-
-function AvaliacoesSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
-      <Skeleton className="h-20 rounded-2xl" />
-      <Skeleton className="h-80 rounded-2xl" />
-    </div>
-  );
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-xl"
-        style={{ background: `${accent}18`, color: accent }}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="mt-3 text-2xl font-bold tabular-nums tracking-tight">{value}</div>
-      <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
-    </div>
   );
 }

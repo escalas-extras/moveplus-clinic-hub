@@ -15,11 +15,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { toast } from "sonner";
 import {
   ArrowLeft, ArrowRight, CheckCircle2, Loader2, Sparkles, FileText, Stethoscope,
-  ClipboardList, Activity, Target, Pen, User, Save, AlertCircle, History, Cloud,
-  CloudOff, Circle,
+  ClipboardList, Activity, Target, Pen, User, Save, AlertCircle, History, Circle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EmptyState, InfoCard, StatusBadge } from "@/components/layout";
+import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton } from "@/components/layout";
 import { calcAge, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -504,11 +503,11 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const bootLoading = diagnoses.isLoading || profs.isLoading;
 
   if (bootLoading) {
-    return <WizardSkeleton />;
+    return <ClinicalSkeleton variant="wizard" />;
   }
 
   return (
-    <div className="dashboard-premium space-y-4 pb-4">
+    <div className="dashboard-premium clinical-module space-y-4 pb-4">
       <AssessmentPremiumHeader
         patient={patient}
         ageYears={ageYears}
@@ -671,44 +670,6 @@ function getStepFillState(key: StepKey, v: WizardPayload): StepFillState {
     default:
       return "empty";
   }
-}
-
-function WizardSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Skeleton className="h-28 rounded-2xl" />
-      <Skeleton className="h-16 rounded-2xl" />
-      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <Skeleton className="hidden h-96 rounded-2xl lg:block" />
-        <Skeleton className="h-96 rounded-2xl" />
-      </div>
-    </div>
-  );
-}
-
-function AutosaveIndicator({ saving, lastSavedAt }: { saving: boolean; lastSavedAt: Date | null }) {
-  if (saving) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        Salvando…
-      </span>
-    );
-  }
-  if (lastSavedAt) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-        <Cloud className="h-3 w-3" />
-        Salvo às {lastSavedAt.toLocaleTimeString().slice(0, 5)}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-muted-foreground ring-1 ring-slate-200">
-      <CloudOff className="h-3 w-3" />
-      Aguardando alterações
-    </span>
-  );
 }
 
 function AssessmentPremiumHeader({

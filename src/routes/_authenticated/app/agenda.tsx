@@ -17,7 +17,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Plus,
   ChevronLeft,
@@ -40,15 +39,19 @@ import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
 import {
   AppShell,
+  ClinicalSkeleton,
   EmptyState,
+  FilterField,
   InfoCard,
+  KpiCard,
+  KpiGrid,
   PageHeader,
   PageSection,
   StatusBadge,
+  clinical,
 } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
-import type { LucideIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/agenda")({
   component: AgendaPage,
@@ -395,10 +398,11 @@ function AgendaPage() {
     filterProf !== "all" || filterPatient !== "all" || filterStatus !== "all" || search.trim() !== "";
 
   return (
-    <AppShell className="dashboard-premium">
+    <AppShell clinical>
       <PageHeader
         icon={CalendarDays}
         eyebrow="Gestão clínica"
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Agenda" }]}
         title="Agenda"
         description={`Visualize e gerencie atendimentos · ${headerLabel}`}
         actions={
@@ -406,7 +410,7 @@ function AgendaPage() {
             supportMode={supportMode}
             onClick={() => openNewSlot(ymd(anchor))}
             tooltip="Modo Suporte ativo — novo agendamento bloqueado"
-            className="rounded-xl bg-primary font-semibold text-primary-foreground shadow-soft hover:bg-primary/90"
+            className={clinical.btnPrimary}
           >
             <Plus className="mr-2 h-4 w-4" />
             Novo agendamento
@@ -429,35 +433,39 @@ function AgendaPage() {
       />
 
       {list.isLoading ? (
-        <AgendaSkeleton />
+        <ClinicalSkeleton variant="split" kpiCount={4} />
       ) : (
         <>
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
-            <SummaryCard
+          <KpiGrid columns={4}>
+            <KpiCard
               icon={CalendarDays}
               label="Atendimentos hoje"
               value={daySummary.total}
               accent="var(--primary)"
+              hideDelta
             />
-            <SummaryCard
+            <KpiCard
               icon={CheckCircle2}
               label="Confirmados"
               value={daySummary.confirmado}
               accent="#059669"
+              hideDelta
             />
-            <SummaryCard
+            <KpiCard
               icon={Clock}
               label="Pendentes"
               value={daySummary.agendado}
               accent="#d97706"
+              hideDelta
             />
-            <SummaryCard
+            <KpiCard
               icon={XCircle}
               label="Cancelados"
               value={daySummary.cancelado}
               accent="#e11d48"
+              hideDelta
             />
-          </section>
+          </KpiGrid>
 
           <InfoCard padded className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -523,37 +531,55 @@ function AgendaPage() {
             </div>
 
             <div className={cn("grid gap-3 sm:grid-cols-3", showMobileFilters ? "grid" : "hidden lg:grid")}>
-              <FilterSelect
-                label="Profissional"
-                value={filterProf}
-                onChange={setFilterProf}
-                options={[
-                  { value: "all", label: "Todos" },
-                  ...(profs.data ?? []).map((p) => ({ value: p.id, label: p.nome })),
-                ]}
-              />
-              <FilterSelect
-                label="Paciente"
-                value={filterPatient}
-                onChange={setFilterPatient}
-                options={[
-                  { value: "all", label: "Todos" },
-                  ...(patients.data ?? []).map((p) => ({ value: p.id, label: p.nome_completo })),
-                ]}
-              />
-              <FilterSelect
-                label="Status"
-                value={filterStatus}
-                onChange={(v) => setFilterStatus(v as Status | "all")}
-                options={[
-                  { value: "all", label: "Todos" },
-                  ...ALL_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
-                ]}
-              />
+              <FilterField label="Profissional">
+                <Select value={filterProf} onValueChange={setFilterProf}>
+                  <SelectTrigger className={cn("rounded-xl", clinical.select)}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {(profs.data ?? []).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Paciente">
+                <Select value={filterPatient} onValueChange={setFilterPatient}>
+                  <SelectTrigger className={cn("rounded-xl", clinical.select)}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {(patients.data ?? []).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.nome_completo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Status">
+                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as Status | "all")}>
+                  <SelectTrigger className={cn("rounded-xl", clinical.select)}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {ALL_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_LABEL[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
             </div>
           </InfoCard>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className={clinical.splitLayout}>
             <div className="min-w-0">
               {view === "dia" ? (
                 <DayView
@@ -677,80 +703,6 @@ function AgendaPage() {
         disabled={supportMode}
       />
     </AppShell>
-  );
-}
-
-function AgendaSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
-      <Skeleton className="h-16 rounded-2xl" />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Skeleton className="h-[520px] rounded-2xl" />
-        <Skeleton className="h-[520px] rounded-2xl" />
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_44px_-36px_rgba(15,23,42,0.55)] sm:p-5">
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-xl"
-        style={{ background: `${accent}18`, color: accent }}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="mt-3 text-2xl font-bold tabular-nums tracking-tight">{value}</div>
-      <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="rounded-xl">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
   );
 }
 
