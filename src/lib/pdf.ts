@@ -6,6 +6,7 @@ import { invalidateSignedClinicLogoUrl } from "@/lib/clinic-logo";
 import { validateProfessionalForDoc } from "@/lib/professional-resolver";
 import {
   renderPdf,
+  prepareLogoForPdf,
   urlToDataUrl,
   type BuildPdfOpts,
   type ClinicData,
@@ -71,7 +72,10 @@ async function loadClinicLogo(clinicLogoUrl?: string | null): Promise<string | n
   }
 
   if (!resolved || !isLikelyImageUrl(resolved)) return null;
-  return await urlToDataUrl(resolved);
+  const raw = await urlToDataUrl(resolved);
+  if (!raw) return null;
+  const prepared = await prepareLogoForPdf(raw);
+  return prepared?.dataUrl ?? raw;
 }
 
 /**

@@ -1,20 +1,49 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { fmtDate } from "@/lib/format";
-import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
 import { useActiveClinic } from "@/lib/active-clinic";
+import { fmtDate } from "@/lib/format";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  RefreshCw,
+  ArrowRight,
+  Filter,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AppShell,
+  ClinicalSkeleton,
+  EmptyState,
+  InfoCard,
+  KpiCard,
+  KpiGrid,
+  PageHeader,
+  PageSection,
+  SearchField,
+  StatusBadge,
+  clinical,
+} from "@/components/layout";
+import { cn } from "@/lib/utils";
+import { ReassessmentWorkspace, type ScheduleItem } from "@/components/reassessment-premium";
 
 export const Route = createFileRoute("/_authenticated/app/reavaliacoes")({
   component: ReassessmentsPage,
 });
 
+type ScheduleRow = ScheduleItem & {
+  patients: { nome_completo: string } | null;
+};
+
 function ReassessmentsPage() {
   const { clinicId } = useActiveClinic();
-  const { data: items = [] } = useQuery({
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "overdue" | "upcoming" | "done">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const { data: items = [], isLoading } = useQuery({
     queryKey: ["reassessments-pending", clinicId],
     enabled: !!clinicId,
     queryFn: async () => {
@@ -23,70 +52,206 @@ function ReassessmentsPage() {
         .select("id, scheduled_for, completed_at, interval_days, patient_id, patients(nome_completo)")
         .eq("clinic_id", clinicId!)
         .order("scheduled_for", { ascending: true });
-      return data || [];
+      return (data ?? []) as ScheduleRow[];
     },
   });
 
-  const today = new Date();
-  const overdue = items.filter((i: any) => !i.completed_at && new Date(i.scheduled_for) < today);
-  const upcoming = items.filter((i: any) => !i.completed_at && new Date(i.scheduled_for) >= today);
-  const done = items.filter((i: any) => i.completed_at);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const { overdue, upcoming, done } = useMemo(() => {
+    const o: ScheduleRow[] = [];
+    const u: ScheduleRow[] = [];
+    const d: ScheduleRow[] = [];
+    items.forEach((i) => {
+      if (i.completed_at) d.push(i);
+      else if (new Date(i.scheduled_for) < today) o.push(i);
+      else u.push(i);
+    });
+    return { overdue: o, upcoming: u, done: d };
+  }, [items, today]);
+
+  const filtered = useMemo(() => {
+    let list = items;
+    if (filter === "overdue") list = overdue;
+    else if (filter === "upcoming") list = upcoming;
+    else if (filter === "done") list = done;
+
+    const s = q.toLowerCase().trim();
+    if (!s) return list;
+    return list.filter((i) => (i.patients?.nome_completo ?? "").toLowerCase().includes(s));
+  }, [items, overdue, upcoming, done, filter, q]);
+
+  const selected = items.find((i) => i.id === selectedId) ?? null;
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <header>
-        <h1 className="text-2xl font-semibold">Reavaliações</h1>
-        <p className="text-sm text-muted-foreground">Pendências agendadas automaticamente conforme periodicidade do paciente.</p>
-      </header>
+    <AppShell clinical>
+      <PageHeader
+        icon={RefreshCw}
+        eyebrow="Acompanhamento evolutivo"
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Reavaliações" }]}
+        title="Reavaliações"
+        description="Ferramenta clínica comparativa — visualize a evolução desde a avaliação inicial."
+      />
 
-      <div className="grid sm:grid-cols-3 gap-3">
-        <Stat icon={<AlertTriangle className="h-4 w-4 text-destructive" />} label="Atrasadas" value={overdue.length} />
-        <Stat icon={<CalendarClock className="h-4 w-4 text-amber-600" />} label="A vencer" value={upcoming.length} />
-        <Stat icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />} label="Concluídas" value={done.length} />
-      </div>
+      {isLoading ? (
+        <ClinicalSkeleton variant="split" kpiCount={3} />
+      ) : (
+        <>
+          <KpiGrid columns={3}>
+            <KpiCard
+              icon={AlertTriangle}
+              label="Atrasadas"
+              value={overdue.length}
+              accent="#e11d48"
+              hideDelta
+              tone={overdue.length > 0 ? "warning" : "default"}
+            />
+            <KpiCard
+              icon={CalendarClock}
+              label="A vencer"
+              value={upcoming.length}
+              accent="#d97706"
+              hideDelta
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              label="Concluídas"
+              value={done.length}
+              accent="#059669"
+              hideDelta
+            />
+          </KpiGrid>
 
-      <Section title="Atrasadas" items={overdue} variant="destructive" />
-      <Section title="A vencer" items={upcoming} variant="default" />
-      <Section title="Concluídas" items={done.slice(0, 20)} variant="muted" />
-    </div>
-  );
-}
+          <div className={cn(clinical.splitLayout, "xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]")}>
+            <div className="min-w-0 space-y-4">
+              <InfoCard icon={Filter} title="Filtros" description="Refine a lista de reavaliações agendadas.">
+                <div className="flex flex-wrap items-center gap-2">
+                  <SearchField
+                    placeholder="Buscar paciente…"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      [
+                        ["all", "Todas"],
+                        ["overdue", "Atrasadas"],
+                        ["upcoming", "A vencer"],
+                        ["done", "Concluídas"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <Button
+                        key={key}
+                        type="button"
+                        size="sm"
+                        variant={filter === key ? "default" : "outline"}
+                        className="rounded-lg"
+                        onClick={() => setFilter(key)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </InfoCard>
 
-function Stat({ icon, label, value }: any) {
-  return (
-    <Card className="p-4 flex items-center gap-3">
-      {icon}
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-2xl font-semibold">{value}</p>
-      </div>
-    </Card>
-  );
-}
-
-function Section({ title, items, variant }: any) {
-  if (!items.length) return null;
-  return (
-    <Card className="p-4">
-      <h2 className="font-semibold mb-3">{title}</h2>
-      <div className="space-y-2">
-        {items.map((i: any) => (
-          <div key={i.id} className="flex items-center justify-between p-2 rounded border">
-            <div>
-              <p className="font-medium text-sm">{i.patients?.nome_completo || "—"}</p>
-              <p className="text-xs text-muted-foreground">Agendada para {fmtDate(i.scheduled_for)} · {i.interval_days}d</p>
+              <PageSection
+                title="Agenda de reavaliações"
+                description={`${filtered.length} registro${filtered.length === 1 ? "" : "s"}`}
+                contentClassName="p-0"
+              >
+                {filtered.length === 0 ? (
+                  <EmptyState
+                    icon={RefreshCw}
+                    title={q ? "Nenhuma reavaliação encontrada" : "Nenhuma reavaliação agendada"}
+                    description={
+                      q
+                        ? "Tente outro nome ou limpe a busca."
+                        : "As reavaliações são agendadas automaticamente conforme a periodicidade do paciente."
+                    }
+                    className="py-12"
+                  />
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {filtered.map((item) => (
+                      <ScheduleRowItem
+                        key={item.id}
+                        item={item}
+                        today={today}
+                        selected={selectedId === item.id}
+                        onSelect={() => setSelectedId(item.id)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </PageSection>
             </div>
-            <div className="flex items-center gap-2">
-              {variant === "destructive" && <Badge variant="destructive">Atrasada</Badge>}
-              {variant === "default" && <Badge variant="secondary">Agendada</Badge>}
-              {variant === "muted" && <Badge variant="outline">Concluída</Badge>}
-              <Button asChild size="sm" variant="outline">
-                <Link to="/app/pacientes/$id" params={{ id: i.patient_id }}>Abrir</Link>
-              </Button>
+
+            <div className="min-w-0">
+              {selected ? (
+                <ReassessmentWorkspace schedule={selected} onClose={() => setSelectedId(null)} />
+              ) : (
+                <EmptyState
+                  icon={RefreshCw}
+                  title="Selecione uma reavaliação"
+                  description="Escolha um paciente na lista para abrir o comparativo evolutivo, resumo, timeline, gráficos e wizard de registro."
+                  className="min-h-[420px] py-16"
+                />
+              )}
             </div>
           </div>
-        ))}
-      </div>
-    </Card>
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+function ScheduleRowItem({
+  item,
+  today,
+  selected,
+  onSelect,
+}: {
+  item: ScheduleRow;
+  today: Date;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const isDone = !!item.completed_at;
+  const isOverdue = !isDone && new Date(item.scheduled_for) < today;
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(
+          "flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50",
+          selected && "bg-primary/5 ring-1 ring-inset ring-primary/20",
+          clinical.focusRing,
+        )}
+      >
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-sm text-slate-900">
+            {item.patients?.nome_completo ?? "—"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {isDone
+              ? `Concluída · ${fmtDate(item.completed_at!)}`
+              : `Agendada para ${fmtDate(item.scheduled_for)} · ${item.interval_days}d`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {isOverdue && <StatusBadge variant="danger">Atrasada</StatusBadge>}
+          {!isDone && !isOverdue && <StatusBadge variant="warning">Agendada</StatusBadge>}
+          {isDone && <StatusBadge variant="success">Concluída</StatusBadge>}
+          <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+        </div>
+      </button>
+    </li>
   );
 }
