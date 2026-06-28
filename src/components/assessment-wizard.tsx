@@ -39,6 +39,11 @@ const STEPS = [
   { key: "assinaturas", label: "Assinaturas", icon: Pen },
 ] as const;
 
+function clampStepIndex(idx: number | null | undefined, total = STEPS.length): number {
+  const n = Number.isFinite(idx) ? Number(idx) : 0;
+  return Math.min(Math.max(0, n), Math.max(0, total - 1));
+}
+
 const ASSESSMENT_TEXTAREA =
   "mt-2 w-full min-w-0 max-w-full rounded-xl border-[rgba(15,76,92,0.1)] bg-[rgba(15,76,92,0.02)] text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-[var(--fos-primary)]/30 focus:bg-white focus:ring-2 focus:ring-[var(--fos-primary)]/10";
 
@@ -235,7 +240,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const { clinicId } = useActiveClinic();
   const brand = useBranding();
   const qc = useQueryClient();
-  const [stepIdx, setStepIdx] = useState<number>(assessment?.wizard_step ?? 0);
+  const [stepIdx, setStepIdx] = useState<number>(() => clampStepIndex(assessment?.wizard_step ?? 0));
   const [savingDraft, setSavingDraft] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [appliedTemplates, setAppliedTemplates] = useState<string[]>([]);
@@ -294,7 +299,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       if (mounted && data) {
         const d = data as any;
         reset({ ...emptyPayload(), ...(d.payload || {}) });
-        setStepIdx(d.wizard_step ?? 0);
+        setStepIdx(clampStepIndex(d.wizard_step ?? 0));
         setLastSavedAt(new Date(d.updated_at));
         toast.info("Rascunho recuperado");
       }
@@ -373,7 +378,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         patient_id: patientId,
         user_id: u.user.id,
         action: "autosave",
-        step: STEPS[stepIdx].key,
+        step: STEPS[clampStepIndex(stepIdx)].key,
       });
       setLastSavedAt(new Date());
       if (!silent) toast.success("Rascunho salvo");
@@ -441,7 +446,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         patient_id: patientId,
         user_id: u.user?.id,
         action: finalize ? "finalize" : isEdit ? "update" : "create",
-        step: STEPS[stepIdx].key,
+        step: STEPS[clampStepIndex(stepIdx)].key,
         details: { profiles: v.clinical_profiles, diagnoses: v.diagnosis_codes },
       });
 
@@ -482,7 +487,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
         patient_id: patientId,
         user_id: u.user?.id,
         action: "template_applied",
-        step: STEPS[stepIdx].key,
+        step: STEPS[clampStepIndex(stepIdx)].key,
         details: { code: d.code, label: d.label },
       });
     });
@@ -492,7 +497,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
   const goPrev = () => setStepIdx((i) => Math.max(0, i - 1));
 
   const progress = ((stepIdx + 1) / STEPS.length) * 100;
-  const current = STEPS[stepIdx];
+  const current = STEPS[clampStepIndex(stepIdx)] ?? STEPS[0];
   const profiles = formValues.clinical_profiles ?? [];
 
   const profName = useMemo(

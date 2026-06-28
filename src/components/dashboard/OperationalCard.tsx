@@ -15,13 +15,15 @@ export type OperationalCardProps = {
   icon: LucideIcon;
   value: string | number;
   context: string;
-  to: string;
+  to?: string;
   accent?: string;
   trend?: OperationalCardTrend;
   alert?: boolean;
   compact?: boolean;
   /** Somente exibição — sem navegação ao clicar. */
   static?: boolean;
+  /** Ação local (ex.: aplicar filtro) — substitui navegação. */
+  onClick?: () => void;
 };
 
 const trendToneClass: Record<NonNullable<OperationalCardTrend["tone"]>, string> = {
@@ -36,18 +38,22 @@ export function OperationalCard({
   title,
   icon: Icon,
   value,
-  context,
+  context = "",
   to,
   accent = "var(--fos-primary)",
   trend,
   alert,
   compact,
   static: isStatic,
+  onClick,
 }: OperationalCardProps) {
+  const SafeIcon = Icon ?? ArrowUpRight;
+  const displayValue = value ?? "—";
+  const interactive = !isStatic && (!!onClick || !!to);
   const cardClass = cn(
-    "operational-card group relative flex flex-col rounded-2xl border bg-white/90 transition-all duration-200",
+    "operational-card group relative flex w-full flex-col rounded-2xl border bg-white/90 text-left transition-all duration-200",
     compact ? "min-h-[88px] p-2.5" : "min-h-[108px] p-3.5",
-    !isStatic && clinical.cardHover,
+    interactive && clinical.cardHover,
     alert
       ? "border-amber-200/80 shadow-[0_4px_20px_-8px_rgba(245,158,11,0.35)]"
       : "border-[rgba(15,76,92,0.1)] shadow-[var(--fos-card-shadow)]",
@@ -65,9 +71,9 @@ export function OperationalCard({
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
           style={{ background: `${accent}14`, color: accent }}
         >
-          <Icon className={cn("stroke-[2.25]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
+          <SafeIcon className={cn("stroke-[2.25]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
         </div>
-        {!isStatic && (
+        {interactive && (
           <ArrowUpRight
             className="h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-[var(--fos-primary)]"
             aria-hidden
@@ -76,8 +82,15 @@ export function OperationalCard({
       </div>
 
       <p className={cn("font-bold uppercase tracking-[0.12em] text-slate-500", compact ? "mt-1.5 text-[9px]" : "mt-2.5 text-[10px]")}>{title}</p>
-      <p className={cn("font-bold tabular-nums tracking-tight text-slate-950", compact ? "text-lg" : "text-2xl")}>{value}</p>
-      {!compact && <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-600">{context}</p>}
+      <p className={cn("font-bold tabular-nums tracking-tight text-slate-950", compact ? "text-lg" : "text-2xl")}>{displayValue}</p>
+      <p
+        className={cn(
+          "text-[11px] leading-snug text-slate-600",
+          compact ? "mt-0.5 line-clamp-1" : "mt-1 line-clamp-2",
+        )}
+      >
+        {context}
+      </p>
 
       {trend && (
         <span
@@ -93,8 +106,15 @@ export function OperationalCard({
   );
 
   if (isStatic) return <div className={cardClass}>{inner}</div>;
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cardClass}>
+        {inner}
+      </button>
+    );
+  }
   return (
-    <Link to={to} className={cn(cardClass, "no-underline")}>
+    <Link to={to ?? "/app/agenda"} className={cn(cardClass, "no-underline")}>
       {inner}
     </Link>
   );

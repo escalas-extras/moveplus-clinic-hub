@@ -17,7 +17,7 @@ export type AttentionItem = {
 };
 
 type AttentionListProps = {
-  items: AttentionItem[];
+  items?: AttentionItem[];
   emptyTitle?: string;
   emptyDescription?: string;
   className?: string;
@@ -31,7 +31,7 @@ const toneBadge: Record<NonNullable<AttentionItem["tone"]>, StatusBadgeVariant> 
 
 /** Lista curta de prioridades — seção “Atenção agora”. */
 export function AttentionList({
-  items,
+  items = [],
   emptyTitle = "Tudo em dia",
   emptyDescription = "Nenhuma pendência urgente no momento. Aproveite para avançar na rotina.",
   className,
@@ -54,11 +54,12 @@ export function AttentionList({
       ) : (
         <ul className="divide-y divide-[rgba(15,76,92,0.08)]">
           {items.map((item) => {
-            const Icon = item.icon;
+            const Icon = item.icon ?? Inbox;
+            const tone = item.tone ?? "default";
             return (
               <li key={item.id}>
                 <Link
-                  to={item.to}
+                  to={item.to ?? "/app"}
                   className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[rgba(15,76,92,0.03)] sm:px-5"
                 >
                   <div
@@ -82,7 +83,7 @@ export function AttentionList({
                     )}
                   </div>
                   {item.meta && (
-                    <StatusBadge variant={toneBadge[item.tone ?? "default"]} className="shrink-0">
+                    <StatusBadge variant={toneBadge[tone] ?? "neutral"} className="shrink-0">
                       {item.meta}
                     </StatusBadge>
                   )}

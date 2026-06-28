@@ -53,6 +53,7 @@ import {
   PageSection,
   QueryErrorState,
   SearchField,
+  PrimaryActionButton,
   SecondaryActionButton,
   StatusBadge,
   clinical,
@@ -117,17 +118,26 @@ const STATUS_VARIANT: Record<Status, "success" | "warning" | "danger" | "info" |
 
 const STATUS_CLASS: Record<Status, string> = {
   confirmado:
-    "border-l-emerald-500 bg-emerald-50/95 text-emerald-900 ring-emerald-200/70 hover:bg-emerald-50 hover:shadow-[0_4px_14px_-6px_rgba(16,185,129,0.35)]",
+    "border-l-emerald-500/80 bg-white text-slate-900 ring-slate-200/80 hover:bg-emerald-50/40 hover:shadow-[0_2px_10px_-4px_rgba(16,185,129,0.2)]",
   agendado:
-    "border-l-amber-500 bg-amber-50/95 text-amber-900 ring-amber-200/70 hover:bg-amber-50 hover:shadow-[0_4px_14px_-6px_rgba(245,158,11,0.35)]",
+    "border-l-amber-500/80 bg-white text-slate-900 ring-slate-200/80 hover:bg-amber-50/40 hover:shadow-[0_2px_10px_-4px_rgba(245,158,11,0.2)]",
   realizado:
-    "border-l-sky-500 bg-sky-50/95 text-sky-900 ring-sky-200/70 hover:bg-sky-50 hover:shadow-[0_4px_14px_-6px_rgba(14,165,233,0.35)]",
+    "border-l-sky-500/70 bg-white text-slate-800 ring-slate-200/70 hover:bg-sky-50/35 hover:shadow-[0_2px_10px_-4px_rgba(14,165,233,0.15)]",
   cancelado:
-    "border-l-rose-500 bg-rose-50/90 text-rose-800 ring-rose-200/60 opacity-95 hover:opacity-100 hover:shadow-[0_4px_14px_-6px_rgba(244,63,94,0.25)]",
+    "border-l-rose-400/70 bg-slate-50/80 text-slate-600 ring-slate-200/60 opacity-90 hover:opacity-100 hover:bg-rose-50/30",
 };
 
 const ALL_STATUSES: Status[] = ["confirmado", "agendado", "realizado", "cancelado"];
 const DND_MIME = "application/x-moveplus-agenda-appt";
+
+function resolveStatus(s: string | null | undefined): Status {
+  if (s && s in STATUS_LABEL) return s as Status;
+  return "agendado";
+}
+
+function statusClassFor(s: string | null | undefined): string {
+  return STATUS_CLASS[resolveStatus(s)];
+}
 
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -452,13 +462,13 @@ function AgendaPage() {
 
   const mapSideItem = useCallback(
     (a: Appt) => {
-      const s = (a.status ?? "agendado") as Status;
+      const s = resolveStatus(a.status);
       return {
         id: a.id,
-        horario: String(a.horario),
+        horario: String(a.horario ?? ""),
         patientName: a.patients?.nome_completo ?? "—",
         professionalName: a.professionals?.nome ?? undefined,
-        statusLabel: STATUS_LABEL[s] ?? s,
+        statusLabel: STATUS_LABEL[s] ?? String(a.status ?? "—"),
         statusVariant: STATUS_VARIANT[s] ?? "neutral",
         onSelect: () => setSelectedAppt(a),
       };
@@ -501,57 +511,89 @@ function AgendaPage() {
   const hasActiveFilters =
     filterProf !== "all" || filterPatient !== "all" || filterStatus !== "all" || search.trim() !== "";
 
+  const nextAppointment = useMemo(() => agendaSideData.upcoming[0] ?? null, [agendaSideData.upcoming]);
+
+  const goToToday = useCallback(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    setAnchor(d);
+    setView("dia");
+  }, []);
+
+  const applyCardFilter = useCallback(
+    (status: Status | "all") => {
+      goToToday();
+      setFilterStatus(status);
+      setShowMobileFilters(false);
+    },
+    [goToToday],
+  );
+
+  const heroChips = useMemo(() => {
+    if (list.isLoading || list.isError) return undefined;
+    const chips = [
+      { label: "atendimentos hoje", value: daySummary.total },
+      { label: "confirmados", value: daySummary.confirmado },
+      { label: "pendentes", value: daySummary.agendado },
+    ];
+    if (nextAppointment) {
+      chips.unshift({
+        label: `próxima · ${String(nextAppointment.horario).slice(0, 5)}`,
+        value: nextAppointment.patients?.nome_completo?.split(" ")[0] ?? "—",
+      });
+    }
+    return chips;
+  }, [list.isLoading, list.isError, daySummary, nextAppointment]);
+
   return (
     <AppShell clinical>
-      <ModuleStack className="agenda-operational space-y-3 sm:space-y-4">
+      <ModuleStack className="agenda-operational space-y-2.5 sm:space-y-3">
         <PageHero
+          className="agenda-hero-compact px-4 py-3 sm:px-5 sm:py-4"
           title="Agenda"
           clinicName={brand.clinicName}
           dateLabel={dateLabel}
           primaryColor={brand.primaryColor}
           secondaryColor={brand.secondaryColor}
-          daySummary={
-            !list.isLoading && !list.isError
-              ? [
-                  { label: "atendimentos hoje", value: daySummary.total },
-                  { label: "aguardando", value: agendaSideData.waiting.length },
-                  { label: "próximos", value: agendaSideData.upcoming.length },
-                ]
-              : undefined
-          }
+          chips={heroChips}
           actions={
             <>
               <SupportGuardButton
                 supportMode={supportMode}
                 onClick={() => openNewSlot(todayIso)}
                 tooltip="Modo Suporte ativo — novo agendamento bloqueado"
-                className={cn("h-10 gap-2 px-4 text-sm", clinical.btnPrimary)}
+                className={cn("h-9 gap-2 px-3.5 text-sm sm:h-10 sm:px-4", clinical.btnPrimary)}
                 style={{ background: brand.primaryColor }}
               >
                 <Plus className="h-4 w-4" />
                 Novo atendimento
               </SupportGuardButton>
-              <ActionButton variant="secondary"
-                className="h-10 px-4 text-sm bg-white/90"
-                onClick={() => {
-                  const d = new Date();
-                  d.setHours(0, 0, 0, 0);
-                  setAnchor(d);
-                  setView("dia");
-                }}
+              <ActionButton
+                variant="secondary"
+                className="h-9 px-3 text-sm bg-white/90 sm:h-10 sm:px-4"
+                onClick={goToToday}
               >
                 Hoje
               </ActionButton>
-              <ActionButton variant="secondary"
-                className="h-10 px-4 text-sm bg-white/90"
+              <ActionButton
+                variant="secondary"
+                className="h-9 px-3 text-sm bg-white/90 sm:h-10 sm:px-4"
                 onClick={() => {
-                  const d = new Date();
-                  d.setHours(0, 0, 0, 0);
-                  setAnchor(d);
+                  goToToday();
                   setView("semana");
                 }}
               >
                 Semana
+              </ActionButton>
+              <ActionButton
+                variant="secondary"
+                className="hidden h-9 px-3 text-sm bg-white/90 sm:inline-flex sm:h-10 sm:px-4"
+                onClick={() => {
+                  goToToday();
+                  setView("mes");
+                }}
+              >
+                Mês
               </ActionButton>
             </>
           }
@@ -577,61 +619,74 @@ function AgendaPage() {
         <ClinicalSkeleton variant="split" kpiCount={5} />
       ) : (
         <>
-          <OperationalCardsGrid className="xl:grid-cols-5">
+          <OperationalCardsGrid className="agenda-ops-cards xl:grid-cols-5">
             <OperationalCard
-              static
               compact
               title="Atendimentos hoje"
               icon={CalendarDays}
               value={daySummary.total}
               context="Total programado para hoje"
-              to="/app/agenda"
               accent={brand.primaryColor}
+              onClick={() => applyCardFilter("all")}
             />
             <OperationalCard
-              static
               compact
               title="Confirmados"
               icon={CheckCircle2}
               value={daySummary.confirmado}
               context="Pacientes com consulta confirmada"
-              to="/app/agenda"
               accent="#059669"
+              onClick={() => applyCardFilter("confirmado")}
             />
             <OperationalCard
-              static
-              compact
-              title="Em andamento"
-              icon={Activity}
-              value={daySummary.emAndamento}
-              context="Atendimentos no horário atual"
-              to="/app/agenda"
-              accent={brand.secondaryColor}
-            />
-            <OperationalCard
-              static
-              compact
-              title="Cancelados"
-              icon={XCircle}
-              value={daySummary.cancelado}
-              context="Cancelamentos registrados hoje"
-              to="/app/agenda"
-              accent="#e11d48"
-            />
-            <OperationalCard
-              static
               compact
               title="Pendentes"
               icon={Clock}
               value={daySummary.agendado}
               context="Aguardando confirmação"
-              to="/app/agenda"
               accent="#d97706"
               alert={daySummary.agendado > 0}
+              onClick={() => applyCardFilter("agendado")}
+            />
+            <OperationalCard
+              compact
+              title="Cancelados"
+              icon={XCircle}
+              value={daySummary.cancelado}
+              context="Cancelamentos registrados hoje"
+              accent="#e11d48"
+              onClick={() => applyCardFilter("cancelado")}
+            />
+            <OperationalCard
+              compact
+              title="Próximo atendimento"
+              icon={Activity}
+              value={
+                nextAppointment
+                  ? String(nextAppointment.horario).slice(0, 5)
+                  : "—"
+              }
+              context={
+                nextAppointment
+                  ? (nextAppointment.patients?.nome_completo ?? "Sem paciente")
+                  : "Nenhum atendimento restante hoje"
+              }
+              accent={brand.secondaryColor}
+              alert={!!nextAppointment && nextAppointment.status === "agendado"}
+              static={!nextAppointment}
+              onClick={
+                nextAppointment
+                  ? () => {
+                      goToToday();
+                      setSelectedAppt(nextAppointment);
+                    }
+                  : undefined
+              }
             />
           </OperationalCardsGrid>
 
           <PageToolbar
+            className="agenda-toolbar"
             showMobileFilters={showMobileFilters}
             onToggleMobileFilters={() => setShowMobileFilters((v) => !v)}
             hasActiveFilters={hasActiveFilters}
@@ -721,12 +776,13 @@ function AgendaPage() {
               </FilterField>
           </PageToolbar>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] xl:gap-4">
-            <div className="min-w-0">
+          <div className="agenda-main-grid grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px] xl:gap-4">
+            <div className="agenda-calendar-col min-w-0">
               {view === "dia" ? (
                 <DayView
                   items={filtered}
                   day={ymd(anchor)}
+                  isToday={ymd(anchor) === todayIso}
                   onStatus={(id, s) => updateStatus.mutate({ id, status: s })}
                   onEdit={(a) => setEditing(a)}
                   onSelect={(a) => setSelectedAppt(a)}
@@ -762,7 +818,7 @@ function AgendaPage() {
               )}
             </div>
 
-            <aside className="min-w-0 space-y-2.5">
+            <aside className="agenda-side-col min-w-0 space-y-2.5">
               {selectedFromList ? (
                 <DetailPanel
                   appt={selectedFromList}
@@ -774,6 +830,7 @@ function AgendaPage() {
               ) : null}
 
               <AgendaSidePanel
+                nextAppointment={nextAppointment ? mapSideItem(nextAppointment) : null}
                 upcoming={agendaSideData.upcoming.map(mapSideItem)}
                 waiting={agendaSideData.waiting.map(mapSideItem)}
                 alerts={agendaSideData.alerts}
@@ -783,7 +840,7 @@ function AgendaPage() {
                 }}
               />
 
-              <InfoCard padded={false} className="overflow-hidden">
+              <InfoCard padded={false} className="agenda-mini-calendar hidden overflow-hidden lg:block">
                 <CalendarPicker
                   mode="single"
                   selected={anchor}
@@ -822,7 +879,7 @@ function DetailPanel({
   onStatus: (s: Status) => void;
   disabled: boolean;
 }) {
-  const s = (appt.status ?? "agendado") as Status;
+  const s = resolveStatus(appt.status);
   return (
     <PageSection
       icon={CalendarDays}
@@ -938,17 +995,20 @@ function DetailPanel({
 function DayView({
   items,
   day,
+  isToday,
   onStatus,
   onEdit,
   onSelect,
   selectedId,
   disabled,
+  onNew,
   onSlotClick,
   onReschedule,
   isRescheduling,
 }: {
   items: Appt[];
   day: string;
+  isToday?: boolean;
   onStatus: (id: string, s: Status) => void;
   onEdit: (a: Appt) => void;
   onSelect: (a: Appt) => void;
@@ -965,13 +1025,26 @@ function DayView({
 
   if (!todays.length) {
     return (
-      <PageSection icon={CalendarDays} title="Grade do dia" description={fmtDate(day)}>
+      <PageSection
+        icon={CalendarDays}
+        title="Grade do dia"
+        description={fmtDate(day)}
+        className="agenda-day-view"
+      >
         <EmptyState
           icon={CalendarDays}
-          title="Agenda livre neste dia"
-          description="Clique em um horário vazio abaixo ou crie um novo agendamento."
-          action={{ label: "Novo agendamento", onClick: onSlotClick.bind(null, 8) }}
-          className="py-10"
+          title={
+            isToday
+              ? "Nenhum atendimento agendado para hoje."
+              : "Agenda livre neste dia"
+          }
+          description={
+            isToday
+              ? "Crie um novo atendimento ou escolha outro dia no calendário."
+              : "Clique em um horário vazio abaixo ou crie um novo agendamento."
+          }
+          action={{ label: "+ Novo Atendimento", onClick: onNew }}
+          className="py-8"
         />
         <ul className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200/80">
           {hours.map((h) => (
@@ -1151,7 +1224,7 @@ function AppointmentBlock({
   onSelect: (a: Appt) => void;
   disabled: boolean;
 }) {
-  const s = (a.status ?? "agendado") as Status;
+  const s = resolveStatus(a.status);
   return (
     <div
       draggable={!disabled}
@@ -1164,8 +1237,8 @@ function AppointmentBlock({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "agenda-appt-block group flex cursor-grab items-start gap-2 rounded-xl border-l-[3px] px-2.5 py-2 ring-1 transition-all duration-200 hover:-translate-y-px active:cursor-grabbing sm:gap-2.5 sm:px-3 sm:py-2.5",
-        STATUS_CLASS[s],
+        "agenda-appt-block group flex cursor-grab items-start gap-2 rounded-xl border-l-[3px] bg-white px-2.5 py-2 ring-1 ring-slate-200/70 transition-all duration-200 hover:-translate-y-px hover:ring-slate-300/80 active:cursor-grabbing sm:gap-2.5 sm:px-3 sm:py-2.5",
+        STATUS_CLASS[resolveStatus(s)],
         selected && "ring-2 ring-[var(--fos-primary)] ring-offset-1 shadow-sm",
       )}
       onClick={() => onSelect(a)}
@@ -1362,7 +1435,7 @@ function WeekView({
                   }}
                 >
                   {dayItems.map((a) => {
-                    const s = (a.status ?? "agendado") as Status;
+                    const s = resolveStatus(a.status);
                     return (
                       <div
                         key={a.id}
@@ -1380,7 +1453,7 @@ function WeekView({
                         }}
                         className={cn(
                           "w-full cursor-grab rounded-lg border-l-4 px-2 py-1.5 ring-1 active:cursor-grabbing",
-                          STATUS_CLASS[s],
+                          STATUS_CLASS[resolveStatus(s)],
                         )}
                       >
                         <button

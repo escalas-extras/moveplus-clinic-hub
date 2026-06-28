@@ -5,7 +5,7 @@ import {
   OutlineActionButton,
   GhostActionButton,
   DangerActionButton,
-} from "@/components/layout";
+} from "@/components/layout/PageActions";
 
 export type ActionButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 

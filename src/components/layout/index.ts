@@ -21,7 +21,6 @@ export { PageSection } from "./PageSection";
 export { SectionHeader } from "./SectionHeader";
 export { SearchField } from "./SearchField";
 export { StatusBadge } from "./StatusBadge";
-export { InfoBadge } from "@/components/ui-system";
 export { ClinicalDataTable } from "./ClinicalDataTable";
 export { PatientRecordLink } from "./PatientRecordLink";
 export { QueryErrorState } from "./QueryErrorState";

@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PageHeader, type BreadcrumbItem } from "@/components/layout";
+import { PageHeader, type BreadcrumbItem } from "@/components/layout/PageHeader";
 import { FOS_RADIUS, FOS_RADIUS_SM, FOS_TITLE_PAGE, FOS_EYEBROW } from "./tokens";
 
 export type PageHeroChip = { label: string; value: string | number };
@@ -12,10 +12,10 @@ export type PageHeroOperationalProps = {
   title?: string;
   greeting?: string;
   displayName?: string;
-  clinicName: string;
-  dateLabel: string;
-  primaryColor: string;
-  secondaryColor: string;
+  clinicName?: string;
+  dateLabel?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
   chips?: PageHeroChip[];
   /** @deprecated use chips */
   daySummary?: PageHeroChip[];
@@ -25,8 +25,8 @@ export type PageHeroOperationalProps = {
 
 export type PageHeroModuleProps = {
   variant: "module";
-  icon: LucideIcon;
-  eyebrow: string;
+  icon?: LucideIcon;
+  eyebrow?: string;
   title: string;
   description?: string;
   breadcrumbs?: BreadcrumbItem[];
@@ -57,19 +57,23 @@ export function PageHero(props: PageHeroProps) {
     title: titleOverride,
     greeting,
     displayName,
-    clinicName,
-    dateLabel,
-    primaryColor,
-    secondaryColor,
+    clinicName = "Clínica",
+    dateLabel = "",
+    primaryColor = "var(--fos-primary)",
+    secondaryColor = "var(--fos-secondary)",
     chips,
     daySummary,
     actions,
     className,
   } = props;
 
-  const summary = chips ?? daySummary;
+  const summary = (chips ?? daySummary ?? []).filter(
+    (chip): chip is PageHeroChip =>
+      !!chip && typeof chip.label === "string" && chip.value !== undefined && chip.value !== null,
+  );
   const heading =
-    titleOverride ?? (displayName && greeting ? `${greeting}, ${displayName}` : greeting ?? clinicName);
+    titleOverride ??
+    (displayName && greeting ? `${greeting}, ${displayName}` : greeting ?? clinicName);
 
   return (
     <section
@@ -97,13 +101,15 @@ export function PageHero(props: PageHeroProps) {
           </p>
           <div>
             <h1 className={FOS_TITLE_PAGE}>{heading}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm capitalize text-slate-600">
-              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[var(--hero-primary)]" aria-hidden />
-              {dateLabel}
-            </p>
+            {dateLabel ? (
+              <p className="mt-1 flex items-center gap-1.5 text-sm capitalize text-slate-600">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[var(--hero-primary)]" aria-hidden />
+                {dateLabel}
+              </p>
+            ) : null}
           </div>
 
-          {summary && summary.length > 0 && (
+          {summary.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-0.5">
               {summary.map((chip) => (
                 <div

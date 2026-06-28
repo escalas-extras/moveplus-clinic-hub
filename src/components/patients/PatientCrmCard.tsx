@@ -60,8 +60,8 @@ export function patientStatusVariant(p: PatientCrmData): "success" | "neutral" |
   return "success";
 }
 
-export function PatientAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
-  const initials = name
+export function PatientAvatar({ name = "", size = "md" }: { name?: string; size?: "sm" | "md" | "lg" }) {
+  const initials = (name || "?")
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
