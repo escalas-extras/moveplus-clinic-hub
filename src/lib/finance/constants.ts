@@ -28,6 +28,13 @@ export const RECEIVABLE_STATUS_LABELS: Record<PaymentStatus, string> = {
   cancelado: "Cancelado",
 };
 
+/** Labels comerciais para Contas a Pagar (G1.5). */
+export const PAYABLE_STATUS_LABELS: Record<PaymentStatus, string> = {
+  pendente: "Aberto",
+  pago: "Pago",
+  cancelado: "Cancelado",
+};
+
 export const FINANCIAL_ENTRY_TYPE_LABELS = {
   receivable: "Conta a receber",
   payable: "Conta a pagar",

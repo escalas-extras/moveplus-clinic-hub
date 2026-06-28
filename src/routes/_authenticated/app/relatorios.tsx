@@ -112,15 +112,17 @@ function ReportsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("financial_entries")
-        .select("id, data, valor, status, forma_pagamento, observacoes, category_id, financial_categories(type, name)")
+        .select("id, data, valor, status, forma_pagamento, observacoes, category_id, entry_type, financial_categories(type, name)")
         .eq("clinic_id", clinicId!)
         .gte("data", from)
         .lte("data", to);
       if (error) throw error;
       const rows: any[] = data ?? [];
 
-      const isExpense = (row: any) => row.financial_categories?.type === "expense";
-      const isIncome = (row: any) => !row.category_id || row.financial_categories?.type === "income";
+      const isExpense = (row: any) =>
+        row.entry_type === "payable" || row.financial_categories?.type === "expense";
+      const isIncome = (row: any) =>
+        row.entry_type !== "payable" && (!row.category_id || row.financial_categories?.type === "income");
 
       const recebido = rows
         .filter((d) => d.status === "pago" && isIncome(d))

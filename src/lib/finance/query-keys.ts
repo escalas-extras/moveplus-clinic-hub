@@ -14,4 +14,8 @@ export const financeQueryKeys = {
     ["finance", clinicId, "receivables", filtersKey] as const,
   receivableLookups: (clinicId: string | null | undefined) =>
     ["finance", clinicId, "receivable-lookups"] as const,
+  payables: (clinicId: string | null | undefined, filtersKey: string) =>
+    ["finance", clinicId, "payables", filtersKey] as const,
+  payableLookups: (clinicId: string | null | undefined) =>
+    ["finance", clinicId, "payable-lookups"] as const,
 } as const;

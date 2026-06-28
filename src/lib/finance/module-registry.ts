@@ -42,7 +42,8 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     id: "payables",
     title: "Contas a pagar",
     description: "Obrigações da clínica com vencimento e status de pagamento.",
-    status: "planned",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
     sprint: "G1.5",
   },
   {
@@ -50,7 +51,7 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     title: "Fluxo de caixa",
     description: "Entradas e saídas projetadas e realizadas por período.",
     status: "planned",
-    sprint: "G1.5",
+    sprint: "G1.6",
   },
   {
     id: "legacy_entries",

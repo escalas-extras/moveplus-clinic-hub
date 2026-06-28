@@ -24,8 +24,8 @@ export type Database = {
           horario: string
           id: string
           observacao: string | null
-          patient_id: string
-          professional_id: string
+          patient_id: string | null
+          professional_id: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
         }
@@ -38,8 +38,8 @@ export type Database = {
           horario: string
           id?: string
           observacao?: string | null
-          patient_id: string
-          professional_id: string
+          patient_id: string | null
+          professional_id: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
         }
@@ -2053,8 +2053,8 @@ export type Database = {
           forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
           id: string
           observacoes: string | null
-          patient_id: string
-          professional_id: string
+          patient_id: string | null
+          professional_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
           updated_at: string
           valor: number
@@ -2074,8 +2074,8 @@ export type Database = {
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
           observacoes?: string | null
-          patient_id: string
-          professional_id: string
+          patient_id: string | null
+          professional_id: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
           valor: number
@@ -2163,8 +2163,8 @@ export type Database = {
           family_report: string | null
           id: string
           observations: string | null
-          patient_id: string
-          professional_id: string | null
+          patient_id: string | null
+          professional_id: string | null | null
           signature_url: string | null
           therapeutic_plan: string | null
           updated_at: string
