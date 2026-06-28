@@ -1,0 +1,44 @@
+/**
+ * Sprint G1.1 — constantes do Financeiro Base.
+ */
+
+import type { FinancialCategoryType, PaymentMethod, PaymentStatus } from "./types";
+
+export const FINANCE_ROUTE_BASE = "/app/financeiro" as const;
+
+export const FINANCE_FEATURE_KEY = "financeiro" as const;
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  pix: "PIX",
+  dinheiro: "Dinheiro",
+  cartao: "Cartão",
+  transferencia: "Transferência",
+};
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  pago: "Pago",
+  pendente: "Pendente",
+};
+
+/** Papéis com acesso típico ao financeiro (clinic_members.role). */
+export const FINANCE_ROLES = ["owner", "admin", "financeiro"] as const;
+
+export const FINANCIAL_CATEGORY_TYPE_LABELS: Record<FinancialCategoryType, string> = {
+  income: "Receita",
+  expense: "Despesa",
+};
+
+export const FINANCIAL_CATEGORY_TYPE_PLURAL: Record<FinancialCategoryType, string> = {
+  income: "Receitas",
+  expense: "Despesas",
+};
+
+/** Cores sugeridas para categorias (hex). */
+export const FINANCIAL_CATEGORY_COLOR_PRESETS = [
+  "#10b981",
+  "#3b82f6",
+  "#8b5cf6",
+  "#f59e0b",
+  "#ef4444",
+  "#64748b",
+] as const;

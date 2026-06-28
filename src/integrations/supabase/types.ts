@@ -1935,9 +1935,61 @@ export type Database = {
           },
         ]
       }
+      financial_categories: {
+        Row: {
+          clinic_id: string
+          color: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_categories_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_usage"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "financial_categories_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_entries: {
         Row: {
           appointment_id: string | null
+          category_id: string | null
           clinic_id: string | null
           created_at: string
           created_by: string | null
@@ -1953,6 +2005,7 @@ export type Database = {
         }
         Insert: {
           appointment_id?: string | null
+          category_id?: string | null
           clinic_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1968,6 +2021,7 @@ export type Database = {
         }
         Update: {
           appointment_id?: string | null
+          category_id?: string | null
           clinic_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1987,6 +2041,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
             referencedColumns: ["id"]
           },
           {

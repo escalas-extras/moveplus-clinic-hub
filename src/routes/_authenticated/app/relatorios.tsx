@@ -110,11 +110,27 @@ function ReportsPage() {
     queryKey: ["report-financial", clinicId, from, to],
     enabled: !!clinicId,
     queryFn: async () => {
-      const { data } = await supabase.from("financial_entries").select("*").eq("clinic_id", clinicId!).gte("data", from).lte("data", to);
+      const { data, error } = await supabase
+        .from("financial_entries")
+        .select("id, data, valor, status, forma_pagamento, observacoes, category_id, financial_categories(type, name)")
+        .eq("clinic_id", clinicId!)
+        .gte("data", from)
+        .lte("data", to);
+      if (error) throw error;
       const rows: any[] = data ?? [];
-      const recebido = rows.filter((d) => d.status === "pago" && d.tipo === "receita").reduce((s, d) => s + Number(d.valor || 0), 0);
-      const pendente = rows.filter((d) => d.status === "pendente").reduce((s, d) => s + Number(d.valor || 0), 0);
-      const despesas = rows.filter((d) => d.tipo === "despesa").reduce((s, d) => s + Number(d.valor || 0), 0);
+
+      const isExpense = (row: any) => row.financial_categories?.type === "expense";
+      const isIncome = (row: any) => !row.category_id || row.financial_categories?.type === "income";
+
+      const recebido = rows
+        .filter((d) => d.status === "pago" && isIncome(d))
+        .reduce((s, d) => s + Number(d.valor || 0), 0);
+      const pendente = rows
+        .filter((d) => d.status === "pendente" && isIncome(d))
+        .reduce((s, d) => s + Number(d.valor || 0), 0);
+      const despesas = rows
+        .filter((d) => d.status === "pago" && isExpense(d))
+        .reduce((s, d) => s + Number(d.valor || 0), 0);
       return { recebido, pendente, despesas, entries: rows };
     },
   });
@@ -156,12 +172,22 @@ function ReportsPage() {
   const exportFinancial = async () => {
     if (!financial?.entries) return;
     const rows = financial.entries.map((e: any) => ({
-      data: e.data, tipo: e.tipo, descricao: e.descricao, valor: e.valor, status: e.status,
+      data: e.data,
+      categoria: e.financial_categories?.name ?? "—",
+      tipo: e.financial_categories?.type === "expense" ? "Despesa" : "Receita",
+      valor: e.valor,
+      status: e.status,
+      forma_pagamento: e.forma_pagamento ?? "",
+      observacoes: e.observacoes ?? "",
     }));
     downloadCSV(`financeiro-${from}_${to}.csv`, toCSV(rows, [
-      { key: "data", label: "Data" }, { key: "tipo", label: "Tipo" },
-      { key: "descricao", label: "Descrição" }, { key: "valor", label: "Valor" },
+      { key: "data", label: "Data" },
+      { key: "categoria", label: "Categoria" },
+      { key: "tipo", label: "Tipo" },
+      { key: "valor", label: "Valor" },
       { key: "status", label: "Status" },
+      { key: "forma_pagamento", label: "Forma de pagamento" },
+      { key: "observacoes", label: "Observações" },
     ]));
   };
 

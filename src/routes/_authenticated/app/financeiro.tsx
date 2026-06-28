@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye } from "lucide-react";
+import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
@@ -26,6 +26,9 @@ import {
 import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
+import { AppShell, PageHeader } from "@/components/layout";
+import { FinanceModuleHub, FinanceCategoriesPanel } from "@/components/finance";
+import { financeQueryKeys } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
   component: FinanceiroPage,
@@ -52,30 +55,78 @@ function requiredAmount(value: unknown) {
 
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
-  const [tab, setTab] = useState<"lancamentos" | "recibos">("lancamentos");
+  const [tab, setTab] = useState<"visao-geral" | "categorias" | "lancamentos" | "recibos">("visao-geral");
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  const monthIso = monthStart.toISOString().slice(0, 10);
+
+  const totals = useQuery({
+    queryKey: financeQueryKeys.entryTotals(clinicId, monthIso),
+    enabled: !!clinicId,
+    queryFn: async () => {
+      const { data: pagos } = await supabase
+        .from("financial_entries")
+        .select("valor")
+        .eq("clinic_id", clinicId!)
+        .eq("status", "pago")
+        .gte("data", monthIso);
+      const { data: pend } = await supabase
+        .from("financial_entries")
+        .select("valor")
+        .eq("clinic_id", clinicId!)
+        .eq("status", "pendente");
+      const totalMes = (pagos ?? []).reduce((s, r) => s + Number(r.valor), 0);
+      const totalPend = (pend ?? []).reduce((s, r) => s + Number(r.valor), 0);
+      return { totalMes, totalPend };
+    },
+  });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-[2rem] leading-tight font-semibold tracking-tight">Financeiro</h1>
-        <p className="mt-1.5 text-[15px] text-muted-foreground">Lançamentos e recibos da clínica</p>
-      </div>
+    <AppShell clinical>
+      <PageHeader
+        icon={Wallet}
+        eyebrow="Gestão"
+        title="Financeiro"
+        description="Base arquitetural Sprint G1 — hub modular com categorias, centros de custo, contas e fluxo de caixa."
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Financeiro" }]}
+      />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
-          <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
-          <TabsTrigger value="recibos"><Receipt className="h-3.5 w-3.5 mr-1.5" />Recibos</TabsTrigger>
+          <TabsTrigger value="visao-geral">Visão geral</TabsTrigger>
+          <TabsTrigger value="categorias">
+            <FolderTree className="h-3.5 w-3.5 mr-1.5" />
+            Categorias
+          </TabsTrigger>
+          <TabsTrigger value="lancamentos">Lançamentos v1</TabsTrigger>
+          <TabsTrigger value="recibos">
+            <Receipt className="h-3.5 w-3.5 mr-1.5" />
+            Recibos
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="lancamentos" className="space-y-6 mt-4">
+        <TabsContent value="visao-geral" className="mt-6">
+          <FinanceModuleHub
+            receivedMonth={totals.data?.totalMes ?? 0}
+            pendingTotal={totals.data?.totalPend ?? 0}
+            onOpenLegacy={() => setTab("lancamentos")}
+            onOpenCategories={() => setTab("categorias")}
+          />
+        </TabsContent>
+
+        <TabsContent value="categorias" className="mt-6">
+          <FinanceCategoriesPanel clinicId={clinicId} supportMode={supportMode} />
+        </TabsContent>
+
+        <TabsContent value="lancamentos" className="space-y-6 mt-6">
           <LancamentosTab clinicId={clinicId} supportMode={supportMode} />
         </TabsContent>
 
-        <TabsContent value="recibos" className="space-y-4 mt-4">
+        <TabsContent value="recibos" className="space-y-4 mt-6">
           <RecibosTab clinicId={clinicId} supportMode={supportMode} />
         </TabsContent>
       </Tabs>
-    </div>
+    </AppShell>
   );
 }
 
