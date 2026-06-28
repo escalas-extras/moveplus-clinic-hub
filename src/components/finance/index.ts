@@ -1,4 +1,5 @@
 export { FinanceModuleHub } from "./FinanceModuleHub";
+export { FinanceDashboardPanel } from "./FinanceDashboardPanel";
 export { FinanceCategoriesPanel } from "./FinanceCategoriesPanel";
 export { FinanceCostCentersPanel } from "./FinanceCostCentersPanel";
 export { FinanceReceivablesPanel } from "./FinanceReceivablesPanel";

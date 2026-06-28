@@ -27,8 +27,7 @@ import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
 import { AppShell, PageHeader } from "@/components/layout";
-import { FinanceModuleHub, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel } from "@/components/finance";
-import { financeQueryKeys } from "@/lib/finance";
+import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel } from "@/components/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
   component: FinanceiroPage,
@@ -56,30 +55,6 @@ function requiredAmount(value: unknown) {
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
   const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "fluxo" | "lancamentos" | "recibos">("visao-geral");
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  const monthIso = monthStart.toISOString().slice(0, 10);
-
-  const totals = useQuery({
-    queryKey: financeQueryKeys.entryTotals(clinicId, monthIso),
-    enabled: !!clinicId,
-    queryFn: async () => {
-      const { data: pagos } = await supabase
-        .from("financial_entries")
-        .select("valor")
-        .eq("clinic_id", clinicId!)
-        .eq("status", "pago")
-        .gte("data", monthIso);
-      const { data: pend } = await supabase
-        .from("financial_entries")
-        .select("valor")
-        .eq("clinic_id", clinicId!)
-        .eq("status", "pendente");
-      const totalMes = (pagos ?? []).reduce((s, r) => s + Number(r.valor), 0);
-      const totalPend = (pend ?? []).reduce((s, r) => s + Number(r.valor), 0);
-      return { totalMes, totalPend };
-    },
-  });
 
   return (
     <AppShell clinical>
@@ -87,7 +62,7 @@ function FinanceiroPage() {
         icon={Wallet}
         eyebrow="Gestão"
         title="Financeiro"
-        description="Base arquitetural Sprint G1 — hub modular com categorias, centros de custo, contas e fluxo de caixa."
+        description="Dashboard executivo e módulos do Financeiro Base — categorias, contas, fluxo de caixa."
         breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Financeiro" }]}
       />
 
@@ -122,15 +97,14 @@ function FinanceiroPage() {
         </TabsList>
 
         <TabsContent value="visao-geral" className="mt-6">
-          <FinanceModuleHub
-            receivedMonth={totals.data?.totalMes ?? 0}
-            pendingTotal={totals.data?.totalPend ?? 0}
-            onOpenLegacy={() => setTab("lancamentos")}
+          <FinanceDashboardPanel
+            clinicId={clinicId}
+            onNewReceivable={() => setTab("receber")}
+            onNewPayable={() => setTab("pagar")}
+            onOpenCashFlow={() => setTab("fluxo")}
             onOpenCategories={() => setTab("categorias")}
             onOpenCostCenters={() => setTab("centros-custo")}
-            onOpenReceivables={() => setTab("receber")}
-            onOpenPayables={() => setTab("pagar")}
-            onOpenCashFlow={() => setTab("fluxo")}
+            onOpenLegacy={() => setTab("lancamentos")}
           />
         </TabsContent>
 

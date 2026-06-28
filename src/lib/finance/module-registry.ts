@@ -10,7 +10,7 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     id: "dashboard",
     title: "Dashboard financeiro",
     description: "Visão consolidada de receitas, despesas e saldo do período.",
-    status: "planned",
+    status: "active",
     route: FINANCE_ROUTE_BASE,
     sprint: "G1.7",
   },
