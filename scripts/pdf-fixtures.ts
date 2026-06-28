@@ -426,7 +426,53 @@ const CLINIC_EMPTY: ClinicData = {
   rodape_institucional: null,
 };
 
-const fixtures: Array<{ name: string; opts: BuildPdfOpts; clinic: ClinicData }> = [
+// --- QA Sprint 8A: logos e documentos longos ---
+
+/** PNG 1×1 transparente */
+const LOGO_PNG_TRANSPARENT =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+/** JPEG mínimo (fundo branco) */
+const LOGO_JPG =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAr/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBEQCEAD8AV/QP/9k=";
+
+/** PNG 200×80 simulando logo grande (retângulo verde sem matte) */
+const LOGO_PNG_LARGE = (() => {
+  // 4×2 px verde — escala no PDF via fitRect
+  return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAC4/H6XAAAAEklEQVR42mNk+M9QzwAEjAI9jU77yQAAAABJRU5ErkJggg==";
+})();
+
+/** PNG 2×2 simulando logo pequena */
+const LOGO_PNG_SMALL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAAB7bP87AAAAD0lEQVR42mNkYPhfDwAChAGA60e6kgAAAABJRU5ErkJggg==";
+
+const longDocument: BuildPdfOpts = {
+  title: "Relatório Longo — QA Paginação",
+  subtitle: "Emitido em 27/06/2026",
+  patientName: "Paciente QA Multipágina",
+  professional: PROFESSIONAL,
+  validationHash: HASH,
+  blocks: Array.from({ length: 18 }, (_, i) => ({
+    title: `${i + 1}. Seção extensa de teste`,
+    children: [
+      para(
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(12) +
+          "Palavraextremamentegrandedetestequeprecisaserquebradaautomaticamentesempassardocard. " +
+          "Observações clínicas detalhadas sobre evolução, plano terapêutico e objetivos funcionais do paciente.",
+      ),
+      highlight("Destaque", "Texto de highlight com conteúdo longo para validar quebra dentro do card colorido. ".repeat(4)),
+    ],
+  })),
+};
+
+type Fixture = {
+  name: string;
+  opts: BuildPdfOpts;
+  clinic: ClinicData;
+  logo?: string | null;
+};
+
+const fixtures: Fixture[] = [
   { name: "01-contrato-paciente",       opts: contractPaciente,    clinic: CLINIC },
   { name: "02-contrato-responsavel",    opts: contractResponsavel, clinic: CLINIC },
   { name: "03-relatorio-funcional",     opts: relatorioFuncional,  clinic: CLINIC },
@@ -434,12 +480,18 @@ const fixtures: Array<{ name: string; opts: BuildPdfOpts; clinic: ClinicData }> 
   { name: "05-parecer-pericial",        opts: parecer,             clinic: CLINIC },
   { name: "06-relatorio-inss",          opts: inss,                clinic: CLINIC },
   { name: "07-tcle-lgpd",               opts: tcleLgpd,            clinic: CLINIC },
-  { name: "08-whitelabel-clinic-vazia", opts: relatorioFuncional,  clinic: CLINIC_EMPTY },
+  { name: "08-whitelabel-clinic-vazia", opts: relatorioFuncional,  clinic: CLINIC_EMPTY, logo: null },
+  { name: "09-logo-png-transparente",   opts: relatorioFuncional,  clinic: CLINIC, logo: LOGO_PNG_TRANSPARENT },
+  { name: "10-logo-jpg",                opts: relatorioFuncional,  clinic: CLINIC, logo: LOGO_JPG },
+  { name: "11-logo-grande",             opts: relatorioFuncional,  clinic: CLINIC, logo: LOGO_PNG_LARGE },
+  { name: "12-logo-pequena",            opts: relatorioFuncional,  clinic: CLINIC, logo: LOGO_PNG_SMALL },
+  { name: "13-documento-longo",         opts: longDocument,        clinic: CLINIC },
+  { name: "14-sem-logo",                opts: relatorioFuncional,  clinic: CLINIC, logo: null },
 ];
 
 async function main() {
   for (const f of fixtures) {
-    const doc = await renderPdf(f.opts, { clinic: f.clinic, logo: null });
+    const doc = await renderPdf(f.opts, { clinic: f.clinic, logo: f.logo ?? null });
     const ab = doc.output("arraybuffer") as ArrayBuffer;
     const file = resolve(OUT, `${f.name}.pdf`);
     writeFileSync(file, Buffer.from(ab));
