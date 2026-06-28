@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark, ArrowDownCircle, ArrowUpCircle, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
@@ -27,7 +27,7 @@ import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
 import { AppShell, PageHeader } from "@/components/layout";
-import { FinanceModuleHub, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel } from "@/components/finance";
+import { FinanceModuleHub, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel } from "@/components/finance";
 import { financeQueryKeys } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
@@ -55,7 +55,7 @@ function requiredAmount(value: unknown) {
 
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
-  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "lancamentos" | "recibos">("visao-geral");
+  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "fluxo" | "lancamentos" | "recibos">("visao-geral");
   const monthStart = new Date();
   monthStart.setDate(1);
   const monthIso = monthStart.toISOString().slice(0, 10);
@@ -110,6 +110,10 @@ function FinanceiroPage() {
             <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
             Contas a Pagar
           </TabsTrigger>
+          <TabsTrigger value="fluxo">
+            <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+            Fluxo de Caixa
+          </TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos v1</TabsTrigger>
           <TabsTrigger value="recibos">
             <Receipt className="h-3.5 w-3.5 mr-1.5" />
@@ -126,6 +130,7 @@ function FinanceiroPage() {
             onOpenCostCenters={() => setTab("centros-custo")}
             onOpenReceivables={() => setTab("receber")}
             onOpenPayables={() => setTab("pagar")}
+            onOpenCashFlow={() => setTab("fluxo")}
           />
         </TabsContent>
 
@@ -143,6 +148,10 @@ function FinanceiroPage() {
 
         <TabsContent value="pagar" className="mt-6">
           <FinancePayablesPanel clinicId={clinicId} supportMode={supportMode} />
+        </TabsContent>
+
+        <TabsContent value="fluxo" className="mt-6">
+          <FinanceCashFlowPanel clinicId={clinicId} />
         </TabsContent>
 
         <TabsContent value="lancamentos" className="space-y-6 mt-6">

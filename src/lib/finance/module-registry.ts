@@ -12,7 +12,7 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     description: "Visão consolidada de receitas, despesas e saldo do período.",
     status: "planned",
     route: FINANCE_ROUTE_BASE,
-    sprint: "G1.5",
+    sprint: "G1.7",
   },
   {
     id: "categories",
@@ -50,7 +50,8 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     id: "cash_flow",
     title: "Fluxo de caixa",
     description: "Entradas e saídas projetadas e realizadas por período.",
-    status: "planned",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
     sprint: "G1.6",
   },
   {
