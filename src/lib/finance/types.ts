@@ -46,7 +46,8 @@ export type FinanceModuleId =
   | "packages"
   | "installments"
   | "health_insurance"
-  | "delinquency";
+  | "delinquency"
+  | "professional_revenue";
 
 export type FinanceModuleStatus = "active" | "planned" | "legacy";
 

@@ -11,8 +11,8 @@ export const FINANCE_FEATURE_KEY = "financeiro" as const;
 /** Versão congelada do Financeiro Base MVP (Sprint G1.8). */
 export const FINANCE_BASE_VERSION = "G1.8" as const;
 
-/** Trilha G2 — Inadimplência (Sprint G2.5). */
-export const FINANCE_G2_VERSION = "G2.5" as const;
+/** Trilha G2 — Receita por Profissional (Sprint G2.6). */
+export const FINANCE_G2_VERSION = "G2.6" as const;
 
 export const INSTALLMENT_PLAN_STATUS_LABELS: Record<InstallmentPlanStatus, string> = {
   active: "Ativo",
@@ -43,6 +43,12 @@ export const DELINQUENCY_AGE_BUCKET_LABELS = {
   "1-7": "1 a 7 dias",
   "8-30": "8 a 30 dias",
   "31+": "Acima de 30 dias",
+} as const;
+
+export const PROFESSIONAL_REVENUE_STATUS_FILTER_LABELS = {
+  all: "Todos",
+  pago: "Realizado",
+  pendente: "Previsto",
 } as const;
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {

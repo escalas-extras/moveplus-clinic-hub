@@ -10,3 +10,4 @@ export { FinancePackageContractUsageDialog } from "./FinancePackageContractUsage
 export { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
 export { FinanceHealthInsurancePanel } from "./FinanceHealthInsurancePanel";
 export { FinanceDelinquencyPanel } from "./FinanceDelinquencyPanel";
+export { FinanceProfessionalRevenuePanel } from "./FinanceProfessionalRevenuePanel";

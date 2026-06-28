@@ -88,6 +88,14 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     sprint: "G2.5",
   },
   {
+    id: "professional_revenue",
+    title: "Receita por Profissional",
+    description: "Consolidação de receitas realizadas e previstas por profissional.",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
+    sprint: "G2.6",
+  },
+  {
     id: "legacy_entries",
     title: "Lançamentos v1",
     description: "Registro operacional atual (financial_entries + recibos).",
