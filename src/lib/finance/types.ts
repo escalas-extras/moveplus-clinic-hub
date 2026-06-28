@@ -16,6 +16,7 @@ export type FinancialCostCenterInsert = Database["public"]["Tables"]["financial_
 export type FinancialCostCenterUpdate = Database["public"]["Tables"]["financial_cost_centers"]["Update"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
+export type FinancialEntryType = FinancialEntryRow["entry_type"];
 
 /** Módulos planejados na trilha G1 (Financeiro Base). */
 export type FinanceModuleId =

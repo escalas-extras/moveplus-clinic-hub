@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark } from "lucide-react";
+import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark, ArrowDownCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
@@ -27,7 +27,7 @@ import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { SupportGuardButton } from "@/components/support-guard";
 import { AppShell, PageHeader } from "@/components/layout";
-import { FinanceModuleHub, FinanceCategoriesPanel, FinanceCostCentersPanel } from "@/components/finance";
+import { FinanceModuleHub, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel } from "@/components/finance";
 import { financeQueryKeys } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
@@ -55,7 +55,7 @@ function requiredAmount(value: unknown) {
 
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
-  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "lancamentos" | "recibos">("visao-geral");
+  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "lancamentos" | "recibos">("visao-geral");
   const monthStart = new Date();
   monthStart.setDate(1);
   const monthIso = monthStart.toISOString().slice(0, 10);
@@ -102,6 +102,10 @@ function FinanceiroPage() {
             <Landmark className="h-3.5 w-3.5 mr-1.5" />
             Centros de Custo
           </TabsTrigger>
+          <TabsTrigger value="receber">
+            <ArrowDownCircle className="h-3.5 w-3.5 mr-1.5" />
+            Contas a Receber
+          </TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos v1</TabsTrigger>
           <TabsTrigger value="recibos">
             <Receipt className="h-3.5 w-3.5 mr-1.5" />
@@ -116,6 +120,7 @@ function FinanceiroPage() {
             onOpenLegacy={() => setTab("lancamentos")}
             onOpenCategories={() => setTab("categorias")}
             onOpenCostCenters={() => setTab("centros-custo")}
+            onOpenReceivables={() => setTab("receber")}
           />
         </TabsContent>
 
@@ -125,6 +130,10 @@ function FinanceiroPage() {
 
         <TabsContent value="centros-custo" className="mt-6">
           <FinanceCostCentersPanel clinicId={clinicId} supportMode={supportMode} />
+        </TabsContent>
+
+        <TabsContent value="receber" className="mt-6">
+          <FinanceReceivablesPanel clinicId={clinicId} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="lancamentos" className="space-y-6 mt-6">
@@ -184,9 +193,11 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
       const { data: u } = await supabase.auth.getUser();
       const payload: any = {
         clinic_id: clinicId,
+        entry_type: "receivable",
         patient_id: requiredText(v.patient_id, "Paciente"),
         professional_id: requiredText(v.professional_id, "Profissional"),
         data: requiredDate(v.data),
+        data_vencimento: requiredDate(v.data),
         valor: requiredAmount(v.valor),
         forma_pagamento: v.forma_pagamento || null,
         status: v.status ?? "pendente",
@@ -194,6 +205,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
         created_by: u.user?.id ?? null,
       };
       if (!payload.data) throw new Error("Data é obrigatória.");
+      if (payload.status === "pago") payload.data_recebimento = payload.data;
       const { error } = await supabase.from("financial_entries").insert(payload);
       if (error) throw error;
     },
@@ -205,7 +217,7 @@ function LancamentosTab({ clinicId, supportMode }: { clinicId: string | null; su
     mutationFn: async (id: string) => {
       if (!clinicId) throw new Error("Clínica ativa não identificada.");
       if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
-      const { error } = await supabase.from("financial_entries").update({ status: "pago" }).eq("id", id).eq("clinic_id", clinicId);
+      const { error } = await supabase.from("financial_entries").update({ status: "pago", data_recebimento: new Date().toISOString().slice(0, 10) }).eq("id", id).eq("clinic_id", clinicId);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fin", clinicId] }); qc.invalidateQueries({ queryKey: ["fin-totals", clinicId] }); },

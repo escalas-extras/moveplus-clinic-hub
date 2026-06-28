@@ -40,6 +40,7 @@ type FinanceModuleHubProps = {
   onOpenLegacy?: () => void;
   onOpenCategories?: () => void;
   onOpenCostCenters?: () => void;
+  onOpenReceivables?: () => void;
 };
 
 function statusBadge(status: FinanceModuleDefinition["status"]) {
@@ -54,6 +55,7 @@ export function FinanceModuleHub({
   onOpenLegacy,
   onOpenCategories,
   onOpenCostCenters,
+  onOpenReceivables,
 }: FinanceModuleHubProps) {
   const active = getActiveFinanceModules();
   const planned = FINANCE_MODULE_REGISTRY.filter((m) => m.status === "planned");
@@ -71,6 +73,13 @@ export function FinanceModuleHub({
       return (
         <Button type="button" variant="default" size="sm" onClick={onOpenCostCenters}>
           Gerenciar centros de custo
+        </Button>
+      );
+    }
+    if (mod.id === "receivables" && onOpenReceivables) {
+      return (
+        <Button type="button" variant="default" size="sm" onClick={onOpenReceivables}>
+          Abrir contas a receber
         </Button>
       );
     }

@@ -34,7 +34,8 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     id: "receivables",
     title: "Contas a receber",
     description: "Títulos em aberto vinculados a pacientes e convênios futuros.",
-    status: "planned",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
     sprint: "G1.4",
   },
   {
@@ -42,7 +43,7 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     title: "Contas a pagar",
     description: "Obrigações da clínica com vencimento e status de pagamento.",
     status: "planned",
-    sprint: "G1.4",
+    sprint: "G1.5",
   },
   {
     id: "cash_flow",

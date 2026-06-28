@@ -2046,6 +2046,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           data: string
+          data_recebimento: string | null
+          data_vencimento: string | null
+          documento: string | null
+          entry_type: string
           forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
           id: string
           observacoes: string | null
@@ -2063,6 +2067,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: string
+          data_recebimento?: string | null
+          data_vencimento?: string | null
+          documento?: string | null
+          entry_type?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
           observacoes?: string | null
@@ -2080,6 +2088,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: string
+          data_recebimento?: string | null
+          data_vencimento?: string | null
+          documento?: string | null
+          entry_type?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
           id?: string
           observacoes?: string | null
@@ -3539,7 +3551,7 @@ export type Database = {
         | "pop"
       library_scope: "global" | "clinic" | "shared"
       payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
-      payment_status: "pago" | "pendente"
+      payment_status: "pago" | "pendente" | "cancelado"
       risk_level: "baixo" | "moderado" | "alto" | "muito_alto"
       scale_type: "barthel" | "katz" | "berg" | "tinetti" | "braden"
       signer_role: "paciente" | "responsavel" | "profissional"
@@ -3736,7 +3748,7 @@ export const Constants = {
       ],
       library_scope: ["global", "clinic", "shared"],
       payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
-      payment_status: ["pago", "pendente"],
+      payment_status: ["pago", "pendente", "cancelado"],
       risk_level: ["baixo", "moderado", "alto", "muito_alto"],
       scale_type: ["barthel", "katz", "berg", "tinetti", "braden"],
       signer_role: ["paciente", "responsavel", "profissional"],

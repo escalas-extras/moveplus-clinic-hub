@@ -131,7 +131,8 @@ function ReportsPage() {
       const despesas = rows
         .filter((d) => d.status === "pago" && isExpense(d))
         .reduce((s, d) => s + Number(d.valor || 0), 0);
-      return { recebido, pendente, despesas, entries: rows };
+      const activeRows = rows.filter((d) => d.status !== "cancelado");
+      return { recebido, pendente, despesas, entries: activeRows };
     },
   });
 

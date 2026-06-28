@@ -18,7 +18,20 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   pago: "Pago",
   pendente: "Pendente",
+  cancelado: "Cancelado",
 };
+
+/** Labels comerciais para Contas a Receber (G1.4). */
+export const RECEIVABLE_STATUS_LABELS: Record<PaymentStatus, string> = {
+  pendente: "Aberto",
+  pago: "Recebido",
+  cancelado: "Cancelado",
+};
+
+export const FINANCIAL_ENTRY_TYPE_LABELS = {
+  receivable: "Conta a receber",
+  payable: "Conta a pagar",
+} as const;
 
 /** Papéis com acesso típico ao financeiro (clinic_members.role). */
 export const FINANCE_ROLES = ["owner", "admin", "financeiro"] as const;
