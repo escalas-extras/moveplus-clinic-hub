@@ -63,7 +63,20 @@ export async function normalizeLogoDataUrl(dataUrl: string): Promise<PreparedLog
     ctx.drawImage(img, 0, 0, width, height);
     applyMattePipeline(ctx, width, height);
 
-    const normalized = canvas.toDataURL("image/png");
+    // Flatten contra branco — jsPDF renderiza alpha como preto, então
+    // qualquer transparência remanescente (cantos do matte removido,
+    // bordas suavizadas) vira "fundo preto" no PDF. Compositamos sobre
+    // branco para entregar PNG totalmente opaco ao jsPDF.
+    const flat = document.createElement("canvas");
+    flat.width = width;
+    flat.height = height;
+    const fctx = flat.getContext("2d");
+    if (!fctx) return null;
+    fctx.fillStyle = "#ffffff";
+    fctx.fillRect(0, 0, width, height);
+    fctx.drawImage(canvas, 0, 0);
+
+    const normalized = flat.toDataURL("image/png");
     const prepared: PreparedLogo = { dataUrl: normalized, width, height, format: "PNG" };
     cacheSet(dataUrl, prepared);
     return prepared;
