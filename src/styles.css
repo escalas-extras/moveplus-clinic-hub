@@ -1134,3 +1134,22 @@ textarea.fos-field,
   animation: fos-animate-in 0.35s ease-out both;
 }
 
+/* ── DS-01 — UI System unificado ── */
+
+.page-hero--operational,
+.page-hero--module {
+  animation: fos-animate-in 0.35s ease-out both;
+}
+
+.fos-module-stack > * + * {
+  margin-top: 0;
+}
+
+.fos-page-toolbar {
+  min-width: 0;
+}
+
+.fos-info-badge {
+  letter-spacing: 0.01em;
+}
+

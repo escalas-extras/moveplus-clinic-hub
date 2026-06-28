@@ -58,8 +58,14 @@ import {
   clinical,
   InfoCard,
 } from "@/components/layout";
-import { OpsFiltersPanel, OpsModuleStack } from "@/components/ops";
-import { HomeHeroV2, OperationalCard, OperationalCardsGrid } from "@/components/dashboard";
+import {
+  PageHero,
+  ModuleStack,
+  PageToolbar,
+  OperationalCard,
+  OperationalCardsGrid,
+  ActionButton,
+} from "@/components/ui-system";
 import { AgendaSidePanel } from "@/components/agenda/AgendaSidePanel";
 import { useBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
@@ -497,8 +503,8 @@ function AgendaPage() {
 
   return (
     <AppShell clinical>
-      <OpsModuleStack className="agenda-operational space-y-3 sm:space-y-4">
-        <HomeHeroV2
+      <ModuleStack className="agenda-operational space-y-3 sm:space-y-4">
+        <PageHero
           title="Agenda"
           clinicName={brand.clinicName}
           dateLabel={dateLabel}
@@ -525,7 +531,7 @@ function AgendaPage() {
                 <Plus className="h-4 w-4" />
                 Novo atendimento
               </SupportGuardButton>
-              <SecondaryActionButton
+              <ActionButton variant="secondary"
                 className="h-10 px-4 text-sm bg-white/90"
                 onClick={() => {
                   const d = new Date();
@@ -535,8 +541,8 @@ function AgendaPage() {
                 }}
               >
                 Hoje
-              </SecondaryActionButton>
-              <SecondaryActionButton
+              </ActionButton>
+              <ActionButton variant="secondary"
                 className="h-10 px-4 text-sm bg-white/90"
                 onClick={() => {
                   const d = new Date();
@@ -546,7 +552,7 @@ function AgendaPage() {
                 }}
               >
                 Semana
-              </SecondaryActionButton>
+              </ActionButton>
             </>
           }
         />
@@ -625,7 +631,7 @@ function AgendaPage() {
             />
           </OperationalCardsGrid>
 
-          <OpsFiltersPanel
+          <PageToolbar
             showMobileFilters={showMobileFilters}
             onToggleMobileFilters={() => setShowMobileFilters((v) => !v)}
             hasActiveFilters={hasActiveFilters}
@@ -713,7 +719,7 @@ function AgendaPage() {
                   </SelectContent>
                 </Select>
               </FilterField>
-          </OpsFiltersPanel>
+          </PageToolbar>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px] xl:gap-4">
             <div className="min-w-0">
@@ -798,7 +804,7 @@ function AgendaPage() {
         profs={profs.data ?? []}
         disabled={supportMode}
       />
-      </OpsModuleStack>
+      </ModuleStack>
     </AppShell>
   );
 }

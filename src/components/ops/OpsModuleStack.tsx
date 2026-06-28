@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import { OPS_STACK } from "./ops-tokens";
+import { ModuleStack } from "@/components/ui-system/ModuleStack";
 
 type OpsModuleStackProps = {
   children: ReactNode;
   className?: string;
 };
 
-/** Espaçamento vertical padronizado entre blocos de uma página operacional. */
+/** @deprecated Use ModuleStack from @/components/ui-system */
 export function OpsModuleStack({ children, className }: OpsModuleStackProps) {
-  return <div className={cn(OPS_STACK, className)}>{children}</div>;
+  return <ModuleStack className={className}>{children}</ModuleStack>;
 }

@@ -9,3 +9,14 @@ export { OpsOperationCard } from "./OpsOperationCard";
 export type { OpsOperationMetric } from "./OpsOperationCard";
 export { OpsDataListPanel } from "./OpsDataListPanel";
 export type { OpsDataListItem } from "./OpsDataListPanel";
+
+/** Prefer @/components/ui-system */
+export {
+  PageHero,
+  PageToolbar,
+  ModuleStack,
+  KpiCard,
+  InfoBadge,
+  EmptyState,
+  SectionHeader,
+} from "@/components/ui-system";

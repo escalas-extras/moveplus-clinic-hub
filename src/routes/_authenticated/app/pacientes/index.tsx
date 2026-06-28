@@ -42,8 +42,11 @@ import {
   SearchField,
   StatusBadge,
 } from "@/components/layout";
-import { OpsModuleStack } from "@/components/ops";
-import { HomeHeroV2 } from "@/components/dashboard";
+import {
+  PageHero,
+  ModuleStack,
+  ActionButton,
+} from "@/components/ui-system";
 import {
   PatientCrmCard,
   PatientAvatar,
@@ -343,8 +346,8 @@ function PacientesPage() {
 
   return (
     <AppShell clinical>
-      <OpsModuleStack className="patients-crm space-y-3 sm:space-y-4">
-        <HomeHeroV2
+      <ModuleStack className="patients-crm space-y-3 sm:space-y-4">
+        <PageHero
           title="Pacientes"
           clinicName={brand.clinicName}
           dateLabel={dateLabel}
@@ -362,10 +365,10 @@ function PacientesPage() {
           actions={
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <PrimaryActionButton className="h-10 gap-2 px-4 text-sm" style={{ background: brand.primaryColor }}>
+                <ActionButton className="h-10 gap-2 px-4 text-sm" style={{ background: brand.primaryColor }}>
                   <Plus className="h-4 w-4" />
                   Novo paciente
-                </PrimaryActionButton>
+                </ActionButton>
               </DialogTrigger>
               <ClinicalDialogContent>
                 <ClinicalDialogHeader>
@@ -513,7 +516,7 @@ function PacientesPage() {
           </div>
         </>
       )}
-      </OpsModuleStack>
+      </ModuleStack>
     </AppShell>
   );
 }

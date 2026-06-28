@@ -16,8 +16,8 @@ import {
   ClipboardList, Activity, Target, Pen, User, Save, AlertCircle, History, Circle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton, FieldLabel, PrimaryActionButton, SecondaryActionButton } from "@/components/layout";
-import { HomeHeroV2 } from "@/components/dashboard";
+import { EmptyState, InfoCard, StatusBadge, AutosaveIndicator, ClinicalSkeleton, FieldLabel } from "@/components/layout";
+import { PageHero, ActionButton } from "@/components/ui-system";
 import { useBranding } from "@/lib/branding";
 import { calcAge, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -526,7 +526,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
 
   return (
     <div className="assessment-wizard dashboard-premium clinical-module space-y-5 pb-6">
-      <HomeHeroV2
+      <PageHero
         title={formValues.tipo === "reavaliacao" ? "Reavaliação clínica" : "Avaliação clínica"}
         clinicName={patient?.nome_completo ?? "Paciente"}
         dateLabel={`${fmtDate(formValues.data)} · ${profName}`}
@@ -659,35 +659,37 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
       </div>
 
       <div className="assessment-wizard-footer sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/95 px-4 py-3.5 shadow-[0_-8px_28px_-12px_rgba(15,76,92,0.18)] backdrop-blur-sm sm:px-5">
-        <SecondaryActionButton onClick={goPrev} disabled={stepIdx === 0} className="h-10 gap-2 px-4 text-sm">
+        <ActionButton variant="secondary" onClick={goPrev} disabled={stepIdx === 0} className="h-10 gap-2 px-4 text-sm">
           <ArrowLeft className="h-4 w-4" />
           Anterior
-        </SecondaryActionButton>
+        </ActionButton>
         <div className="flex flex-wrap gap-2">
-          <SecondaryActionButton
+          <ActionButton
+            variant="secondary"
             onClick={() => persistDraft(false)}
             disabled={savingDraft}
             className="h-10 gap-2 px-4 text-sm"
           >
             {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar
-          </SecondaryActionButton>
+          </ActionButton>
           {stepIdx < STEPS.length - 1 ? (
-            <PrimaryActionButton onClick={goNext} className="h-10 gap-2 px-4 text-sm" style={{ background: brand.primaryColor }}>
+            <ActionButton onClick={goNext} className="h-10 gap-2 px-4 text-sm" style={{ background: brand.primaryColor }}>
               Próximo
               <ArrowRight className="h-4 w-4" />
-            </PrimaryActionButton>
+            </ActionButton>
           ) : (
             <>
-              <SecondaryActionButton
+              <ActionButton
+                variant="secondary"
                 onClick={() => save.mutate(false)}
                 disabled={save.isPending}
                 className="h-10 gap-2 px-4 text-sm"
               >
                 {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Salvar
-              </SecondaryActionButton>
-              <PrimaryActionButton
+              </ActionButton>
+              <ActionButton
                 onClick={() => save.mutate(true)}
                 disabled={save.isPending}
                 className="h-10 gap-2 px-4 text-sm"
@@ -695,7 +697,7 @@ export function AssessmentWizard({ patientId, patient, assessment, onDone }: Pro
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Finalizar
-              </PrimaryActionButton>
+              </ActionButton>
             </>
           )}
         </div>

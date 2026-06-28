@@ -22,7 +22,7 @@ import type { DashboardFilters } from "@/lib/finance";
 
 import { FilterField, OutlineActionButton, PrimaryActionButton, clinical } from "@/components/layout";
 
-import { OpsFiltersPanel } from "@/components/ops";
+import { PageToolbar } from "@/components/ui-system";
 
 import { useFinanceExecutiveDashboard } from "./useFinanceExecutiveDashboard";
 
@@ -76,7 +76,7 @@ export function FinanceFiltersBar({
 
   return (
 
-    <OpsFiltersPanel
+    <PageToolbar
 
       showMobileFilters={showMobileFilters}
 
@@ -204,7 +204,7 @@ export function FinanceFiltersBar({
 
       </FilterField>
 
-    </OpsFiltersPanel>
+    </PageToolbar>
 
   );
 

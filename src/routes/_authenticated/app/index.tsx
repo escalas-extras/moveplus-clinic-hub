@@ -11,19 +11,17 @@ import {
   AppShell,
   ClinicalSkeleton,
   InfoCard,
-  PrimaryActionButton,
   QueryErrorState,
-  SecondaryActionButton,
 } from "@/components/layout";
-import { OpsModuleStack } from "@/components/ops";
 import {
-  HomeHeroV2,
+  PageHero,
+  ModuleStack,
   OperationalCard,
   OperationalCardsGrid,
-  AttentionList,
-  QuickActionCard,
-  type AttentionItem,
-} from "@/components/dashboard";
+  QuickAction,
+  ActionButton,
+} from "@/components/ui-system";
+import { AttentionList, type AttentionItem } from "@/components/dashboard";
 import {
   Users,
   CalendarDays,
@@ -340,8 +338,8 @@ function PainelClinico() {
 
   return (
     <AppShell clinical>
-      <OpsModuleStack className="space-y-4 sm:space-y-5">
-        <HomeHeroV2
+      <ModuleStack className="space-y-4 sm:space-y-5">
+        <PageHero
           greeting={greeting}
           displayName={displayName || undefined}
           clinicName={brand.clinicName}
@@ -359,18 +357,18 @@ function PainelClinico() {
           }
           actions={
             <>
-              <PrimaryActionButton asChild className="h-10 px-4 text-sm" style={{ background: brand.primaryColor }}>
+              <ActionButton asChild className="h-10 px-4 text-sm" style={{ background: brand.primaryColor }}>
                 <Link to="/app/pacientes">
                   <Plus className="h-4 w-4" />
                   Novo paciente
                 </Link>
-              </PrimaryActionButton>
-              <SecondaryActionButton asChild className="h-10 px-4 text-sm bg-white/90">
+              </ActionButton>
+              <ActionButton variant="secondary" asChild className="h-10 px-4 text-sm bg-white/90">
                 <Link to="/app/agenda">
                   <CalendarDays className="h-4 w-4" />
                   Agendar
                 </Link>
-              </SecondaryActionButton>
+              </ActionButton>
             </>
           }
         />
@@ -468,7 +466,7 @@ function PainelClinico() {
 
             <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr] lg:gap-5">
               <AttentionList items={attentionItems} />
-              <QuickActionCard
+              <QuickAction
                 items={[
                   { label: "Agenda", icon: CalendarDays, to: "/app/agenda" },
                   { label: "Pacientes", icon: Users, to: "/app/pacientes" },
@@ -480,7 +478,7 @@ function PainelClinico() {
             </div>
           </>
         )}
-      </OpsModuleStack>
+      </ModuleStack>
     </AppShell>
   );
 }
