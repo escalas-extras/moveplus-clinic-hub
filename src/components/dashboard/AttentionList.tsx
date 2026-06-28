@@ -4,7 +4,7 @@ import { ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/layout/EmptyState";
 import { PageSection } from "@/components/layout/PageSection";
-import { StatusBadge } from "@/components/layout/StatusBadge";
+import { StatusBadge, type StatusBadgeVariant } from "@/components/layout/StatusBadge";
 
 export type AttentionItem = {
   id: string;
@@ -23,8 +23,8 @@ type AttentionListProps = {
   className?: string;
 };
 
-const toneBadge: Record<NonNullable<AttentionItem["tone"]>, "default" | "warning" | "danger"> = {
-  default: "default",
+const toneBadge: Record<NonNullable<AttentionItem["tone"]>, StatusBadgeVariant> = {
+  default: "neutral",
   warning: "warning",
   danger: "danger",
 };

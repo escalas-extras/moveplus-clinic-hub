@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export type StatusBadgeVariant = "status" | "success" | "neutral" | "warning" | "danger" | "info";
 
-const variantClasses: Record<StatusBadgeVariant, { wrap: string; dot: string }> = {
+const STATUS_VARIANTS: Record<StatusBadgeVariant, { wrap: string; dot: string }> = {
   status: {
     wrap: "bg-primary/10 text-primary ring-primary/25",
     dot: "bg-primary",
@@ -30,24 +30,48 @@ const variantClasses: Record<StatusBadgeVariant, { wrap: string; dot: string }> 
   },
 };
 
+/** Aliases for legacy or dynamic variant strings — never crash on unknown input. */
+const STATUS_VARIANT_ALIASES: Record<string, StatusBadgeVariant> = {
+  default: "neutral",
+  pending: "warning",
+  critical: "danger",
+  overdue: "warning",
+  expired: "danger",
+  attention: "warning",
+};
+
+function resolveStatusBadgeVariant(variant: string | undefined): StatusBadgeVariant {
+  const key = variant ?? "neutral";
+  const normalized = STATUS_VARIANT_ALIASES[key] ?? key;
+  if (normalized in STATUS_VARIANTS) {
+    return normalized as StatusBadgeVariant;
+  }
+  return "neutral";
+}
+
+function resolveVariantData(variant: string | undefined) {
+  const resolved = resolveStatusBadgeVariant(variant);
+  return STATUS_VARIANTS[resolved] ?? STATUS_VARIANTS.neutral;
+}
+
 type StatusBadgeProps = {
   children: ReactNode;
-  variant?: StatusBadgeVariant;
+  variant?: StatusBadgeVariant | string;
   className?: string;
   dot?: boolean;
 };
 
 function StatusBadgeInner({ children, variant = "neutral", className, dot = true }: StatusBadgeProps) {
-  const v = variantClasses[variant];
+  const variantData = resolveVariantData(variant);
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold leading-none ring-1 shadow-[0_1px_0_rgba(255,255,255,0.6)_inset]",
-        v.wrap,
+        variantData.wrap,
         className,
       )}
     >
-      {dot && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", v.dot)} aria-hidden />}
+      {dot && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", variantData.dot)} aria-hidden />}
       {children}
     </span>
   );

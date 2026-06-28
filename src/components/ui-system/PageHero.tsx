@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageHeader, type BreadcrumbItem } from "@/components/layout";
-import { FOS_RADIUS, FOS_TITLE_PAGE, FOS_EYEBROW } from "./tokens";
+import { FOS_RADIUS, FOS_RADIUS_SM, FOS_TITLE_PAGE, FOS_EYEBROW } from "./tokens";
 
 export type PageHeroChip = { label: string; value: string | number };
 
