@@ -29,13 +29,31 @@ export type EvolutionItem = {
   proximos?: string | null;
 };
 
+export type ClinicalTrend = "melhorou" | "estavel" | "piorou" | "indeterminado";
+
 export type PdfContent =
   | { kind: "grid"; rows: Array<readonly [string, string] | string[]>; columns?: 1 | 2 }
   | { kind: "paragraph"; label?: string; text: string }
   | { kind: "highlight"; label: string; text: string }
   | { kind: "eva"; value: number | null }
   | { kind: "checks"; label?: string; items: Array<{ label: string; checked: boolean }> }
-  | { kind: "evolutions"; items: Array<EvolutionItem> };
+  | { kind: "evolutions"; items: Array<EvolutionItem> }
+  | {
+      kind: "badge";
+      label?: string;
+      text: string;
+      variant: "success" | "warning" | "danger" | "neutral";
+    }
+  | {
+      kind: "compare-table";
+      rows: Array<{
+        label: string;
+        inicial: string;
+        anterior: string;
+        atual: string;
+        trend?: ClinicalTrend;
+      }>;
+    };
 
 export type PdfBlock = { title: string; children: PdfContent[] };
 export type PdfSection = { title: string; body: string };
@@ -58,6 +76,12 @@ export type BuildPdfOpts = {
   hideSignature?: boolean;
   /** Versão interna do template — exibida no rodapé quando informada. */
   documentVersion?: string;
+  /** Layout premium clínico (Sprint 8B) — usa drawDocumentHeader completo. */
+  layout?: "legacy" | "clinical-premium";
+  /** Rótulo do campo de referência no card do cabeçalho (ex.: "Data da sessão"). */
+  referenceLabel?: string;
+  /** Valor exibido no card do cabeçalho; padrão derivado do subtitle. */
+  referenceValue?: string;
 };
 
 export type PdfRenderCtx = {

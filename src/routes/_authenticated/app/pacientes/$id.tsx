@@ -112,7 +112,7 @@ function PatientPage() {
         .eq("id", a.id);
       if (error) throw error;
       await uploadAndRegisterPdf({
-        pdfOpts: buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? []),
+        pdfOpts: buildAssessmentPdfOpts(a, patient.data, evolutions.data ?? [], assessments.data ?? []),
         folder: a.tipo === "reavaliacao" ? "reavaliacoes" : "avaliacoes",
         tipo: a.tipo === "reavaliacao" ? "reavaliacao" : "avaliacao",
         patientId: a.patient_id,
@@ -319,9 +319,9 @@ function PatientPage() {
                       <span className={`text-xs self-center px-2 py-0.5 rounded-full ${a.status === "finalizada" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {a.status === "finalizada" ? "Finalizada" : "Rascunho"}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => setPdfPreview(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
-                      <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? []))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPdfPreview(buildAssessmentPdfOpts(a, p, evolutions.data ?? [], assessments.data ?? []))}><Eye className="h-4 w-4 mr-1" />Visualizar</Button>
+                      <Button size="sm" variant="outline" onClick={() => downloadPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? [], assessments.data ?? []))}><FileDown className="h-4 w-4 mr-1" />Baixar</Button>
+                      <Button size="sm" variant="outline" onClick={() => printPdf(buildAssessmentPdfOpts(a, p, evolutions.data ?? [], assessments.data ?? []))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
 
                       {a.status !== "finalizada" && (
                         <Button size="sm" onClick={() => finalize.mutate(a)} disabled={finalize.isPending}>

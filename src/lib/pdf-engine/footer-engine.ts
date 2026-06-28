@@ -45,6 +45,12 @@ export function drawDocumentFooter(
   const rightParts = [`Página ${opts.page} de ${opts.pageCount}`];
   if (opts.documentVersion) rightParts.unshift(`v${opts.documentVersion}`);
   doc.text(rightParts.join(" · "), pageW - M, fy + 10, { align: "right" });
+
+  if (opts.validationHash && opts.page === opts.pageCount) {
+    const short = opts.validationHash.slice(0, 16);
+    doc.setFontSize(T.footerSmall);
+    doc.text(`Verificação: ${short}…`, pageW - M, fy + 20, { align: "right" });
+  }
 }
 
 export async function drawValidationQr(

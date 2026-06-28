@@ -1,6 +1,7 @@
 export type {
   BuildPdfOpts,
   ClinicData,
+  ClinicalTrend,
   EvolutionItem,
   PdfBlock,
   PdfContent,

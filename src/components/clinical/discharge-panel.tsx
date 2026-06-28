@@ -12,6 +12,7 @@ import { LogOut, FileDown, Lock } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { downloadPdf } from "@/lib/pdf";
+import { buildDischargePdfOpts } from "@/lib/pdf-builders";
 import { useActiveClinic } from "@/lib/active-clinic";
 
 const MOTIVOS = [
@@ -95,44 +96,7 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
   });
 
   function buildPdfOpts(d: any) {
-    return {
-      title: "Relatório de Alta Fisioterapêutica",
-      subtitle: `Emitido em ${fmtDate(d.data_alta)}`,
-      patientName: patient?.nome_completo,
-      professional: d.professionals,
-      validationHash: d.validation_hash,
-      // White-label seguro: branding vem da clínica dona da alta/paciente.
-      clinicId: (d?.clinic_id ?? patient?.clinic_id ?? null) as string | null,
-      blocks: [
-        {
-          title: "1. Identificação",
-          children: [{
-            kind: "grid" as const,
-            rows: [
-              ["Paciente", patient?.nome_completo ?? "—"],
-              ["Data da alta", fmtDate(d.data_alta)],
-              ["Profissional", d.professionals?.nome ?? "—"],
-              ["Motivo da alta", d.motivo ?? "—"],
-            ],
-          }],
-        },
-        {
-          title: "2. Objetivos terapêuticos",
-          children: [
-            { kind: "highlight" as const, label: "Objetivos alcançados", text: d.objetivos_alcancados || "—" },
-            { kind: "highlight" as const, label: "Objetivos pendentes", text: d.objetivos_pendentes || "—" },
-          ],
-        },
-        {
-          title: "3. Recomendações e plano domiciliar",
-          children: [
-            { kind: "paragraph" as const, label: "Recomendações", text: d.recomendacoes || "—" },
-            { kind: "paragraph" as const, label: "Plano domiciliar", text: d.plano_domiciliar || "—" },
-            ...(d.observacoes ? [{ kind: "paragraph" as const, label: "Observações", text: d.observacoes }] : []),
-          ],
-        },
-      ],
-    };
+    return buildDischargePdfOpts(d, patient, [], 0);
   }
 
   return (

@@ -19,6 +19,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { downloadPdf } from "@/lib/pdf";
+import { buildDischargePdfOpts } from "@/lib/pdf-builders";
 import { DischargeHeader, headerDiagnosis } from "./DischargeHeader";
 import { DischargeAutoSummary } from "./DischargeAutoSummary";
 import { DischargeFinalComparator } from "./DischargeFinalComparator";
@@ -132,47 +133,12 @@ function DischargeWorkspaceInner({ patient, onClose }: DischargeWorkspaceProps) 
   });
 
   function buildPdfOpts(d: (typeof dischargesQ.data)[0]) {
-    return {
-      title: "Relatório de Alta Fisioterapêutica",
-      subtitle: `Emitido em ${fmtDate(d.data_alta)}`,
-      patientName: patient.nome_completo,
-      professional: d.professionals,
-      validationHash: d.validation_hash,
-      clinicId: (patient.clinic_id ?? clinicId ?? null) as string | null,
-      blocks: [
-        {
-          title: "1. Identificação",
-          children: [
-            {
-              kind: "grid" as const,
-              rows: [
-                ["Paciente", patient.nome_completo ?? "—"],
-                ["Data da alta", fmtDate(d.data_alta)],
-                ["Profissional", d.professionals?.nome ?? "—"],
-                ["Motivo da alta", d.motivo ?? "—"],
-              ],
-            },
-          ],
-        },
-        {
-          title: "2. Objetivos terapêuticos",
-          children: [
-            { kind: "highlight" as const, label: "Objetivos alcançados", text: d.objetivos_alcancados || "—" },
-            { kind: "highlight" as const, label: "Objetivos pendentes", text: d.objetivos_pendentes || "—" },
-          ],
-        },
-        {
-          title: "3. Recomendações e plano domiciliar",
-          children: [
-            { kind: "paragraph" as const, label: "Recomendações", text: d.recomendacoes || "—" },
-            { kind: "paragraph" as const, label: "Plano domiciliar", text: d.plano_domiciliar || "—" },
-            ...(d.observacoes
-              ? [{ kind: "paragraph" as const, label: "Observações", text: d.observacoes }]
-              : []),
-          ],
-        },
-      ],
-    };
+    return buildDischargePdfOpts(
+      d,
+      patient,
+      assessmentsQ.data ?? [],
+      evolutionsQ.data?.count ?? 0,
+    );
   }
 
   const loading = assessmentsQ.isLoading || evolutionsQ.isLoading || dischargesQ.isLoading;

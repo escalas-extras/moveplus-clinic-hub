@@ -42,7 +42,7 @@ export type EvolutionSummary = {
   objetivosPendentes: string[];
 };
 
-function parseRomScore(rom: unknown): { summary: string; score: number | null } {
+export function parseRomScore(rom: unknown): { summary: string; score: number | null } {
   if (!rom) return { summary: "—", score: null };
   if (typeof rom === "string") return { summary: rom || "—", score: null };
   const values: number[] = [];
@@ -75,7 +75,7 @@ function parseRomScore(rom: unknown): { summary: string; score: number | null } 
   return { summary: "—", score: null };
 }
 
-function parseStrengthScore(mrc: unknown): { summary: string; score: number | null } {
+export function parseStrengthScore(mrc: unknown): { summary: string; score: number | null } {
   if (!mrc) return { summary: "—", score: null };
   if (typeof mrc === "string") return { summary: mrc || "—", score: null };
   const values: number[] = [];
@@ -105,7 +105,7 @@ function parseStrengthScore(mrc: unknown): { summary: string; score: number | nu
   return { summary: "—", score: null };
 }
 
-function parseScales(scales: unknown): { summary: string; score: number | null } {
+export function parseScales(scales: unknown): { summary: string; score: number | null } {
   if (!scales) return { summary: "—", score: null };
   if (typeof scales === "string") return { summary: scales || "—", score: null };
   const values: number[] = [];

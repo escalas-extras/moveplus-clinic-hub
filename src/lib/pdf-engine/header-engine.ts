@@ -208,8 +208,12 @@ function drawDocumentMetaCard(
   if (isContract) {
     drawHeaderMeta(doc, "file", "Documento", "Contrato", cardX + 108, metaY + 24, 68);
   } else {
-    const assessmentDate = subtitle.replace(/^Emitida em\s+/i, "") || "—";
-    drawHeaderMeta(doc, "calendar", "Data da avaliação", assessmentDate, cardX + 108, metaY + 24, 68);
+    const refLabel = cleanText(opts.referenceLabel) || "Referência clínica";
+    const refValue =
+      cleanText(opts.referenceValue) ||
+      subtitle.replace(/^Emitid[ao] em\s+/i, "").replace(/^Emitida em\s+/i, "") ||
+      "—";
+    drawHeaderMeta(doc, "calendar", refLabel, refValue, cardX + 108, metaY + 24, 68);
   }
 }
 

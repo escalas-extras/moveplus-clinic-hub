@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import type {
   BuildPdfOpts,
   ClinicData,
+  ClinicalTrend,
   EvolutionItem,
   PdfBlock,
   PdfContent,
@@ -14,7 +15,7 @@ import type {
 import { PDF_COLORS as C, PDF_SPACING as S, PDF_TYPOGRAPHY as T, applyClinicPalette } from "./tokens";
 import { cleanText, isEmptyText, wrapText } from "./text";
 import { prepareLogoForPdf } from "./logo";
-import { drawLegacyClinicHeader, drawLeftBand } from "./header-engine";
+import { drawDocumentHeader, drawLeftBand, drawLegacyClinicHeader } from "./header-engine";
 import { drawDocumentFooter, drawValidationQr } from "./footer-engine";
 import { drawMiniIcon, fieldIconFor } from "./icons";
 
@@ -43,6 +44,8 @@ type Atom =
   | { kind: "eva"; value: number | null; h: number; blockId: number }
   | { kind: "checks-row"; items: Array<{ label: string; checked: boolean }>; h: number; blockId: number }
   | { kind: "evolution"; item: EvolutionItem; lines: { label: string; text: string[] }[]; h: number; blockId: number }
+  | { kind: "badge"; label?: string; text: string; variant: "success" | "warning" | "danger" | "neutral"; h: number; blockId: number }
+  | { kind: "compare-table"; rows: Array<{ label: string; inicial: string; anterior: string; atual: string; trend?: ClinicalTrend }>; h: number; blockId: number }
   | { kind: "block-gap"; h: number; blockId: number };
 
 type BlockGroup = { id: number; title: string; atoms: Atom[]; totalH: number };
@@ -153,6 +156,37 @@ function measureBlock(doc: jsPDF, block: PdfBlock, id: number, contentW: number,
         const h = 14 + linesTotal + 8;
         atoms.push({ kind: "evolution", item: e, lines: fields, h, blockId: id });
       }
+      continue;
+    }
+
+    if (ch.kind === "badge") {
+      atoms.push({
+        kind: "badge",
+        label: ch.label,
+        text: ch.text,
+        variant: ch.variant,
+        h: ch.label ? 28 : 22,
+        blockId: id,
+      });
+      continue;
+    }
+
+    if (ch.kind === "compare-table") {
+      if (!ch.rows.length) continue;
+      const colW = (innerW - 8) / 4;
+      let tableH = 22;
+      for (const row of ch.rows) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(T.body);
+        const heights = [
+          wrapText(doc, row.label, colW - 4).length,
+          wrapText(doc, row.inicial, colW - 4).length,
+          wrapText(doc, row.anterior, colW - 4).length,
+          wrapText(doc, row.atual, colW - 4).length,
+        ];
+        tableH += Math.max(...heights, 1) * S.LINE_H + 8;
+      }
+      atoms.push({ kind: "compare-table", rows: ch.rows, h: tableH, blockId: id });
       continue;
     }
   }
@@ -290,7 +324,8 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
   const logoDraw = preparedLogo ?? ctx.logo;
 
   const isContract = /contrato/i.test(opts.title || "");
-  const isMatrixV2 = isContract;
+  const isClinicalPremium = opts.layout === "clinical-premium";
+  const isMatrixV2 = isContract || isClinicalPremium;
 
   const blocks: PdfBlock[] = opts.blocks
     ? opts.blocks
@@ -301,7 +336,9 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
 
   const groups: BlockGroup[] = blocks.map((b, i) => measureBlock(doc, b, i, contentW, isContract));
 
-  const topYFirst = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
+  const topYFirst = isClinicalPremium
+    ? S.HEADER_H + 12
+    : S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER + S.DIVIDER_TO_CONTENT;
   const topYRest = S.M + 28;
   const bottomY = H - S.FOOTER_H - 16;
   const sigDraw = isContract ? S.SIG_CONTRACT_H : S.SIG_DEFAULT_H;
@@ -323,38 +360,47 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
     }
   }
 
-  drawLegacyClinicHeader(doc, c, logoDraw, W);
+  if (isClinicalPremium) {
+    drawDocumentHeader(doc, c, W, opts, {
+      logo: logoDraw,
+      includeDocumentCard: true,
+      includeBottomRule: true,
+      isContract: false,
+    });
+  } else {
+    drawLegacyClinicHeader(doc, c, logoDraw, W);
 
-  let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
-  doc.setTextColor(...C.ink);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(T.docTitle + 1);
-  doc.text(opts.title, M, titleY);
-  if (opts.subtitle) {
-    titleY += 12;
+    let titleY = S.HEADER_H + S.TOP_AFTER_HEADER;
+    doc.setTextColor(...C.ink);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(T.docSubtitle);
-    doc.setTextColor(...C.meta);
-    doc.text(opts.subtitle, M, titleY);
-  }
-  if (opts.patientName) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(T.docSubtitle);
-    doc.setTextColor(...C.meta);
-    doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
-  }
+    doc.setFontSize(T.docTitle + 1);
+    doc.text(opts.title, M, titleY);
+    if (opts.subtitle) {
+      titleY += 12;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.docSubtitle);
+      doc.setTextColor(...C.meta);
+      doc.text(opts.subtitle, M, titleY);
+    }
+    if (opts.patientName) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(T.docSubtitle);
+      doc.setTextColor(...C.meta);
+      doc.text(opts.patientName, W - M, S.HEADER_H + S.TOP_AFTER_HEADER, { align: "right" });
+    }
 
-  const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
-  doc.setDrawColor(...C.brand);
-  doc.setLineWidth(0.8);
-  doc.line(M, dividerY, W - M, dividerY);
-  doc.setDrawColor(...C.hairline);
-  doc.setLineWidth(0.3);
-  doc.line(M, dividerY + 2.5, W - M, dividerY + 2.5);
+    const dividerY = S.HEADER_H + S.TOP_AFTER_HEADER + 13 + (opts.subtitle ? 12 : 0) + S.TITLE_TO_DIVIDER;
+    doc.setDrawColor(...C.brand);
+    doc.setLineWidth(0.8);
+    doc.line(M, dividerY, W - M, dividerY);
+    doc.setDrawColor(...C.hairline);
+    doc.setLineWidth(0.3);
+    doc.line(M, dividerY + 2.5, W - M, dividerY + 2.5);
+  }
 
   for (let pi = 0; pi < pages.length; pi++) {
     if (pi > 0) doc.addPage();
-    renderPageContent(doc, pages[pi], pages[pi].topY, contentW, M, isContract);
+    renderPageContent(doc, pages[pi], pages[pi].topY, contentW, M, isContract, isClinicalPremium);
   }
 
   const lastPageIdx = pages.length;
@@ -376,6 +422,7 @@ export async function renderPdf(opts: BuildPdfOpts, ctx: PdfRenderCtx): Promise<
       page: i,
       pageCount,
       documentVersion: opts.documentVersion ?? null,
+      validationHash: opts.validationHash ?? null,
     });
     if (i === pageCount && opts.validationHash) {
       await drawValidationQr(doc, opts.validationHash, W, H, opts.validationUrlBase);
@@ -394,6 +441,7 @@ function renderPageContent(
   contentW: number,
   M: number,
   isContract: boolean,
+  isClinicalPremium = false,
 ) {
   let y = topY;
   let segOpenBlockId: number | null = null;
@@ -414,7 +462,7 @@ function renderPageContent(
       if (segOpenBlockId != null) closeSegment(y);
       segStartY = y;
       segOpenBlockId = a.blockId;
-      drawBlockTitle(doc, a.label, M, y, contentW, isContract);
+      drawBlockTitle(doc, a.label, M, y, contentW, isContract || isClinicalPremium);
       y += S.BAR_H;
       y += S.BAR_GAP;
       continue;
@@ -525,6 +573,18 @@ function renderPageContent(
       continue;
     }
 
+    if (a.kind === "badge") {
+      drawClinicalBadge(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a);
+      y += a.h;
+      continue;
+    }
+
+    if (a.kind === "compare-table") {
+      drawCompareTable(doc, M + S.PAD_X, y, contentW - 2 * S.PAD_X, a.rows);
+      y += a.h;
+      continue;
+    }
+
     if (a.kind === "block-gap") {
       closeSegment(y);
       y += a.h;
@@ -536,6 +596,86 @@ function renderPageContent(
 
 function sectionNumber(label: string): string | null {
   return label.match(/^\s*(\d+)/)?.[1] ?? null;
+}
+
+function badgeColors(variant: "success" | "warning" | "danger" | "neutral"): {
+  bg: [number, number, number];
+  fg: [number, number, number];
+} {
+  if (variant === "success") return { bg: [236, 253, 245], fg: [5, 122, 85] };
+  if (variant === "warning") return { bg: [255, 251, 235], fg: [180, 83, 9] };
+  if (variant === "danger") return { bg: [254, 242, 242], fg: [185, 28, 28] };
+  return { bg: [248, 250, 252], fg: [71, 85, 105] };
+}
+
+function drawClinicalBadge(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  atom: Extract<Atom, { kind: "badge" }>,
+) {
+  const colors = badgeColors(atom.variant);
+  const h = atom.h;
+  doc.setFillColor(...colors.bg);
+  doc.roundedRect(x, y, w, h, 6, 6, "F");
+  if (atom.label) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.label);
+    doc.setTextColor(...C.meta);
+    doc.text(atom.label.toUpperCase(), x + 10, y + 11);
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.body);
+  doc.setTextColor(...colors.fg);
+  doc.text(wrapText(doc, atom.text, w - 20), x + 10, y + (atom.label ? 24 : 14));
+}
+
+function trendSymbol(trend?: ClinicalTrend): string {
+  if (trend === "melhorou") return "↑";
+  if (trend === "piorou") return "↓";
+  if (trend === "estavel") return "→";
+  return "";
+}
+
+function drawCompareTable(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  rows: Array<{ label: string; inicial: string; anterior: string; atual: string; trend?: ClinicalTrend }>,
+) {
+  const colW = w / 4;
+  const headers = ["Indicador", "Inicial", "Anterior", "Atual"];
+  doc.setFillColor(...C.surface);
+  doc.roundedRect(x, y, w, 18, 4, 4, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(T.label);
+  doc.setTextColor(...C.brand);
+  headers.forEach((h, i) => {
+    doc.text(h.toUpperCase(), x + i * colW + 6, y + 12);
+  });
+
+  let rowY = y + 22;
+  rows.forEach((row, ri) => {
+    if (ri % 2 === 0) {
+      doc.setFillColor(...C.brandSoft);
+      doc.rect(x, rowY - 2, w, 18, "F");
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(T.body);
+    doc.setTextColor(...C.ink);
+    const cells = [row.label, row.inicial, row.anterior, `${row.atual}${trendSymbol(row.trend) ? ` ${trendSymbol(row.trend)}` : ""}`];
+    const lineCounts = cells.map((cell, i) => wrapText(doc, cell, colW - 8).length);
+    const rowH = Math.max(...lineCounts, 1) * S.LINE_H + 6;
+    cells.forEach((cell, i) => {
+      doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+      doc.setFontSize(T.body);
+      doc.setTextColor(...(i === 0 ? C.ink : C.meta));
+      doc.text(wrapText(doc, cell, colW - 8), x + i * colW + 6, rowY + 10);
+    });
+    rowY += rowH;
+  });
 }
 
 function drawBlockTitle(doc: jsPDF, label: string, x: number, y: number, w: number, isContract = false) {
