@@ -39,6 +39,7 @@ type FinanceModuleHubProps = {
   pendingTotal?: number;
   onOpenLegacy?: () => void;
   onOpenCategories?: () => void;
+  onOpenCostCenters?: () => void;
 };
 
 function statusBadge(status: FinanceModuleDefinition["status"]) {
@@ -52,6 +53,7 @@ export function FinanceModuleHub({
   pendingTotal = 0,
   onOpenLegacy,
   onOpenCategories,
+  onOpenCostCenters,
 }: FinanceModuleHubProps) {
   const active = getActiveFinanceModules();
   const planned = FINANCE_MODULE_REGISTRY.filter((m) => m.status === "planned");
@@ -62,6 +64,13 @@ export function FinanceModuleHub({
       return (
         <Button type="button" variant="default" size="sm" onClick={onOpenCategories}>
           Gerenciar categorias
+        </Button>
+      );
+    }
+    if (mod.id === "cost_centers" && onOpenCostCenters) {
+      return (
+        <Button type="button" variant="default" size="sm" onClick={onOpenCostCenters}>
+          Gerenciar centros de custo
         </Button>
       );
     }

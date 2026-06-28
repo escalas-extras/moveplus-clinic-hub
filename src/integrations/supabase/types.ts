@@ -1986,11 +1986,63 @@ export type Database = {
           },
         ]
       }
+      financial_cost_centers: {
+        Row: {
+          clinic_id: string
+          code: string | null
+          color: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_cost_centers_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_usage"
+            referencedColumns: ["clinic_id"]
+          },
+          {
+            foreignKeyName: "financial_cost_centers_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_entries: {
         Row: {
           appointment_id: string | null
           category_id: string | null
           clinic_id: string | null
+          cost_center_id: string | null
           created_at: string
           created_by: string | null
           data: string
@@ -2007,6 +2059,7 @@ export type Database = {
           appointment_id?: string | null
           category_id?: string | null
           clinic_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
@@ -2023,6 +2076,7 @@ export type Database = {
           appointment_id?: string | null
           category_id?: string | null
           clinic_id?: string | null
+          cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           data?: string
@@ -2048,6 +2102,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "financial_cost_centers"
             referencedColumns: ["id"]
           },
           {

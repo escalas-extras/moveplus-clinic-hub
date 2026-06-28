@@ -26,7 +26,8 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     id: "cost_centers",
     title: "Centros de custo",
     description: "Segmentação por unidade, profissional ou projeto interno.",
-    status: "planned",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
     sprint: "G1.3",
   },
   {

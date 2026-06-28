@@ -11,6 +11,9 @@ export type FinancialCategoryRow = Database["public"]["Tables"]["financial_categ
 export type FinancialCategoryInsert = Database["public"]["Tables"]["financial_categories"]["Insert"];
 export type FinancialCategoryUpdate = Database["public"]["Tables"]["financial_categories"]["Update"];
 export type FinancialCategoryType = FinancialCategoryRow["type"];
+export type FinancialCostCenterRow = Database["public"]["Tables"]["financial_cost_centers"]["Row"];
+export type FinancialCostCenterInsert = Database["public"]["Tables"]["financial_cost_centers"]["Insert"];
+export type FinancialCostCenterUpdate = Database["public"]["Tables"]["financial_cost_centers"]["Update"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
 
