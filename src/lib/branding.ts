@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import { preloadImageUrl } from "@/lib/image-preload";
 import { pcGet, pcSet } from "@/lib/persistent-cache";
 
 /**
@@ -60,7 +61,9 @@ const DEFAULTS: Branding = {
 };
 
 const BRAND_TTL_MS = 24 * 60 * 60_000; // 24h — only as instant-render hint
+const BRAND_QUERY_STALE_MS = 30 * 60_000; // 30 min — sessão estável entre rotas
 const brandKey = (cid: string) => `fos:branding:${cid}`;
+const brandingSession = new Map<string, Branding>();
 
 async function loadBranding(cid: string): Promise<Branding> {
   const { data } = await supabase
@@ -94,27 +97,33 @@ async function loadBranding(cid: string): Promise<Branding> {
     crefitoDefault: data.crefito_default || null,
     hasOwnLogo: !!resolvedLogo,
   };
+  brandingSession.set(cid, branding);
   pcSet(brandKey(cid), branding, BRAND_TTL_MS);
+  if (resolvedLogo) void preloadImageUrl(resolvedLogo);
   return branding;
 }
 
 export function useBranding(): Branding & { isLoading: boolean } {
   const { clinicId, loading: clinicLoading } = useActiveClinic();
 
-  const initialBrand = clinicId ? pcGet<Branding>(brandKey(clinicId)) : null;
+  const sessionBrand = clinicId ? brandingSession.get(clinicId) : null;
+  const initialBrand = sessionBrand ?? (clinicId ? pcGet<Branding>(brandKey(clinicId)) : null);
 
   const { data, isLoading: brLoading } = useQuery({
     queryKey: ["branding", clinicId ?? "none"],
     enabled: !!clinicId,
-    staleTime: 0,
+    staleTime: BRAND_QUERY_STALE_MS,
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     initialData: initialBrand ?? undefined,
+    placeholderData: (prev) => prev ?? initialBrand ?? undefined,
     queryFn: () => loadBranding(clinicId!),
   });
 
-  const isLoading = clinicLoading || (!!clinicId && brLoading && !data);
+  const hasBrand = !!data;
+  const isLoading = !!clinicId && !hasBrand && (clinicLoading || brLoading);
   // Defensive: cached entries pré-migração podem não ter `logo`/`name`/`footer`.
   const merged = data ? { ...DEFAULTS, ...data } : DEFAULTS;
   // Normaliza aliases legados que possam ter vindo do cache antigo.

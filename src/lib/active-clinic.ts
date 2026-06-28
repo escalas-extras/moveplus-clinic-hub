@@ -79,9 +79,10 @@ export function useActiveClinic(): ActiveClinicContext {
   const { data, isLoading } = useQuery({
     queryKey: ["active-clinic", "support-aware-v2", user?.id],
     enabled: !!user?.id,
-    staleTime: 0,
+    staleTime: 30_000,
     gcTime: 60_000,
-    refetchOnMount: "always",
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const [active, support] = await Promise.all([
         fetchActiveClinic(user!.id),
@@ -110,6 +111,6 @@ export function useActiveClinic(): ActiveClinicContext {
     isProfessional: data?.isProfessional ?? false,
     supportMode: data?.supportMode ?? false,
     supportClinicId: data?.supportClinicId ?? null,
-    loading: isLoading,
+    loading: isLoading && !data,
   };
 }

@@ -41,8 +41,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   getSaasDashboard,
+  getSaasClinicDiagnostic,
   listClinicsAdmin,
   setClinicStatus,
+  markClinicAsTest,
+  startClinicTrial,
+  extendClinicTrial,
+  convertTrialToActive,
+  cancelClinicSubscription,
   provisionClinic,
   listPlans,
   assignPlan,
@@ -60,6 +66,10 @@ import {
   softDeleteClinic,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
+import {
+  OPERATIONAL_STATUS_LABEL,
+  resolveOperationalStatus,
+} from "@/lib/saas/clinic-operational-status";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -81,7 +91,11 @@ import {
   Star,
   DollarSign,
   TrendingUp,
+  FlaskConical,
+  Shield,
+  Search,
 } from "lucide-react";
+import type { ClinicListSegment } from "@/lib/saas/clinic-segmentation";
 
 export const Route = createFileRoute("/_authenticated/app/admin-saas")({
   beforeLoad: async () => {
@@ -186,6 +200,17 @@ const STATUS_LABEL: Record<string, string> = {
   canceled: "Cancelado",
 };
 
+const SEGMENT_LABEL: Record<ClinicListSegment, string> = {
+  production: "Produção",
+  test: "Teste",
+  inactive: "Inativa/Cancelada",
+  all: "Todas",
+};
+
+type ClinicConfirmAction =
+  | { kind: "inactive" | "suspend" | "cancel" | "reactivate"; clinic: any }
+  | { kind: "mark_test"; clinic: any };
+
 // ============================================================
 // Dashboard
 // ============================================================
@@ -203,34 +228,46 @@ function DashboardTab() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
         <Kpi
           icon={<Building2 className="h-4 w-4" />}
-          label="Clínicas ativas"
+          label="Clínicas ativas (produção)"
           value={String(data.clinics.active)}
+          hint={`${data.clinics.total} produção · ${data.clinics.test ?? 0} teste`}
+        />
+        <Kpi
+          icon={<Activity className="h-4 w-4" />}
+          label="Trials ativos"
+          value={String(data.trial_count ?? 0)}
+          hint="Somente clínicas de produção"
+        />
+        <Kpi
+          icon={<Power className="h-4 w-4" />}
+          label="Suspensas / inativas"
+          value={String(data.clinics.inactive_or_suspended ?? 0)}
           hint={`${data.clinics.inactive} inativa(s) · ${data.clinics.suspended ?? 0} suspensa(s)`}
         />
         <Kpi
           icon={<DollarSign className="h-4 w-4" />}
           label="Receita mensal (MRR)"
           value={BRL(data.mrr)}
-          hint={`ARR estimado ${BRL(data.arr ?? data.mrr * 12)}`}
+          hint={`ARR ${BRL(data.arr ?? data.mrr * 12)} · ticket ${BRL(data.avg_ticket ?? 0)}`}
         />
         <Kpi
-          icon={<TrendingUp className="h-4 w-4" />}
-          label="Ticket médio"
-          value={BRL(data.avg_ticket ?? 0)}
-          hint={`${data.trial_count ?? 0} em teste`}
-        />
-        <Kpi
-          icon={<Activity className="h-4 w-4" />}
-          label="Novas clínicas (30 dias)"
-          value={String(data.clinics.new_30d ?? 0)}
-          hint={`${data.canceled_count ?? 0} contratos cancelados`}
+          icon={<FlaskConical className="h-4 w-4" />}
+          label="Clínicas de teste"
+          value={String(data.clinics.test ?? 0)}
+          hint="Excluídas das métricas de produção"
         />
       </div>
 
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <Kpi
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Novas clínicas (30 dias)"
+          value={String(data.clinics.new_30d ?? 0)}
+          hint={`${data.canceled_count ?? 0} contratos cancelados`}
+        />
         <Kpi
           icon={<Users className="h-4 w-4" />}
           label="Usuários ativos"
@@ -249,10 +286,13 @@ function DashboardTab() {
         />
         <Kpi
           icon={<Package className="h-4 w-4" />}
-          label="Planos no catálogo"
-          value={String(data.plans_catalog_count ?? 0)}
+          label="Planos ativos"
+          value={String(data.active_plan_contracts ?? 0)}
+          hint={`${data.plans_catalog_count ?? 0} no catálogo`}
         />
       </div>
+
+      <SaasDiagnosticPanel />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -382,6 +422,111 @@ function Kpi({
   );
 }
 
+function SaasDiagnosticPanel() {
+  const fetchDiagnostic = useServerFn(getSaasClinicDiagnostic);
+  const [run, setRun] = useState(false);
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["saas-clinic-diagnostic"],
+    queryFn: () => fetchDiagnostic(),
+    enabled: run,
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Search className="h-4 w-4" /> Diagnóstico de clínicas (somente leitura)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Inventário completo antes de inativar clínicas de teste. Nenhum dado é alterado nesta
+          etapa.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isLoading || isFetching}
+          onClick={() => {
+            setRun(true);
+            void refetch();
+          }}
+        >
+          {isFetching ? "Gerando relatório…" : "Executar diagnóstico"}
+        </Button>
+        {data && (
+          <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{data.total} clínicas</Badge>
+              <Badge variant="default">{data.protected?.length ?? 0} Move+ protegida(s)</Badge>
+              <Badge variant="secondary">{data.test_candidates?.length ?? 0} candidata(s) teste</Badge>
+              {(data.active_test_clinics?.length ?? 0) > 0 && (
+                <Badge variant="destructive">
+                  {data.active_test_clinics.length} teste ainda ativa(s)
+                </Badge>
+              )}
+            </div>
+            {(data.recommended_actions?.length ?? 0) > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3">
+                <p className="font-medium text-amber-900 dark:text-amber-100 mb-2">
+                  Ações recomendadas (requer confirmação na aba Clínicas)
+                </p>
+                <ul className="space-y-1 text-xs">
+                  {data.recommended_actions.map((a: any) => (
+                    <li key={a.clinic_id}>
+                      <strong>{a.nome}</strong> — {a.note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="max-h-64 overflow-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Clínica</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Segmento</TableHead>
+                    <TableHead>Pac.</TableHead>
+                    <TableHead>Docs</TableHead>
+                    <TableHead>Membros</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(data.clinics ?? []).map((c: any) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="text-xs">
+                        <div className="font-medium flex items-center gap-1">
+                          {c.protected && <Shield className="h-3 w-3 text-primary" />}
+                          {c.nome_fantasia ?? c.nome}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{STATUS_LABEL[c.status] ?? c.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={c.segment === "test" ? "secondary" : "outline"}>
+                          {SEGMENT_LABEL[c.segment as ClinicListSegment] ?? c.segment}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-xs">{c.counts.patients}</TableCell>
+                      <TableCell className="text-right text-xs">{c.counts.documents}</TableCell>
+                      <TableCell className="text-right text-xs">{c.counts.members}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Gerado em {new Date(data.generated_at).toLocaleString("pt-BR")}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ============================================================
 // Clinics
 // ============================================================
@@ -389,6 +534,11 @@ function ClinicsTab() {
   const fetchClinics = useServerFn(listClinicsAdmin);
   const fetchPlans = useServerFn(listPlans);
   const setStatus = useServerFn(setClinicStatus);
+  const markTest = useServerFn(markClinicAsTest);
+  const startTrial = useServerFn(startClinicTrial);
+  const extendTrial = useServerFn(extendClinicTrial);
+  const convertTrial = useServerFn(convertTrialToActive);
+  const cancelSub = useServerFn(cancelClinicSubscription);
   const assign = useServerFn(assignPlan);
   const resendOwner = useServerFn(resendOwnerInvite);
   const cancelOwner = useServerFn(cancelOwnerInvite);
@@ -398,10 +548,21 @@ function ClinicsTab() {
   const [changeOwnerFor, setChangeOwnerFor] = useState<any | null>(null);
   const [deleteFor, setDeleteFor] = useState<any | null>(null);
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
+  const [segmentFilter, setSegmentFilter] = useState<ClinicListSegment>("production");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [planFilter, setPlanFilter] = useState("all");
+  const [confirmAction, setConfirmAction] = useState<ClinicConfirmAction | null>(null);
+  const [confirmName, setConfirmName] = useState("");
+
+  const listFilters = {
+    segment: segmentFilter,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    plan_code: planFilter !== "all" ? planFilter : undefined,
+  };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-saas-clinics"],
-    queryFn: () => fetchClinics(),
+    queryKey: ["admin-saas-clinics", listFilters],
+    queryFn: () => fetchClinics({ data: listFilters }),
   });
   const { data: plans } = useQuery({
     queryKey: ["saas-plans"],
@@ -409,15 +570,76 @@ function ClinicsTab() {
   });
 
   const statusMut = useMutation({
-    mutationFn: (input: { id: string; status: "active" | "inactive" | "suspended" }) =>
-      setStatus({ data: input }),
+    mutationFn: (input: {
+      id: string;
+      status: "active" | "inactive" | "suspended" | "canceled";
+    }) => setStatus({ data: input }),
     onSuccess: () => {
       toast.success("Status atualizado");
+      setConfirmAction(null);
+      setConfirmName("");
       qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
       qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const trialMut = useMutation({
+    mutationFn: (input: { clinic_id: string; action: "start" | "extend" | "convert"; days?: number }) => {
+      if (input.action === "start") {
+        return startTrial({ data: { clinic_id: input.clinic_id, days: input.days ?? 14 } });
+      }
+      if (input.action === "extend") {
+        return extendTrial({ data: { clinic_id: input.clinic_id, days: input.days ?? 14 } });
+      }
+      return convertTrial({ data: { clinic_id: input.clinic_id } });
+    },
+    onSuccess: () => {
+      toast.success("Trial atualizado");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+      qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const cancelSubMut = useMutation({
+    mutationFn: (clinic_id: string) => cancelSub({ data: { clinic_id } }),
+    onSuccess: () => {
+      toast.success("Assinatura cancelada — dados preservados");
+      setConfirmAction(null);
+      setConfirmName("");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+      qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const markTestMut = useMutation({
+    mutationFn: (input: { clinic_id: string; confirm_name: string }) =>
+      markTest({ data: input }),
+    onSuccess: () => {
+      toast.success("Clínica marcada como teste — dados preservados");
+      setConfirmAction(null);
+      setConfirmName("");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+      qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["saas-clinic-diagnostic"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const executeConfirmAction = () => {
+    if (!confirmAction) return;
+    const { clinic, kind } = confirmAction as { clinic: any; kind: string };
+    if (kind === "mark_test") {
+      markTestMut.mutate({ clinic_id: clinic.id, confirm_name: confirmName });
+      return;
+    }
+    if (kind === "inactive") statusMut.mutate({ id: clinic.id, status: "inactive" });
+    else if (kind === "suspend") statusMut.mutate({ id: clinic.id, status: "suspended" });
+    else if (kind === "cancel") cancelSubMut.mutate(clinic.id);
+    else if (kind === "reactivate") statusMut.mutate({ id: clinic.id, status: "active" });
+  };
 
   const planMut = useMutation({
     mutationFn: (input: { clinic_id: string; plan_code: string }) =>
@@ -471,23 +693,89 @@ function ClinicsTab() {
 
   return (
     <Card>
-      <CardContent className="p-0">
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Segmento</Label>
+            <Select
+              value={segmentFilter}
+              onValueChange={(v) => setSegmentFilter(v as ClinicListSegment)}
+            >
+              <SelectTrigger className="h-9 w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SEGMENT_LABEL) as ClinicListSegment[]).map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {SEGMENT_LABEL[k]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {Object.entries(STATUS_LABEL).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Plano</Label>
+            <Select value={planFilter} onValueChange={setPlanFilter}>
+              <SelectTrigger className="h-9 w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {planOptions.map((p: any) => (
+                  <SelectItem key={p.code} value={p.code}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground ml-auto">
+            {(data ?? []).length} clínica(s) · padrão: produção ativa
+          </p>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 pt-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome fantasia</TableHead>
+              <TableHead>Nome</TableHead>
+              <TableHead>Segmento</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Plano</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Trial até</TableHead>
+              <TableHead className="text-right">Dias</TableHead>
+              <TableHead>Última atualização</TableHead>
               <TableHead>Proprietário</TableHead>
               <TableHead className="text-right">Usuários</TableHead>
               <TableHead className="text-right">Pacientes</TableHead>
-              <TableHead>Criada em</TableHead>
               <TableHead className="w-12"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {(data ?? []).map((c: any) => {
+              const operational = resolveOperationalStatus({
+                clinic_status: c.status,
+                plan_status: c.plan_status,
+                trial_ends_at: c.trial_ends_at,
+              });
+              const blocked = ["inactive", "suspended", "canceled"].includes(c.status);
               const ownerLabel =
                 c.owner_status === "active"
                   ? "Ativo"
@@ -506,7 +794,22 @@ function ClinicsTab() {
                       : "outline";
               return (
                 <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.nome}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-1">
+                      {c.protected && <Shield className="h-3.5 w-3.5 text-primary shrink-0" />}
+                      <span>{c.nome_fantasia ?? c.nome}</span>
+                    </div>
+                    {c.test_candidate && !c.is_test && (
+                      <Badge variant="outline" className="mt-1 text-[10px]">
+                        candidata teste
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={c.segment === "test" ? "secondary" : c.segment === "inactive" ? "outline" : "default"}>
+                      {SEGMENT_LABEL[c.segment as ClinicListSegment] ?? c.segment}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     /{c.slug ?? "—"}
                   </TableCell>
@@ -516,6 +819,7 @@ function ClinicsTab() {
                       onValueChange={(v) =>
                         planMut.mutate({ clinic_id: c.id, plan_code: v })
                       }
+                      disabled={c.protected}
                     >
                       <SelectTrigger className="h-8 w-40">
                         <SelectValue />
@@ -532,15 +836,30 @@ function ClinicsTab() {
                   <TableCell>
                     <Badge
                       variant={
-                        c.status === "active"
+                        operational === "active" || operational === "trial"
                           ? "default"
-                          : c.status === "suspended"
+                          : operational === "suspended" || operational === "canceled"
                             ? "destructive"
                             : "secondary"
                       }
                     >
-                      {STATUS_LABEL[c.status] ?? c.status}
+                      {OPERATIONAL_STATUS_LABEL[operational]}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs tabular-nums">
+                    {c.trial_ends_at
+                      ? new Date(c.trial_ends_at).toLocaleDateString("pt-BR")
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-right text-xs tabular-nums">
+                    {c.plan_status === "trial" && c.trial_days_left != null
+                      ? c.trial_days_left
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {c.updated_at
+                      ? new Date(c.updated_at).toLocaleDateString("pt-BR")
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-xs">
                     <div className="flex flex-col gap-1">
@@ -559,9 +878,6 @@ function ClinicsTab() {
                   </TableCell>
                   <TableCell className="text-right">{c.user_count}</TableCell>
                   <TableCell className="text-right">{c.patient_count}</TableCell>
-                  <TableCell className="text-xs">
-                    {new Date(c.created_at).toLocaleDateString("pt-BR")}
-                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -597,38 +913,78 @@ function ClinicsTab() {
                           <UserCheck className="h-4 w-4 mr-2" /> Alterar
                           proprietário
                         </DropdownMenuItem>
-                        {c.status === "active" ? (
+                        {!blocked && !c.protected && (
                           <>
+                            {c.plan_status !== "trial" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  trialMut.mutate({ clinic_id: c.id, action: "start", days: 14 })
+                                }
+                              >
+                                <Activity className="h-4 w-4 mr-2" /> Iniciar trial (14d)
+                              </DropdownMenuItem>
+                            )}
+                            {c.plan_status === "trial" && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    trialMut.mutate({ clinic_id: c.id, action: "extend", days: 14 })
+                                  }
+                                >
+                                  <Activity className="h-4 w-4 mr-2" /> Estender trial (+14d)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    trialMut.mutate({ clinic_id: c.id, action: "convert" })
+                                  }
+                                >
+                                  <Power className="h-4 w-4 mr-2" /> Converter trial → ativo
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {!c.is_test && (c.test_candidate || c.segment === "test") && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setConfirmName("");
+                                  setConfirmAction({ kind: "mark_test", clinic: c });
+                                }}
+                              >
+                                <FlaskConical className="h-4 w-4 mr-2" /> Marcar como teste
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
-                              onClick={() =>
-                                statusMut.mutate({ id: c.id, status: "inactive" })
-                              }
+                              onClick={() => setConfirmAction({ kind: "inactive", clinic: c })}
                             >
-                              <Power className="h-4 w-4 mr-2" /> Inativar
+                              <Power className="h-4 w-4 mr-2" /> Marcar inativa
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() =>
-                                statusMut.mutate({ id: c.id, status: "suspended" })
-                              }
+                              onClick={() => setConfirmAction({ kind: "suspend", clinic: c })}
                             >
-                              <Power className="h-4 w-4 mr-2" /> Suspender
+                              <Power className="h-4 w-4 mr-2" /> Suspender acesso
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setConfirmAction({ kind: "cancel", clinic: c })}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Cancelar assinatura
                             </DropdownMenuItem>
                           </>
-                        ) : (
+                        )}
+                        {blocked && !c.protected && (
                           <DropdownMenuItem
-                            onClick={() =>
-                              statusMut.mutate({ id: c.id, status: "active" })
-                            }
+                            onClick={() => setConfirmAction({ kind: "reactivate", clinic: c })}
                           >
-                            <Power className="h-4 w-4 mr-2" /> Ativar
+                            <Power className="h-4 w-4 mr-2" /> Reativar acesso
                           </DropdownMenuItem>
                         )}
+                        {!c.protected && (
                         <DropdownMenuItem
                           onClick={() => setDeleteFor(c)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="h-4 w-4 mr-2" /> Excluir clínica
                         </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -637,8 +993,8 @@ function ClinicsTab() {
             })}
             {(data ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground text-sm py-6">
-                  Nenhuma clínica cadastrada.
+                <TableCell colSpan={12} className="text-center text-muted-foreground text-sm py-6">
+                  Nenhuma clínica neste filtro.
                 </TableCell>
               </TableRow>
             )}
@@ -650,6 +1006,84 @@ function ClinicsTab() {
         open={!!detail}
         onOpenChange={(b) => !b && setDetail(null)}
       />
+      <Dialog
+        open={!!confirmAction}
+        onOpenChange={(b) => {
+          if (!b) {
+            setConfirmAction(null);
+            setConfirmName("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Confirmar ação · {confirmAction?.clinic?.nome_fantasia ?? confirmAction?.clinic?.nome}
+            </DialogTitle>
+          </DialogHeader>
+          {confirmAction && (
+            <div className="space-y-3 text-sm">
+              {confirmAction.kind === "mark_test" && (
+                <>
+                  <p>
+                    A clínica será marcada como <strong>teste</strong>, inativada e excluída das
+                    métricas de produção. Pacientes, documentos e usuários <strong>não</strong>{" "}
+                    serão apagados.
+                  </p>
+                  <div>
+                    <Label>Digite o nome exato da clínica para confirmar</Label>
+                    <Input
+                      value={confirmName}
+                      onChange={(e) => setConfirmName(e.target.value)}
+                      placeholder={confirmAction.clinic.nome}
+                    />
+                  </div>
+                </>
+              )}
+              {confirmAction.kind === "inactive" && (
+                <p>
+                  Inativar a clínica bloqueia o acesso operacional. Nenhum dado clínico será
+                  apagado.
+                </p>
+              )}
+              {confirmAction.kind === "suspend" && (
+                <p>
+                  Suspender bloqueia o acesso imediatamente. Dados preservados para reativação
+                  futura.
+                </p>
+              )}
+              {confirmAction.kind === "cancel" && (
+                <p>
+                  Cancelar a assinatura encerra o contrato comercial. Dados clínicos, financeiros
+                  e usuários permanecem no sistema.
+                </p>
+              )}
+              {confirmAction.kind === "reactivate" && (
+                <p>Reativar restaura o acesso operacional conforme o plano vigente.</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setConfirmAction(null)}>
+                  Voltar
+                </Button>
+                <Button
+                  variant={
+                    confirmAction.kind === "cancel" || confirmAction.kind === "mark_test"
+                      ? "destructive"
+                      : "default"
+                  }
+                  disabled={
+                    confirmAction.kind === "mark_test" &&
+                    !confirmName.trim()
+                  }
+                  onClick={executeConfirmAction}
+                >
+                  Confirmar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={!!changeOwnerFor}
         onOpenChange={(b) => {
@@ -1426,9 +1860,11 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
     nome_fantasia: "",
     cidade: "",
     estado: "",
+    start_as_trial: false,
+    trial_days: "14",
   });
 
-  const set = (k: keyof typeof form, v: string) =>
+  const set = (k: keyof typeof form, v: string | boolean) =>
     setForm((p) => ({ ...p, [k]: v }));
 
   const slugPreview = form.nome
@@ -1441,7 +1877,12 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
   const mut = useMutation({
     mutationFn: (data: typeof form) =>
       provision({
-        data: { ...data, plan_code: data.plan_code || planOptions[0]?.code || "starter" },
+        data: {
+          ...data,
+          plan_code: data.plan_code || planOptions[0]?.code || "starter",
+          start_as_trial: data.start_as_trial,
+          trial_days: Number(data.trial_days) || 14,
+        },
       }),
     onSuccess: (res: any) => {
       toast.success(
@@ -1515,6 +1956,31 @@ function NewClinicForm({ onDone }: { onDone: () => void }) {
           </SelectContent>
         </Select>
       </div>
+      <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+        <Checkbox
+          id="start-as-trial"
+          checked={form.start_as_trial}
+          onCheckedChange={(v) => set("start_as_trial", !!v)}
+        />
+        <div className="flex-1">
+          <Label htmlFor="start-as-trial" className="cursor-pointer">
+            Iniciar em trial (liberar configuração sem pagamento)
+          </Label>
+          {form.start_as_trial && (
+            <div className="mt-2 flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Dias</Label>
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                className="h-8 w-20"
+                value={form.trial_days}
+                onChange={(e) => set("trial_days", e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
       <div>
         <Label>E-mail do owner (opcional)</Label>
         <Input
@@ -1548,6 +2014,11 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
   "clinic.activate": "Clínica · ativação",
   "clinic.deactivate": "Clínica · inativação",
   "clinic.suspend": "Clínica · suspensão",
+  "clinic.cancel": "Clínica · cancelamento",
+  "clinic.mark_test": "Clínica · marcada como teste",
+  "clinic.trial_start": "Clínica · trial iniciado",
+  "clinic.trial_extend": "Clínica · trial estendido",
+  "clinic.trial_convert": "Clínica · trial convertido",
   "clinic.plan_change": "Clínica · troca de plano",
   "clinic.branding": "Clínica · identidade visual",
   "clinic.owner_invited": "Clínica · convite enviado",
@@ -1574,7 +2045,7 @@ function AuditTab() {
 
   const { data: clinics } = useQuery({
     queryKey: ["admin-saas-clinics-mini"],
-    queryFn: () => fetchClinics(),
+    queryFn: () => fetchClinics({ data: { segment: "all" } }),
   });
   const { data, isLoading } = useQuery({
     queryKey: ["saas-audit", filters],

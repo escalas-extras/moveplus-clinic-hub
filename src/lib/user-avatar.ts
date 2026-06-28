@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { pcDelete, pcGet, pcSet } from "@/lib/persistent-cache";
+import { markImageSessionLoaded, preloadImageUrl } from "@/lib/image-preload";
 
 export const AVATAR_BUCKET = "user-avatars";
 export const AVATAR_MAX = 2 * 1024 * 1024; // 2 MB
@@ -45,9 +46,16 @@ export async function signedAvatarUrl(path: string | null | undefined): Promise<
     if (url) {
       signedAvatarCache.set(path, { url, expiresAt: Date.now() + SIGNED_AVATAR_CACHE_MS });
       pcSet(persistKey(path), url, SIGNED_AVATAR_CACHE_MS);
+      markImageSessionLoaded(url);
     }
     return url;
   } catch {
     return null;
   }
+}
+
+export async function preloadAvatarUrl(path: string | null | undefined): Promise<string | null> {
+  const url = await signedAvatarUrl(path);
+  if (url) await preloadImageUrl(url);
+  return url;
 }

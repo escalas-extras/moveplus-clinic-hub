@@ -78,7 +78,7 @@ export function ClinicLogo({
       alt={brand.clinicName}
       variant={fixedSize ? undefined : variant}
       size={fixedSize ?? "md"}
-      loading={isLoading}
+      loading={isLoading && !rawLogo}
       rounded={isSidebar ? "xl" : showImage && !isLoading ? "xl" : "2xl"}
       framed={variant !== "inline"}
       fallback={monogram}

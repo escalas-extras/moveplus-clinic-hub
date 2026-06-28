@@ -1,8 +1,36 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  isKnownTestClinicCandidate,
+  isProtectedMovePlusClinic,
+  segmentClinic,
+  type ClinicListSegment,
+} from "@/lib/saas/clinic-segmentation";
 
-const STATUS_VALUES = ["active", "inactive", "suspended"] as const;
+const STATUS_VALUES = ["active", "inactive", "suspended", "canceled"] as const;
+
+async function assertClinicNotProtected(supabaseAdmin: any, clinicId: string) {
+  const { data: clinic } = await supabaseAdmin
+    .from("clinics")
+    .select("id, nome, slug, settings_id")
+    .eq("id", clinicId)
+    .maybeSingle();
+  if (!clinic) throw new Error("Clínica não encontrada.");
+  let nome_fantasia: string | null = null;
+  if (clinic.settings_id) {
+    const { data: s } = await supabaseAdmin
+      .from("clinic_settings")
+      .select("nome_fantasia")
+      .eq("id", clinic.settings_id)
+      .maybeSingle();
+    nome_fantasia = s?.nome_fantasia ?? null;
+  }
+  if (isProtectedMovePlusClinic({ nome: clinic.nome, slug: clinic.slug, nome_fantasia })) {
+    throw new Error("Esta clínica Move+ está protegida e não pode ser alterada.");
+  }
+  return clinic;
+}
 
 async function assertSuperAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", {
@@ -13,6 +41,40 @@ async function assertSuperAdmin(supabase: any, userId: string) {
   if (!data) throw new Error("Acesso restrito a super administradores.");
 }
 
+function trialEndsInDays(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
+async function getCurrentPlanRow(supabaseAdmin: any, clinicId: string) {
+  const { data } = await supabaseAdmin
+    .from("clinic_plans")
+    .select("id, status, plan_id, trial_ends_at")
+    .eq("clinic_id", clinicId)
+    .in("status", ["active", "trial"])
+    .maybeSingle();
+  return data;
+}
+
+async function resolvePlanIdForClinic(supabaseAdmin: any, clinicId: string) {
+  const current = await getCurrentPlanRow(supabaseAdmin, clinicId);
+  if (current?.plan_id) return current.plan_id;
+  const { data: clinic } = await supabaseAdmin
+    .from("clinics")
+    .select("plan")
+    .eq("id", clinicId)
+    .maybeSingle();
+  if (!clinic?.plan) return null;
+  const { data: plan } = await supabaseAdmin
+    .from("plans")
+    .select("id")
+    .eq("code", clinic.plan)
+    .eq("active", true)
+    .maybeSingle();
+  return plan?.id ?? null;
+}
+
 async function logAudit(
   supabaseAdmin: any,
   userId: string,
@@ -21,6 +83,7 @@ async function logAudit(
   entityId: string | null,
   oldData: any = null,
   newData: any = null,
+  clinicId: string | null = null,
 ) {
   try {
     await supabaseAdmin.from("saas_audit_log").insert({
@@ -30,6 +93,9 @@ async function logAudit(
       entity_id: entityId,
       old_data: oldData,
       new_data: newData,
+      clinic_id:
+        clinicId ??
+        (entityType === "clinic" ? entityId : newData?.clinic_id ?? oldData?.clinic_id ?? null),
     });
   } catch (e) {
     // best-effort
@@ -48,7 +114,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
 
     const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog, allClinicPlans] =
       await Promise.all([
-        supabaseAdmin.from("clinics").select("id,status,created_at"),
+        supabaseAdmin.from("clinics").select("id,status,created_at,is_test,nome,slug"),
         supabaseAdmin
           .from("clinic_members")
           .select("user_id", { count: "exact", head: false })
@@ -62,7 +128,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
           .limit(5),
         supabaseAdmin
           .from("clinic_plans")
-          .select("plan_id, status, plans(id,code,name,monthly_price,price_cents)")
+          .select("clinic_id, plan_id, status, plans(id,code,name,monthly_price,price_cents)")
           .in("status", ["active", "trial"]),
         supabaseAdmin
           .from("plans")
@@ -70,10 +136,20 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
         supabaseAdmin.from("clinic_plans").select("status"),
       ]);
 
-    const clinicsRows = clinics.data ?? [];
-    const active = clinicsRows.filter((c: any) => c.status === "active").length;
-    const inactive = clinicsRows.filter((c: any) => c.status === "inactive").length;
-    const suspended = clinicsRows.filter((c: any) => c.status === "suspended").length;
+    const clinicsRows = (clinics.data ?? []).filter((c: any) => c.status !== "deleted");
+    const isProdClinic = (c: any) =>
+      !c.is_test && !isKnownTestClinicCandidate({ nome: c.nome, slug: c.slug });
+    const prodRows = clinicsRows.filter(isProdClinic);
+    const testRows = clinicsRows.filter((c: any) => !isProdClinic(c));
+    const active = prodRows.filter((c: any) => c.status === "active").length;
+    const inactive = prodRows.filter((c: any) => c.status === "inactive").length;
+    const suspended = prodRows.filter((c: any) => c.status === "suspended").length;
+    const testCount = testRows.length;
+    const inactiveOrSuspended = prodRows.filter((c: any) =>
+      ["inactive", "suspended", "canceled"].includes(c.status),
+    ).length;
+
+    const testClinicIds = new Set(testRows.map((c: any) => c.id));
 
     const uniqueUsers = new Set((members.data ?? []).map((m: any) => m.user_id));
 
@@ -86,7 +162,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
 
     const thirtyAgo = new Date();
     thirtyAgo.setDate(thirtyAgo.getDate() - 30);
-    const newClinics30d = clinicsRows.filter(
+    const newClinics30d = prodRows.filter(
       (c: any) => new Date(c.created_at) >= thirtyAgo,
     ).length;
 
@@ -97,6 +173,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     let mrr = 0;
     let trialCount = 0;
     for (const row of (planAgg.data ?? []) as any[]) {
+      if (testClinicIds.has(row.clinic_id)) continue;
       const p = row.plans;
       if (!p) continue;
       const price = Number(p.monthly_price ?? (p.price_cents ?? 0) / 100) || 0;
@@ -119,7 +196,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     }
 
     const paidContracts = (planAgg.data ?? []).filter(
-      (r: any) => r.status === "active",
+      (r: any) => r.status === "active" && !testClinicIds.has(r.clinic_id),
     ).length;
     const avgTicket = paidContracts > 0 ? mrr / paidContracts : 0;
 
@@ -134,7 +211,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
       const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-      const count = clinicsRows.filter((c: any) => {
+      const count = prodRows.filter((c: any) => {
         const dt = new Date(c.created_at);
         return dt >= d && dt < next;
       }).length;
@@ -146,8 +223,10 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
         active,
         inactive,
         suspended,
-        total: clinicsRows.length,
+        total: prodRows.length,
         new_30d: newClinics30d,
+        test: testCount,
+        inactive_or_suspended: inactiveOrSuspended,
       },
       users: { total: uniqueUsers.size },
       patients: { total: patients.count ?? 0 },
@@ -158,6 +237,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
       arr: mrr * 12,
       avg_ticket: avgTicket,
       trial_count: trialCount,
+      active_plan_contracts: paidContracts + trialCount,
       canceled_count: canceledContracts,
       growth,
       plans_catalog_count: (plansCatalog.data ?? []).length,
@@ -167,20 +247,36 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
 // ------------------------------------------------------------
 // Clinics list (rich)
 // ------------------------------------------------------------
+const listClinicsFiltersSchema = z.object({
+  segment: z.enum(["production", "test", "inactive", "all"]).default("production"),
+  status: z.string().optional(),
+  plan_code: z.string().optional(),
+});
+
 export const listClinicsAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => listClinicsFiltersSchema.parse(d ?? {}))
+  .handler(async ({ data: filters, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: clinics, error } = await supabaseAdmin
       .from("clinics")
-      .select("id, nome, slug, plan, status, active, created_at, settings_id")
+      .select("id, nome, slug, plan, status, active, created_at, updated_at, settings_id, trial_ends_at, is_test")
       .neq("status", "deleted")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
     const ids = (clinics ?? []).map((c: any) => c.id);
+    const settingsIds = (clinics ?? []).map((c: any) => c.settings_id).filter(Boolean) as string[];
+    const fantasiaBySettings: Record<string, string | null> = {};
+    if (settingsIds.length) {
+      const { data: settingsRows } = await supabaseAdmin
+        .from("clinic_settings")
+        .select("id, nome_fantasia")
+        .in("id", settingsIds);
+      for (const s of settingsRows ?? []) fantasiaBySettings[s.id] = s.nome_fantasia;
+    }
     const counts: Record<string, { users: number }> = {};
     if (ids.length) {
       const { data: mems } = await supabaseAdmin
@@ -194,21 +290,47 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
       }
     }
 
-    const planByClinic: Record<string, { code: string; name: string }> = {};
+    const planByClinic: Record<
+      string,
+      { code: string; name: string; status: string; trial_ends_at: string | null }
+    > = {};
     if (ids.length) {
       const { data: cps } = await supabaseAdmin
         .from("clinic_plans")
-        .select("clinic_id, plans(code,name)")
+        .select("clinic_id, status, trial_ends_at, plans(code,name)")
         .in("clinic_id", ids)
-        .in("status", ["active", "trial"]);
+        .in("status", ["active", "trial", "suspended"])
+        .order("created_at", { ascending: false });
       for (const row of (cps ?? []) as any[]) {
-        if (row.plans)
-          planByClinic[row.clinic_id] = { code: row.plans.code, name: row.plans.name };
+        if (planByClinic[row.clinic_id]) continue;
+        if (row.plans) {
+          planByClinic[row.clinic_id] = {
+            code: row.plans.code,
+            name: row.plans.name,
+            status: row.status,
+            trial_ends_at: row.trial_ends_at,
+          };
+        }
       }
     }
 
     let patientsByClinic: Record<string, number> = {};
+    let docsByClinic: Record<string, number> = {};
     if (ids.length) {
+      const [{ data: pats }, { data: docs }] = await Promise.all([
+        supabaseAdmin.from("patients").select("clinic_id").in("clinic_id", ids),
+        supabaseAdmin.from("clinical_documents").select("clinic_id").in("clinic_id", ids),
+      ]);
+      for (const p of pats ?? []) {
+        if (p.clinic_id) patientsByClinic[p.clinic_id] = (patientsByClinic[p.clinic_id] || 0) + 1;
+      }
+      for (const d of docs ?? []) {
+        if (d.clinic_id) docsByClinic[d.clinic_id] = (docsByClinic[d.clinic_id] || 0) + 1;
+      }
+    }
+
+    // legacy estimate (fallback) — kept for clinics without clinic_id on old rows
+    if (ids.length && Object.keys(patientsByClinic).length === 0) {
       const { data: mems } = await supabaseAdmin
         .from("clinic_members")
         .select("clinic_id, user_id")
@@ -308,7 +430,7 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
       }
     }
 
-    return (clinics ?? []).map((c: any) => {
+    const mapped = (clinics ?? []).map((c: any) => {
       const owner = ownerByClinic[c.id];
       const auth = owner ? authByUser[owner.user_id] : undefined;
       let owner_status: "active" | "pending" | "expired" | "none" = "none";
@@ -321,17 +443,47 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
           owner_status = "expired";
         else owner_status = "pending";
       }
+      const planInfo = planByClinic[c.id];
+      const nome_fantasia = c.settings_id ? fantasiaBySettings[c.settings_id] ?? null : null;
+      const trialEndsAt = planInfo?.trial_ends_at ?? c.trial_ends_at ?? null;
+      const trialDaysLeft =
+        trialEndsAt != null
+          ? Math.max(
+              0,
+              Math.ceil(
+                (new Date(trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+              ),
+            )
+          : null;
+      const rowSegment = segmentClinic({
+        status: c.status,
+        is_test: c.is_test,
+        nome: c.nome,
+        slug: c.slug,
+        nome_fantasia,
+      });
       return {
         id: c.id,
         nome: c.nome,
+        nome_fantasia,
         slug: c.slug,
         plan: c.plan,
-        plan_label: planByClinic[c.id]?.name ?? c.plan ?? "—",
+        plan_label: planInfo?.name ?? c.plan ?? "—",
+        plan_status: planInfo?.status ?? null,
+        plan_code: planInfo?.code ?? c.plan ?? null,
+        trial_ends_at: trialEndsAt,
+        trial_days_left: trialDaysLeft,
         status: c.status,
+        is_test: !!c.is_test,
+        segment: rowSegment,
+        protected: isProtectedMovePlusClinic({ nome: c.nome, slug: c.slug, nome_fantasia }),
+        test_candidate: isKnownTestClinicCandidate({ nome: c.nome, slug: c.slug, nome_fantasia }),
         active: c.active,
         created_at: c.created_at,
+        updated_at: c.updated_at,
         user_count: counts[c.id]?.users ?? 0,
         patient_count: patientsByClinic[c.id] ?? 0,
+        document_count: docsByClinic[c.id] ?? 0,
         owner_email: auth?.email ?? null,
         owner_user_id: owner?.user_id ?? null,
         owner_member_id: owner?.member_id ?? null,
@@ -339,6 +491,16 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
         owner_invited_at: auth?.invited_at ?? null,
         owner_confirmed_at: auth?.confirmed_at ?? null,
       };
+    });
+
+    return mapped.filter((row) => {
+      if (filters.segment !== "all" && row.segment !== filters.segment) return false;
+      if (filters.status && filters.status !== "all" && row.status !== filters.status) return false;
+      if (filters.plan_code && filters.plan_code !== "all") {
+        const code = row.plan_code ?? row.plan;
+        if (code !== filters.plan_code) return false;
+      }
+      return true;
     });
   });
 
@@ -355,28 +517,236 @@ export const setClinicStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (data.status !== "active") {
+      await assertClinicNotProtected(supabaseAdmin, data.id);
+    }
     const { data: prev } = await supabaseAdmin
       .from("clinics")
-      .select("status")
+      .select("status, trial_ends_at")
       .eq("id", data.id)
       .maybeSingle();
     const { error } = await supabaseAdmin
       .from("clinics")
-      .update({ status: data.status })
+      .update({
+        status: data.status,
+        ...(data.status === "active" ? { is_test: false, trial_ends_at: prev?.trial_ends_at ?? null } : {}),
+      })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
-    await logAudit(
-      supabaseAdmin,
-      context.userId,
+
+    const currentPlan = await getCurrentPlanRow(supabaseAdmin, data.id);
+    if (data.status === "suspended" && currentPlan) {
+      await supabaseAdmin
+        .from("clinic_plans")
+        .update({ status: "suspended" })
+        .eq("id", currentPlan.id);
+    }
+    if (data.status === "active") {
+      const { data: suspendedPlan } = await supabaseAdmin
+        .from("clinic_plans")
+        .select("id, trial_ends_at")
+        .eq("clinic_id", data.id)
+        .eq("status", "suspended")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (suspendedPlan) {
+        const restoreStatus = suspendedPlan.trial_ends_at ? "trial" : "active";
+        await supabaseAdmin
+          .from("clinic_plans")
+          .update({ status: restoreStatus })
+          .eq("id", suspendedPlan.id);
+      } else if (currentPlan?.status === "suspended") {
+        await supabaseAdmin
+          .from("clinic_plans")
+          .update({ status: "active" })
+          .eq("id", currentPlan.id);
+      }
+    }
+    if (data.status === "canceled") {
+      await supabaseAdmin
+        .from("clinic_plans")
+        .update({ status: "canceled", canceled_at: new Date().toISOString() })
+        .eq("clinic_id", data.id)
+        .in("status", ["active", "trial", "suspended"]);
+    }
+
+    const action =
       data.status === "active"
         ? "clinic.activate"
         : data.status === "suspended"
           ? "clinic.suspend"
-          : "clinic.deactivate",
+          : data.status === "canceled"
+            ? "clinic.cancel"
+            : "clinic.deactivate";
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      action,
       "clinic",
       data.id,
       prev,
       { status: data.status },
+      data.id,
+    );
+    return { ok: true };
+  });
+
+const trialDaysInput = z.object({
+  clinic_id: z.string().uuid(),
+  days: z.number().int().min(1).max(365).default(14),
+});
+
+export const startClinicTrial = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => trialDaysInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const endsAt = trialEndsInDays(data.days);
+    const planId = await resolvePlanIdForClinic(supabaseAdmin, data.clinic_id);
+    if (!planId) throw new Error("Clínica sem plano vinculado. Atribua um plano antes do trial.");
+
+    const current = await getCurrentPlanRow(supabaseAdmin, data.clinic_id);
+    if (current) {
+      const { error } = await supabaseAdmin
+        .from("clinic_plans")
+        .update({ status: "trial", trial_ends_at: endsAt })
+        .eq("id", current.id);
+      if (error) throw new Error(error.message);
+    } else {
+      await supabaseAdmin
+        .from("clinic_plans")
+        .update({ status: "canceled", canceled_at: new Date().toISOString() })
+        .eq("clinic_id", data.clinic_id)
+        .in("status", ["active", "trial"]);
+      const { error } = await supabaseAdmin.from("clinic_plans").insert({
+        clinic_id: data.clinic_id,
+        plan_id: planId,
+        status: "trial",
+        trial_ends_at: endsAt,
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    await supabaseAdmin
+      .from("clinics")
+      .update({ status: "active", trial_ends_at: endsAt })
+      .eq("id", data.clinic_id);
+
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.trial_start",
+      "clinic",
+      data.clinic_id,
+      null,
+      { days: data.days, trial_ends_at: endsAt },
+      data.clinic_id,
+    );
+    return { ok: true, trial_ends_at: endsAt };
+  });
+
+export const extendClinicTrial = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => trialDaysInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const current = await getCurrentPlanRow(supabaseAdmin, data.clinic_id);
+    if (!current || current.status !== "trial") {
+      throw new Error("A clínica não está em trial.");
+    }
+    const base = current.trial_ends_at ? new Date(current.trial_ends_at) : new Date();
+    base.setDate(base.getDate() + data.days);
+    const endsAt = base.toISOString();
+
+    await supabaseAdmin
+      .from("clinic_plans")
+      .update({ trial_ends_at: endsAt })
+      .eq("id", current.id);
+    await supabaseAdmin
+      .from("clinics")
+      .update({ status: "active", trial_ends_at: endsAt })
+      .eq("id", data.clinic_id);
+
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.trial_extend",
+      "clinic",
+      data.clinic_id,
+      { trial_ends_at: current.trial_ends_at },
+      { days: data.days, trial_ends_at: endsAt },
+      data.clinic_id,
+    );
+    return { ok: true, trial_ends_at: endsAt };
+  });
+
+export const convertTrialToActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ clinic_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const current = await getCurrentPlanRow(supabaseAdmin, data.clinic_id);
+    if (!current || current.status !== "trial") {
+      throw new Error("A clínica não está em trial.");
+    }
+    await supabaseAdmin
+      .from("clinic_plans")
+      .update({ status: "active", trial_ends_at: null })
+      .eq("id", current.id);
+    await supabaseAdmin
+      .from("clinics")
+      .update({ status: "active", trial_ends_at: null })
+      .eq("id", data.clinic_id);
+
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.trial_convert",
+      "clinic",
+      data.clinic_id,
+      { plan_status: "trial" },
+      { plan_status: "active" },
+      data.clinic_id,
+    );
+    return { ok: true };
+  });
+
+export const cancelClinicSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ clinic_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertClinicNotProtected(supabaseAdmin, data.clinic_id);
+    const { data: prev } = await supabaseAdmin
+      .from("clinics")
+      .select("status")
+      .eq("id", data.clinic_id)
+      .maybeSingle();
+
+    await supabaseAdmin
+      .from("clinics")
+      .update({ status: "canceled" })
+      .eq("id", data.clinic_id);
+    await supabaseAdmin
+      .from("clinic_plans")
+      .update({ status: "canceled", canceled_at: new Date().toISOString() })
+      .eq("clinic_id", data.clinic_id)
+      .in("status", ["active", "trial", "suspended"]);
+
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.cancel",
+      "clinic",
+      data.clinic_id,
+      prev,
+      { status: "canceled" },
+      data.clinic_id,
     );
     return { ok: true };
   });
@@ -391,6 +761,8 @@ const provisionInput = z.object({
   nome_fantasia: z.string().optional(),
   cidade: z.string().optional(),
   estado: z.string().max(2).optional(),
+  start_as_trial: z.boolean().optional(),
+  trial_days: z.number().int().min(1).max(365).optional(),
 });
 export const provisionClinic = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -441,10 +813,12 @@ export const provisionClinic = createServerFn({ method: "POST" })
       nome: data.nome,
       plan_code: data.plan_code,
       owner_user_id: ownerUserId,
-      owner_pending: ownerInvited, // pending when invited, active when user already existed
+      owner_pending: ownerInvited,
       nome_fantasia: data.nome_fantasia,
       cidade: data.cidade,
       estado: data.estado,
+      start_as_trial: data.start_as_trial,
+      trial_days: data.trial_days ?? 14,
       supabaseAdmin,
     });
 
@@ -486,6 +860,8 @@ async function provisionClinicFallback(args: {
   nome_fantasia?: string;
   cidade?: string;
   estado?: string;
+  start_as_trial?: boolean;
+  trial_days?: number;
   supabaseAdmin: any;
 }) {
   const { supabaseAdmin } = args;
@@ -535,11 +911,17 @@ async function provisionClinicFallback(args: {
     .update({ clinic_id: clinic.id })
     .eq("id", settings.id);
 
+  const trialEnds = args.start_as_trial ? trialEndsInDays(args.trial_days ?? 14) : null;
   await supabaseAdmin.from("clinic_plans").insert({
     clinic_id: clinic.id,
     plan_id: plan.id,
-    status: "active",
+    status: args.start_as_trial ? "trial" : "active",
+    trial_ends_at: trialEnds,
   });
+
+  if (args.start_as_trial && trialEnds) {
+    await supabaseAdmin.from("clinics").update({ trial_ends_at: trialEnds }).eq("id", clinic.id);
+  }
 
   if (args.owner_user_id) {
     await supabaseAdmin.from("clinic_members").insert({
@@ -1168,6 +1550,7 @@ export const softDeleteClinic = createServerFn({ method: "POST" })
       .maybeSingle();
     if (cErr) throw new Error(cErr.message);
     if (!clinic) throw new Error("Clínica não encontrada.");
+    await assertClinicNotProtected(supabaseAdmin, data.id);
     if (clinic.status === "deleted") throw new Error("Clínica já está excluída.");
 
     const expected = (clinic.slug || clinic.nome || "").trim().toLowerCase();
@@ -1221,4 +1604,175 @@ export const softDeleteClinic = createServerFn({ method: "POST" })
     });
 
     return { ok: true, soft: true };
+  });
+
+// ------------------------------------------------------------
+// Diagnóstico SaaS (somente leitura)
+// ------------------------------------------------------------
+export const getSaasClinicDiagnostic = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: clinics, error } = await supabaseAdmin
+      .from("clinics")
+      .select("id, nome, slug, status, plan, is_test, created_at, updated_at, settings_id")
+      .neq("status", "deleted")
+      .order("nome");
+    if (error) throw new Error(error.message);
+
+    const ids = (clinics ?? []).map((c) => c.id);
+    const settingsIds = (clinics ?? []).map((c) => c.settings_id).filter(Boolean) as string[];
+    const fantasiaBySettings: Record<string, string | null> = {};
+    if (settingsIds.length) {
+      const { data: settingsRows } = await supabaseAdmin
+        .from("clinic_settings")
+        .select("id, nome_fantasia")
+        .in("id", settingsIds);
+      for (const s of settingsRows ?? []) fantasiaBySettings[s.id] = s.nome_fantasia;
+    }
+
+    async function countMap(table: string) {
+      const out: Record<string, number> = {};
+      for (const id of ids) {
+        const { count } = await supabaseAdmin
+          .from(table)
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", id);
+        out[id] = count ?? 0;
+      }
+      return out;
+    }
+
+    const [patients, docs, appts, members, entries, receipts] = await Promise.all([
+      countMap("patients"),
+      countMap("clinical_documents"),
+      countMap("appointments"),
+      countMap("clinic_members"),
+      countMap("financial_entries"),
+      countMap("receipts"),
+    ]);
+
+    const rows = (clinics ?? []).map((c) => {
+      const nome_fantasia = c.settings_id ? fantasiaBySettings[c.settings_id] ?? null : null;
+      const protectedMove = isProtectedMovePlusClinic({
+        nome: c.nome,
+        slug: c.slug,
+        nome_fantasia,
+      });
+      const testCandidate = isKnownTestClinicCandidate({ nome: c.nome, slug: c.slug, nome_fantasia });
+      return {
+        id: c.id,
+        nome: c.nome,
+        nome_fantasia,
+        slug: c.slug,
+        status: c.status,
+        is_test: !!c.is_test,
+        plan: c.plan,
+        segment: segmentClinic({
+          status: c.status,
+          is_test: c.is_test,
+          nome: c.nome,
+          slug: c.slug,
+          nome_fantasia,
+        }),
+        protected: protectedMove,
+        test_candidate: testCandidate,
+        updated_at: c.updated_at,
+        counts: {
+          patients: patients[c.id] ?? 0,
+          documents: docs[c.id] ?? 0,
+          appointments: appts[c.id] ?? 0,
+          members: members[c.id] ?? 0,
+          financial_entries: entries[c.id] ?? 0,
+          receipts: receipts[c.id] ?? 0,
+        },
+      };
+    });
+
+    return {
+      generated_at: new Date().toISOString(),
+      total: rows.length,
+      protected: rows.filter((r) => r.protected),
+      test_candidates: rows.filter((r) => r.test_candidate && !r.protected),
+      active_test_clinics: rows.filter(
+        (r) => r.test_candidate && !r.protected && r.status === "active" && !r.is_test,
+      ),
+      recommended_actions: rows
+        .filter((r) => r.test_candidate && !r.protected && r.status === "active" && !r.is_test)
+        .map((r) => ({
+          clinic_id: r.id,
+          nome: r.nome,
+          action: "mark_as_test_and_inactivate",
+          note: "Requer confirmação explícita no Admin SaaS — nenhum dado será apagado",
+        })),
+      clinics: rows,
+    };
+  });
+
+// ------------------------------------------------------------
+// Marcar clínica como teste (inativa + flag — sem apagar dados)
+// ------------------------------------------------------------
+export const markClinicAsTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        clinic_id: z.string().uuid(),
+        confirm_name: z.string().min(2),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const clinic = await assertClinicNotProtected(supabaseAdmin, data.clinic_id);
+
+    let nome_fantasia: string | null = null;
+    if (clinic.settings_id) {
+      const { data: s } = await supabaseAdmin
+        .from("clinic_settings")
+        .select("nome_fantasia")
+        .eq("id", clinic.settings_id)
+        .maybeSingle();
+      nome_fantasia = s?.nome_fantasia ?? null;
+    }
+
+    const expected = [clinic.nome, nome_fantasia].filter(Boolean);
+    if (!expected.some((n) => n === data.confirm_name.trim())) {
+      throw new Error("Confirmação inválida: digite o nome exato da clínica.");
+    }
+
+    const { data: prev } = await supabaseAdmin
+      .from("clinics")
+      .select("status, is_test")
+      .eq("id", data.clinic_id)
+      .maybeSingle();
+
+    await supabaseAdmin
+      .from("clinics")
+      .update({ is_test: true, status: "inactive", active: false })
+      .eq("id", data.clinic_id);
+
+    const currentPlan = await getCurrentPlanRow(supabaseAdmin, data.clinic_id);
+    if (currentPlan) {
+      await supabaseAdmin
+        .from("clinic_plans")
+        .update({ status: "suspended" })
+        .eq("id", currentPlan.id);
+    }
+
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.mark_test",
+      "clinic",
+      data.clinic_id,
+      prev,
+      { is_test: true, status: "inactive" },
+      data.clinic_id,
+    );
+
+    return { ok: true };
   });

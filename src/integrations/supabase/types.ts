@@ -1537,6 +1537,7 @@ export type Database = {
           slug: string | null
           status: string
           suspended_at: string | null
+          is_test: boolean
           trial_ends_at: string | null
           updated_at: string
         }
@@ -1545,6 +1546,7 @@ export type Database = {
           canceled_at?: string | null
           created_at?: string
           id?: string
+          is_test?: boolean
           nome: string
           plan?: string | null
           settings_id?: string | null
@@ -1559,6 +1561,7 @@ export type Database = {
           canceled_at?: string | null
           created_at?: string
           id?: string
+          is_test?: boolean
           nome?: string
           plan?: string | null
           settings_id?: string | null

@@ -1,9 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { pcDelete, pcGet, pcSet } from "@/lib/persistent-cache";
+import { markImageSessionLoaded, preloadImageUrl } from "@/lib/image-preload";
 
 type StorageObjectRef = { bucket: string; path: string };
 
 const SIGNED_LOGO_TTL_MS = 50 * 60_000;
+const signedLogoMemory = new Map<string, { url: string; expiresAt: number }>();
 
 function persistKey(raw: string) {
   return `fos:signed-logo:${raw}`;
@@ -12,6 +14,7 @@ function persistKey(raw: string) {
 export function invalidateSignedClinicLogoUrl(raw: string | null | undefined) {
   const value = raw?.trim();
   if (!value || /^https?:\/\//i.test(value)) return;
+  signedLogoMemory.delete(value);
   pcDelete(persistKey(value));
 }
 
@@ -46,14 +49,22 @@ export function getCachedClinicLogoUrl(raw: string | null | undefined): string |
   const value = raw?.trim();
   if (!value) return null;
   if (/^https?:\/\//i.test(value) && !value.includes("/storage/v1/object/")) return value;
+  const mem = signedLogoMemory.get(value);
+  if (mem && mem.expiresAt > Date.now()) return mem.url;
   return pcGet<string>(persistKey(value));
+}
+
+export async function preloadClinicLogoUrl(raw: string | null | undefined): Promise<string | null> {
+  const url = await resolveClinicLogoUrl(raw);
+  if (url) await preloadImageUrl(url);
+  return url;
 }
 
 export async function resolveClinicLogoUrl(raw: string | null | undefined): Promise<string | null> {
   const value = raw?.trim();
   if (!value) return null;
 
-  const cached = pcGet<string>(persistKey(value));
+  const cached = getCachedClinicLogoUrl(value);
   if (cached) return cached;
 
   let resolved: string | null = null;
@@ -66,6 +77,10 @@ export async function resolveClinicLogoUrl(raw: string | null | undefined): Prom
     resolved = (await signedFrom("documents", value)) ?? (await signedFrom("clinic-logos", value));
   }
 
-  if (resolved) pcSet(persistKey(value), resolved, SIGNED_LOGO_TTL_MS);
+  if (resolved) {
+    signedLogoMemory.set(value, { url: resolved, expiresAt: Date.now() + SIGNED_LOGO_TTL_MS });
+    pcSet(persistKey(value), resolved, SIGNED_LOGO_TTL_MS);
+    markImageSessionLoaded(resolved);
+  }
   return resolved;
 }

@@ -10,9 +10,12 @@ import {
   AVATAR_TYPES,
   getCachedAvatarUrl,
   invalidateSignedAvatarUrl,
+  preloadAvatarUrl,
   signedAvatarUrl,
 } from "@/lib/user-avatar";
 import { pcSet } from "@/lib/persistent-cache";
+import { isImageSessionLoaded, markImageSessionLoaded } from "@/lib/image-preload";
+import { cn } from "@/lib/utils";
 
 /**
  * Upload de avatar do usuário no bucket `user-avatars`.
@@ -189,7 +192,12 @@ export function UserAvatar({
   isLoading?: boolean;
 }) {
   const [broken, setBroken] = useState(false);
-  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(() =>
+    getCachedAvatarUrl(avatarPath),
+  );
+  const [imgVisible, setImgVisible] = useState(() =>
+    isImageSessionLoaded(getCachedAvatarUrl(avatarPath)),
+  );
   const { data: url, isLoading } = useQuery({
     queryKey: ["avatar-preview", userId, avatarPath],
     queryFn: () => signedAvatarUrl(avatarPath ?? null),
@@ -202,7 +210,10 @@ export function UserAvatar({
   });
   useEffect(() => setBroken(false), [avatarPath]);
   useEffect(() => {
-    if (url) setDisplayUrl(url);
+    if (url) {
+      setDisplayUrl(url);
+      void preloadAvatarUrl(avatarPath);
+    }
     if (!avatarPath) setDisplayUrl(null);
   }, [avatarPath, url]);
   const initial = (name || "U").trim().charAt(0).toUpperCase();
@@ -217,7 +228,7 @@ export function UserAvatar({
   if (((avatarPath && isLoading) || profileLoading) && !displayUrl) {
     return (
       <div
-        className={["rounded-full bg-muted shrink-0", className || ""].join(" ")}
+        className={["rounded-full bg-muted/80 shrink-0", className || ""].join(" ")}
         style={{ width: size, height: size }}
         aria-hidden="true"
       />
@@ -232,10 +243,17 @@ export function UserAvatar({
         <img
           src={displayUrl}
           alt={name}
-          className="w-full h-full object-cover"
+          className={cn(
+            "w-full h-full object-cover transition-opacity duration-150",
+            imgVisible ? "opacity-100" : "opacity-0",
+          )}
           loading="eager"
           decoding="async"
           onError={() => setBroken(true)}
+          onLoad={() => {
+            markImageSessionLoaded(displayUrl);
+            setImgVisible(true);
+          }}
         />
       </div>
     );

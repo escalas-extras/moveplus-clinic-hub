@@ -8,6 +8,16 @@ import {
   type LogoAspect,
   type LogoBoxLayoutVariant,
 } from "@/lib/logo-aspect";
+import { isImageSessionLoaded, markImageSessionLoaded } from "@/lib/image-preload";
+
+type LogoFitSession = {
+  aspect: LogoAspect;
+  naturalSize: { w: number; h: number };
+  imgStyle: CSSProperties;
+  brandContainerHeight: number;
+};
+
+const logoFitSession = new Map<string, LogoFitSession>();
 
 /** Áreas fixas padronizadas — preview, upload, inline legado. */
 export type LogoBoxSize = "sm" | "md" | "lg" | "xl" | "upload" | "sidebar-banner" | "mark";
@@ -76,21 +86,43 @@ export function LogoBox({
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
   const [imgStyle, setImgStyle] = useState<CSSProperties>({});
   const [brandContainerHeight, setBrandContainerHeight] = useState(100);
+  const [imgVisible, setImgVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevSrcRef = useRef<string | null>(null);
 
   const rawSrc = src?.trim() || null;
-  const px = LOGO_BOX_PX[size];
-  const layoutVariant = resolveLayoutVariant(variantProp, size, fullWidth);
-  const isAdaptive = layoutVariant != null;
-  const isSidebarBrand = layoutVariant === "sidebar-brand";
 
   useEffect(() => {
+    if (rawSrc === prevSrcRef.current) return;
+    prevSrcRef.current = rawSrc;
+
+    if (rawSrc && logoFitSession.has(rawSrc)) {
+      const cached = logoFitSession.get(rawSrc)!;
+      setBroken(false);
+      setAspect(cached.aspect);
+      setNaturalSize(cached.naturalSize);
+      setImgStyle(cached.imgStyle);
+      setBrandContainerHeight(cached.brandContainerHeight);
+      setImgVisible(true);
+      return;
+    }
+
     setBroken(false);
     setAspect(null);
     setNaturalSize(null);
     setImgStyle({});
     setBrandContainerHeight(100);
+    setImgVisible(isImageSessionLoaded(rawSrc));
   }, [rawSrc]);
+
+  useEffect(() => {
+    if (rawSrc && isImageSessionLoaded(rawSrc)) setImgVisible(true);
+  }, [rawSrc]);
+
+  const px = LOGO_BOX_PX[size];
+  const layoutVariant = resolveLayoutVariant(variantProp, size, fullWidth);
+  const isAdaptive = layoutVariant != null;
+  const isSidebarBrand = layoutVariant === "sidebar-brand";
 
   const updateFit = useCallback(() => {
     if (!layoutVariant || !naturalSize || !containerRef.current) return;
@@ -128,6 +160,16 @@ export function LogoBox({
     if (!isAdaptive || !naturalSize) return;
     requestAnimationFrame(updateFit);
   }, [isAdaptive, naturalSize, updateFit]);
+
+  useEffect(() => {
+    if (!rawSrc || !naturalSize || !aspect) return;
+    logoFitSession.set(rawSrc, {
+      aspect,
+      naturalSize,
+      imgStyle,
+      brandContainerHeight,
+    });
+  }, [rawSrc, aspect, naturalSize, imgStyle, brandContainerHeight]);
 
   const roundedClass =
     rounded === "none"
@@ -169,13 +211,13 @@ export function LogoBox({
     className,
   );
 
+  const showImage = !!rawSrc && !broken;
+
   if (loading && !rawSrc) {
     return (
       <div className={cn(boxClass, "bg-white/10 animate-pulse")} style={boxStyle} aria-hidden="true" />
     );
   }
-
-  const showImage = !!rawSrc && !broken;
 
   if (showImage) {
     return (
@@ -185,7 +227,8 @@ export function LogoBox({
             src={rawSrc}
             alt={alt}
             className={cn(
-              "block object-contain object-center",
+              "block object-contain object-center transition-opacity duration-150",
+              imgVisible ? "opacity-100" : "opacity-0",
               !isAdaptive && "max-h-full max-w-full h-auto w-auto",
               imageClassName,
             )}
@@ -200,8 +243,12 @@ export function LogoBox({
                 setBroken(true);
                 return;
               }
-              setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-              setAspect(classifyLogoAspect(img.naturalWidth, img.naturalHeight));
+              const nextAspect = classifyLogoAspect(img.naturalWidth, img.naturalHeight);
+              const nextNatural = { w: img.naturalWidth, h: img.naturalHeight };
+              setNaturalSize(nextNatural);
+              setAspect(nextAspect);
+              markImageSessionLoaded(rawSrc);
+              setImgVisible(true);
             }}
           />
         </div>

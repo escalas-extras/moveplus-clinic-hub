@@ -58,6 +58,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 
 import { useBranding, FISIOOS_DEFAULTS } from "@/lib/branding";
+import { preloadImageUrl } from "@/lib/image-preload";
+import { preloadAvatarUrl } from "@/lib/user-avatar";
 
 import { ClinicLogo } from "@/components/clinic-logo";
 
@@ -379,6 +381,17 @@ export function AppShell({
   });
 
   const avatarPath = (profile as any)?.avatar_url ?? null;
+  const avatarLoading = avatarProfileLoading && !avatarPath;
+
+  useEffect(() => {
+    if (brand.logoUrl) void preloadImageUrl(brand.logoUrl);
+  }, [brand.logoUrl]);
+
+  useEffect(() => {
+    if (avatarPath) void preloadAvatarUrl(avatarPath);
+  }, [avatarPath]);
+
+  const logoLoading = brand.isLoading && !brand.logoUrl;
 
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -421,7 +434,7 @@ export function AppShell({
 
           <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-16 glass-topbar flex items-center justify-between px-4">
             <div className="flex min-w-0 items-center gap-3 flex-1">
-              <ClinicLogo brand={brand} isLoading={brand.isLoading} variant="inline" size="md" />
+              <ClinicLogo brand={brand} isLoading={logoLoading} variant="inline" size="md" />
 
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-sm truncate text-foreground">
@@ -455,7 +468,7 @@ export function AppShell({
                   name={userName}
                   size={34}
                   gradient={avatarGradient}
-                  isLoading={avatarProfileLoading}
+                  isLoading={avatarLoading}
                 />
               </button>
 
@@ -504,7 +517,7 @@ export function AppShell({
               >
                 <ClinicLogo
                   brand={brand}
-                  isLoading={brand.isLoading}
+                  isLoading={logoLoading}
                   variant={collapsed && !open ? "sidebar-mark" : "sidebar-brand"}
                 />
               </div>
@@ -596,7 +609,7 @@ export function AppShell({
                   avatarPath={avatarPath}
                   userId={user?.id}
                   avatarGradient={avatarGradient}
-                  avatarLoading={avatarProfileLoading}
+                  avatarLoading={avatarLoading}
                   onAvatarClick={() => setAvatarOpen(true)}
                   onLogout={logout}
                   isAdmin={isAdmin}
@@ -609,7 +622,7 @@ export function AppShell({
                   avatarPath={avatarPath}
                   userId={user?.id}
                   avatarGradient={avatarGradient}
-                  avatarLoading={avatarProfileLoading}
+                  avatarLoading={avatarLoading}
                   onAvatarClick={() => setAvatarOpen(true)}
                   onLogout={logout}
                   isAdmin={isAdmin}
@@ -685,7 +698,7 @@ export function AppShell({
                       size={40}
                       gradient={avatarGradient}
                       className="shadow-soft"
-                      isLoading={avatarProfileLoading}
+                      isLoading={avatarLoading}
                     />
                   </button>
                 </div>
