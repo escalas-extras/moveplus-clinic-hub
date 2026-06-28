@@ -80,6 +80,14 @@ export const FINANCE_MODULE_REGISTRY: FinanceModuleDefinition[] = [
     sprint: "G2.4",
   },
   {
+    id: "delinquency",
+    title: "Inadimplência",
+    description: "Recebíveis vencidos, acompanhamento e notas simples de cobrança.",
+    status: "active",
+    route: FINANCE_ROUTE_BASE,
+    sprint: "G2.5",
+  },
+  {
     id: "legacy_entries",
     title: "Lançamentos v1",
     description: "Registro operacional atual (financial_entries + recibos).",

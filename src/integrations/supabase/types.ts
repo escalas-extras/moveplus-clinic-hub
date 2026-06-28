@@ -2150,6 +2150,7 @@ export type Database = {
           appointment_id: string | null
           category_id: string | null
           clinic_id: string | null
+          collection_notes: string | null
           cost_center_id: string | null
           created_at: string
           created_by: string | null
@@ -2176,6 +2177,7 @@ export type Database = {
           appointment_id?: string | null
           category_id?: string | null
           clinic_id?: string | null
+          collection_notes?: string | null
           cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2202,6 +2204,7 @@ export type Database = {
           appointment_id?: string | null
           category_id?: string | null
           clinic_id?: string | null
+          collection_notes?: string | null
           cost_center_id?: string | null
           created_at?: string
           created_by?: string | null

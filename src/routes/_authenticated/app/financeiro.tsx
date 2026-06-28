@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark, ArrowDownCircle, ArrowUpCircle, BarChart3, Package, Building2 } from "lucide-react";
+import { Plus, FileDown, Check, Receipt, XCircle, Printer, Eye, Wallet, FolderTree, Landmark, ArrowDownCircle, ArrowUpCircle, BarChart3, Package, Building2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { brl, fmtDate } from "@/lib/format";
@@ -28,7 +28,7 @@ import { useActiveClinic } from "@/lib/active-clinic";
 import { invalidateFinanceModuleQueries } from "@/lib/finance";
 import { SupportGuardButton } from "@/components/support-guard";
 import { AppShell, PageHeader } from "@/components/layout";
-import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel, FinancePackagesPanel, FinanceHealthInsurancePanel } from "@/components/finance";
+import { FinanceDashboardPanel, FinanceCategoriesPanel, FinanceCostCentersPanel, FinanceReceivablesPanel, FinancePayablesPanel, FinanceCashFlowPanel, FinancePackagesPanel, FinanceHealthInsurancePanel, FinanceDelinquencyPanel } from "@/components/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro")({
   component: FinanceiroPage,
@@ -55,7 +55,7 @@ function requiredAmount(value: unknown) {
 
 function FinanceiroPage() {
   const { clinicId, supportMode } = useActiveClinic();
-  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "fluxo" | "pacotes" | "convenios" | "lancamentos" | "recibos">("visao-geral");
+  const [tab, setTab] = useState<"visao-geral" | "categorias" | "centros-custo" | "receber" | "pagar" | "fluxo" | "pacotes" | "convenios" | "inadimplencia" | "lancamentos" | "recibos">("visao-geral");
 
   return (
     <AppShell clinical>
@@ -97,6 +97,10 @@ function FinanceiroPage() {
           <TabsTrigger value="convenios">
             <Building2 className="h-3.5 w-3.5 mr-1.5" />
             Convênios
+          </TabsTrigger>
+          <TabsTrigger value="inadimplencia">
+            <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+            Inadimplência
           </TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos v1</TabsTrigger>
           <TabsTrigger value="recibos">
@@ -143,6 +147,10 @@ function FinanceiroPage() {
 
         <TabsContent value="convenios" className="mt-6">
           <FinanceHealthInsurancePanel clinicId={clinicId} supportMode={supportMode} />
+        </TabsContent>
+
+        <TabsContent value="inadimplencia" className="mt-6">
+          <FinanceDelinquencyPanel clinicId={clinicId} supportMode={supportMode} />
         </TabsContent>
 
         <TabsContent value="lancamentos" className="space-y-6 mt-6">

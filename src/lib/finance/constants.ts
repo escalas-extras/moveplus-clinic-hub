@@ -11,8 +11,8 @@ export const FINANCE_FEATURE_KEY = "financeiro" as const;
 /** Versão congelada do Financeiro Base MVP (Sprint G1.8). */
 export const FINANCE_BASE_VERSION = "G1.8" as const;
 
-/** Trilha G2 — Convênios (Sprint G2.4). */
-export const FINANCE_G2_VERSION = "G2.4" as const;
+/** Trilha G2 — Inadimplência (Sprint G2.5). */
+export const FINANCE_G2_VERSION = "G2.5" as const;
 
 export const INSTALLMENT_PLAN_STATUS_LABELS: Record<InstallmentPlanStatus, string> = {
   active: "Ativo",
@@ -30,6 +30,20 @@ export const PATIENT_PACKAGE_USAGE_STATUS_LABELS: Record<PatientPackageUsageStat
   active: "Ativo",
   reversed: "Estornado",
 };
+
+export const DELINQUENCY_ORIGIN_LABELS = {
+  pacote: "Pacote",
+  convenio: "Convênio",
+  parcelamento: "Parcelamento",
+  manual: "Manual",
+} as const;
+
+export const DELINQUENCY_AGE_BUCKET_LABELS = {
+  all: "Todas as faixas",
+  "1-7": "1 a 7 dias",
+  "8-30": "8 a 30 dias",
+  "31+": "Acima de 30 dias",
+} as const;
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   pix: "PIX",
