@@ -28,7 +28,8 @@ export function SelectableListRow({
         type="button"
         onClick={onSelect}
         className={cn(
-          "flex min-h-[52px] w-full flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50",
+          "flex min-h-[52px] w-full flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left",
+          clinical.listRowLink,
           selected && "bg-primary/5 ring-1 ring-inset ring-primary/20",
           clinical.focusRing,
         )}

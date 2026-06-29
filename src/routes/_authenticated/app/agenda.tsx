@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,11 +26,16 @@ import {
   CheckCircle2,
   XCircle,
   CalendarDays,
-  Search,
   Clock,
   GripVertical,
   X,
   Activity,
+  Phone,
+  ClipboardList,
+  FileText,
+  Wallet,
+  Stethoscope,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -566,11 +570,20 @@ function AgendaPage() {
                 style={{ background: brand.primaryColor }}
               >
                 <Plus className="h-4 w-4" />
-                Novo atendimento
+                Nova consulta
+              </SupportGuardButton>
+              <SupportGuardButton
+                supportMode={supportMode}
+                onClick={() => openNewSlot(ymd(anchor))}
+                tooltip="Modo Suporte ativo — encaixe bloqueado"
+                className={cn("h-9 gap-2 px-3 text-sm bg-white/90 sm:h-10 sm:px-4", clinical.btnSecondary)}
+              >
+                <Sparkles className="h-4 w-4" />
+                Novo encaixe
               </SupportGuardButton>
               <ActionButton
                 variant="secondary"
-                className="h-9 px-3 text-sm bg-white/90 sm:h-10 sm:px-4"
+                className="hidden h-9 px-3 text-sm bg-white/90 sm:inline-flex sm:h-10 sm:px-4"
                 onClick={goToToday}
               >
                 Hoje
@@ -685,6 +698,25 @@ function AgendaPage() {
             />
           </OperationalCardsGrid>
 
+          <QuickAgendaFilters
+            onToday={goToToday}
+            onTomorrow={() => {
+              const d = addDays(new Date(), 1);
+              d.setHours(0, 0, 0, 0);
+              setAnchor(d);
+              setView("dia");
+              setShowMobileFilters(false);
+            }}
+            onWeek={() => {
+              goToToday();
+              setView("semana");
+              setShowMobileFilters(false);
+            }}
+            filterStatus={filterStatus}
+            onStatus={setFilterStatus}
+            primaryColor={brand.primaryColor}
+          />
+
           <PageToolbar
             className="agenda-toolbar"
             showMobileFilters={showMobileFilters}
@@ -774,9 +806,19 @@ function AgendaPage() {
                   </SelectContent>
                 </Select>
               </FilterField>
+              <FilterField label="Especialidade">
+                <Select value="all" disabled>
+                  <SelectTrigger className={cn("rounded-xl", clinical.select)}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterField>
           </PageToolbar>
 
-          <div className="agenda-main-grid grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px] xl:gap-4">
+          <div className="agenda-main-grid grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-4">
             <div className="agenda-calendar-col min-w-0">
               {view === "dia" ? (
                 <DayView
@@ -866,6 +908,117 @@ function AgendaPage() {
   );
 }
 
+function QuickAgendaFilters({
+  onToday,
+  onTomorrow,
+  onWeek,
+  filterStatus,
+  onStatus,
+  primaryColor,
+}: {
+  onToday: () => void;
+  onTomorrow: () => void;
+  onWeek: () => void;
+  filterStatus: Status | "all";
+  onStatus: (status: Status | "all") => void;
+  primaryColor: string;
+}) {
+  const statusItems: Array<{ label: string; value: Status | "all" }> = [
+    { label: "Todos", value: "all" },
+    { label: "Confirmados", value: "confirmado" },
+    { label: "Pendentes", value: "agendado" },
+    { label: "Cancelados", value: "cancelado" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/80 p-2.5 shadow-[var(--fos-card-shadow)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap gap-2">
+        <QuickFilterButton label="Hoje" onClick={onToday} color={primaryColor} />
+        <QuickFilterButton label="Amanhã" onClick={onTomorrow} color={primaryColor} />
+        <QuickFilterButton label="Semana" onClick={onWeek} color={primaryColor} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {statusItems.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onStatus(item.value)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-[background-color,border-color,color,transform] hover:-translate-y-px",
+              filterStatus === item.value
+                ? "border-transparent text-white shadow-soft"
+                : "border-[rgba(15,76,92,0.12)] bg-white text-slate-600 hover:border-[rgba(15,76,92,0.24)]",
+            )}
+            style={filterStatus === item.value ? { background: primaryColor } : undefined}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuickFilterButton({ label, onClick, color }: { label: string; onClick: () => void; color: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border border-[rgba(15,76,92,0.12)] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-[border-color,transform,box-shadow] hover:-translate-y-px hover:shadow-[0_8px_18px_-14px_rgba(15,76,92,0.45)]"
+      style={{ ["--quick-color" as string]: color }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function statusAccentClass(status: Status) {
+  if (status === "confirmado") return "border-l-emerald-500";
+  if (status === "agendado") return "border-l-amber-500";
+  if (status === "cancelado") return "border-l-rose-500";
+  return "border-l-sky-500";
+}
+
+function DetailInsight({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Phone;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-[rgba(15,76,92,0.08)] bg-white p-3">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+        <p className="mt-0.5 text-sm font-medium text-slate-700">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function ClinicalSnapshotCard({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof CalendarDays;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[rgba(15,76,92,0.08)] bg-slate-50/70 p-3">
+      <Icon className="h-4 w-4 text-primary" aria-hidden />
+      <p className="mt-2 text-xs font-bold text-slate-900">{title}</p>
+      <p className="mt-1 text-[11px] leading-snug text-slate-500">{description}</p>
+    </div>
+  );
+}
+
 function DetailPanel({
   appt,
   onClose,
@@ -883,7 +1036,8 @@ function DetailPanel({
   return (
     <PageSection
       icon={CalendarDays}
-      title="Detalhes do atendimento"
+      title="Central do atendimento"
+      description="Resumo rápido para conduzir a próxima ação."
       actions={
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label="Fechar">
           <X className="h-4 w-4" />
@@ -891,17 +1045,45 @@ function DetailPanel({
       }
       contentClassName="space-y-4"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-bold tracking-tight">
-            {appt.patients?.nome_completo ?? "—"}
-          </h3>
-          <p className="text-sm text-muted-foreground">{appt.professionals?.nome ?? "—"}</p>
+      <div className={cn("rounded-2xl border-l-4 bg-white p-4 shadow-sm", statusAccentClass(s))}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Paciente</p>
+            <h3 className="truncate text-lg font-bold tracking-tight">
+              {appt.patients?.nome_completo ?? "—"}
+            </h3>
+            <p className="text-sm text-muted-foreground">{appt.professionals?.nome ?? "—"}</p>
+          </div>
+          <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"}>{STATUS_LABEL[s] ?? s}</StatusBadge>
         </div>
-        <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"}>{STATUS_LABEL[s] ?? s}</StatusBadge>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid gap-2">
+        <DetailInsight icon={Phone} label="Telefone" value="Não informado nesta visão" />
+        <DetailInsight icon={Stethoscope} label="Especialidade" value="Atendimento fisioterapêutico" />
+        <DetailInsight icon={Wallet} label="Financeiro resumido" value="Abra o prontuário para consultar cobranças" />
+        <DetailInsight icon={FileText} label="Documentos" value="Documentos vinculados ficam no prontuário" />
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <ClinicalSnapshotCard
+          icon={ClipboardList}
+          title="Última evolução"
+          description="Disponível no prontuário"
+        />
+        <ClinicalSnapshotCard
+          icon={Activity}
+          title="Última avaliação"
+          description="Disponível no prontuário"
+        />
+        <ClinicalSnapshotCard
+          icon={CalendarDays}
+          title="Próxima sessão"
+          description={`${fmtDate(appt.data)} · ${String(appt.horario).slice(0, 5)}`}
+        />
+      </div>
+
+      <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-[rgba(15,76,92,0.08)] bg-slate-50/70 p-3 text-sm">
         <div>
           <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data</dt>
           <dd className="mt-1 font-medium">{fmtDate(appt.data)}</dd>
@@ -915,13 +1097,13 @@ function DetailPanel({
           <dd className="mt-1 font-medium">{appt.duracao_min} min</dd>
         </div>
         <div>
-          <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</dt>
-          <dd className="mt-1 font-medium">{STATUS_LABEL[s] ?? s}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pagamento</dt>
+          <dd className="mt-1 font-medium">Não informado</dd>
         </div>
       </dl>
 
       {appt.observacao && (
-        <div>
+        <div className="rounded-2xl border border-[rgba(15,76,92,0.08)] bg-white p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Observação
           </p>
@@ -1022,6 +1204,8 @@ function DayView({
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
   const todays = items.filter((a) => a.data === day);
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
+  const now = new Date();
+  const currentHour = now.getHours();
 
   if (!todays.length) {
     return (
@@ -1043,10 +1227,10 @@ function DayView({
               ? "Crie um novo atendimento ou escolha outro dia no calendário."
               : "Clique em um horário vazio abaixo ou crie um novo agendamento."
           }
-          action={{ label: "+ Novo Atendimento", onClick: onNew }}
+          action={{ label: "Agendar atendimento", onClick: onNew }}
           className="py-8"
         />
-        <ul className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200/80">
+        <ul className="relative mt-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 before:absolute before:bottom-4 before:left-[31px] before:top-4 before:w-px before:bg-gradient-to-b before:from-primary/20 before:via-slate-200 before:to-transparent sm:before:left-[35px]">
           {hours.map((h) => (
             <TimeSlotRow
               key={h}
@@ -1054,6 +1238,7 @@ function DayView({
               day={day}
               isDragOver={dragOverHour === h}
               disabled={disabled || isRescheduling}
+              active={isToday && h === currentHour}
               onDragOver={() => setDragOverHour(h)}
               onDragLeave={() => setDragOverHour(null)}
               onDrop={(id) => {
@@ -1076,15 +1261,17 @@ function DayView({
       contentClassName="p-0"
       className="agenda-day-view"
     >
-      <ul className="divide-y divide-slate-100/90 overflow-hidden rounded-xl border border-[rgba(15,76,92,0.1)] bg-white/60">
+      <ul className="relative overflow-hidden rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/70 before:absolute before:bottom-4 before:left-[31px] before:top-4 before:w-px before:bg-gradient-to-b before:from-primary/25 before:via-slate-200 before:to-transparent sm:before:left-[35px]">
         {hours.map((h) => {
           const slot = todays.filter((a) => Number(String(a.horario).slice(0, 2)) === h);
+          const active = isToday && h === currentHour;
           return (
             <li
               key={h}
               className={cn(
-                "grid min-h-[52px] grid-cols-[48px_minmax(0,1fr)] gap-2 px-2 py-1.5 transition-colors sm:grid-cols-[52px_minmax(0,1fr)] sm:px-3",
+                "relative grid min-h-[64px] grid-cols-[48px_minmax(0,1fr)] gap-2 px-2 py-2 transition-colors sm:grid-cols-[52px_minmax(0,1fr)] sm:px-3",
                 dragOverHour === h && "bg-primary/5",
+                active && "bg-primary/[0.035]",
               )}
               onDragOver={(e) => {
                 if (disabled) return;
@@ -1106,8 +1293,15 @@ function DayView({
                 }
               }}
             >
-              <div className="pt-1.5 text-[11px] font-bold tabular-nums text-slate-500">
-                {String(h).padStart(2, "0")}:00
+              <div className="relative z-10 pt-1.5 text-[11px] font-bold tabular-nums text-slate-500">
+                <span
+                  className={cn(
+                    "inline-flex h-8 w-12 items-center justify-center rounded-full bg-white ring-1 ring-slate-200",
+                    active && "bg-primary text-primary-foreground ring-primary",
+                  )}
+                >
+                  {String(h).padStart(2, "0")}:00
+                </span>
               </div>
               <div className="space-y-1.5">
                 {slot.length === 0 ? (
@@ -1151,6 +1345,7 @@ function TimeSlotRow({
   day,
   isDragOver,
   disabled,
+  active,
   onDragOver,
   onDragLeave,
   onDrop,
@@ -1160,6 +1355,7 @@ function TimeSlotRow({
   day: string;
   isDragOver: boolean;
   disabled: boolean;
+  active?: boolean;
   onDragOver: () => void;
   onDragLeave: () => void;
   onDrop: (id: string) => void;
@@ -1168,8 +1364,9 @@ function TimeSlotRow({
   return (
     <li
       className={cn(
-        "grid min-h-[56px] grid-cols-[60px_minmax(0,1fr)] gap-3 px-4 py-2 transition-colors",
+        "relative grid min-h-[64px] grid-cols-[56px_minmax(0,1fr)] gap-3 px-3 py-2 transition-colors sm:grid-cols-[64px_minmax(0,1fr)]",
         isDragOver && "bg-primary/5",
+        active && "bg-primary/[0.035]",
       )}
       onDragOver={(e) => {
         if (disabled) return;
@@ -1190,8 +1387,15 @@ function TimeSlotRow({
         }
       }}
     >
-      <div className="pt-2 text-xs font-semibold tabular-nums text-muted-foreground">
-        {String(hour).padStart(2, "0")}:00
+      <div className="relative z-10 pt-1.5 text-xs font-semibold tabular-nums text-muted-foreground">
+        <span
+          className={cn(
+            "inline-flex h-8 w-12 items-center justify-center rounded-full bg-white ring-1 ring-slate-200",
+            active && "bg-primary text-primary-foreground ring-primary",
+          )}
+        >
+          {String(hour).padStart(2, "0")}:00
+        </span>
       </div>
       <SupportGuardClickable
         supportMode={disabled}
@@ -1237,7 +1441,7 @@ function AppointmentBlock({
         e.dataTransfer.effectAllowed = "move";
       }}
       className={cn(
-        "agenda-appt-block group flex cursor-grab items-start gap-2 rounded-xl border-l-[3px] bg-white px-2.5 py-2 ring-1 ring-slate-200/70 transition-all duration-200 hover:-translate-y-px hover:ring-slate-300/80 active:cursor-grabbing sm:gap-2.5 sm:px-3 sm:py-2.5",
+        "agenda-appt-block group grid cursor-grab gap-2 rounded-2xl border-l-[4px] bg-white px-3 py-3 ring-1 ring-slate-200/70 transition-[box-shadow,transform,border-color,background-color] duration-200 hover:-translate-y-px hover:ring-slate-300/80 hover:shadow-[0_14px_30px_-22px_rgba(15,76,92,0.45)] active:cursor-grabbing sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start",
         STATUS_CLASS[resolveStatus(s)],
         selected && "ring-2 ring-[var(--fos-primary)] ring-offset-1 shadow-sm",
       )}
@@ -1248,24 +1452,33 @@ function AppointmentBlock({
         if (e.key === "Enter" || e.key === " ") onSelect(a);
       }}
     >
-      {!disabled && (
-        <GripVertical className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-30 transition-opacity group-hover:opacity-60" aria-hidden />
-      )}
-      <div className="w-11 shrink-0 pt-0.5 text-[11px] font-bold tabular-nums sm:w-12 sm:text-xs">
-        {String(a.horario).slice(0, 5)}
+      <div className="flex items-start gap-2">
+        {!disabled && (
+          <GripVertical className="mt-1 h-3.5 w-3.5 shrink-0 opacity-30 transition-opacity group-hover:opacity-60" aria-hidden />
+        )}
+        <div className="rounded-xl bg-slate-50 px-2.5 py-2 text-center">
+          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Hora</div>
+          <div className="text-sm font-bold tabular-nums text-slate-900">{String(a.horario).slice(0, 5)}</div>
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold leading-tight tracking-tight">
+
+      <div className="min-w-0">
+        <div className="truncate text-sm font-bold leading-tight tracking-tight text-slate-950">
           {a.patients?.nome_completo ?? "—"}
         </div>
-        <div className="truncate text-[11px] font-medium opacity-75">
-          {a.professionals?.nome ?? "—"} · {a.duracao_min} min
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500">
+          <span>{a.professionals?.nome ?? "Profissional não informado"}</span>
+          <span>Especialidade: Fisioterapia</span>
+          <span>{a.duracao_min} min</span>
+          <span>Pagamento: não informado</span>
         </div>
       </div>
-      <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"} className="shrink-0 text-[10px] sm:inline-flex">
-        {STATUS_LABEL[s]}
-      </StatusBadge>
-      <RowActions a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />
+      <div className="flex items-center justify-between gap-2 sm:justify-end">
+        <StatusBadge variant={STATUS_VARIANT[s] ?? "neutral"} className="shrink-0 text-[10px] sm:inline-flex">
+          {STATUS_LABEL[s]}
+        </StatusBadge>
+        <RowActions a={a} onStatus={onStatus} onEdit={onEdit} disabled={disabled} />
+      </div>
     </div>
   );
 }
@@ -1377,10 +1590,10 @@ function WeekView({
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
 
   return (
-    <PageSection icon={CalendarDays} title="Visão semanal" description="Arraste para remarcar em outro dia">
-      <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+    <PageSection icon={CalendarDays} title="Semana" description="Arraste para remarcar em outro dia" contentClassName="p-0">
+      <div className="overflow-x-auto rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/70">
         <div className="min-w-[640px]">
-          <div className="grid grid-cols-7 border-b bg-slate-50 text-xs">
+          <div className="grid grid-cols-7 border-b border-[rgba(15,76,92,0.08)] bg-[linear-gradient(180deg,rgba(15,76,92,0.045),rgba(255,255,255,0.7))] text-xs">
             {days.map((d) => {
               const key = ymd(d);
               return (
@@ -1389,8 +1602,8 @@ function WeekView({
                   type="button"
                   onClick={() => onPick(d)}
                   className={cn(
-                    "px-2 py-2 text-left transition hover:bg-slate-100",
-                    key === today && "bg-primary/10",
+                    "px-3 py-3 text-left transition hover:bg-white/70",
+                    key === today && "bg-primary/10 text-primary",
                   )}
                 >
                   <div className="uppercase tracking-wider text-muted-foreground">
@@ -1411,7 +1624,7 @@ function WeekView({
                 <div
                   key={key}
                   className={cn(
-                    "space-y-1.5 p-2 transition-colors",
+                    "space-y-2 p-2.5 transition-colors",
                     dragOverDay === key && "bg-primary/5",
                   )}
                   onDragOver={(e) => {
@@ -1452,7 +1665,7 @@ function WeekView({
                           e.dataTransfer.effectAllowed = "move";
                         }}
                         className={cn(
-                          "w-full cursor-grab rounded-lg border-l-4 px-2 py-1.5 ring-1 active:cursor-grabbing",
+                          "w-full cursor-grab rounded-xl border-l-4 px-2.5 py-2 ring-1 transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[0_10px_24px_-18px_rgba(15,76,92,0.45)] active:cursor-grabbing",
                           STATUS_CLASS[resolveStatus(s)],
                         )}
                       >
@@ -1478,7 +1691,7 @@ function WeekView({
                     type="button"
                     disabled={disabled}
                     onClick={() => onNewOnDay(d)}
-                    className="w-full rounded-lg border border-dashed border-slate-200 py-1.5 text-[11px] text-muted-foreground/70 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-xl border border-dashed border-slate-200 bg-white/60 py-2 text-[11px] text-muted-foreground/70 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     + Novo
                   </button>
@@ -1509,10 +1722,10 @@ function MonthView({
   for (const a of items) counts.set(a.data, (counts.get(a.data) ?? 0) + 1);
 
   return (
-    <PageSection icon={CalendarDays} title="Visão mensal" description="Clique em um dia para detalhar">
-      <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+    <PageSection icon={CalendarDays} title="Mês" description="Clique em um dia para detalhar" contentClassName="p-0">
+      <div className="overflow-x-auto rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/70">
         <div className="min-w-[560px]">
-          <div className="grid grid-cols-7 border-b bg-slate-50 text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-7 border-b border-[rgba(15,76,92,0.08)] bg-[linear-gradient(180deg,rgba(15,76,92,0.045),rgba(255,255,255,0.7))] text-[11px] uppercase tracking-wider text-muted-foreground">
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
               <div key={d} className="px-2 py-2 text-center font-semibold">
                 {d}
@@ -1531,7 +1744,7 @@ function MonthView({
                   type="button"
                   onClick={() => onPick(d)}
                   className={cn(
-                    "min-h-[88px] border-b border-r border-slate-100 p-2 text-left transition hover:bg-slate-50",
+                    "min-h-[92px] border-b border-r border-slate-100 p-2 text-left transition hover:bg-primary/[0.035]",
                     !inMonth && "bg-slate-50/80 text-muted-foreground/50",
                   )}
                 >

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ClinicalSkeleton } from "@/components/layout/ClinicalSkeleton";
 import { financeErrorDetails } from "@/lib/finance/finance-error-helpers";
 
 type FinancePanelGateProps = {
@@ -17,9 +18,9 @@ type FinancePanelGateProps = {
 
 export function FinancePanelLoading({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center py-20 text-muted-foreground">
-      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-      {label}
+    <div role="status" aria-label={label} className="min-w-0 w-full">
+      <ClinicalSkeleton variant="panel" />
+      <span className="sr-only">{label}</span>
     </div>
   );
 }
@@ -66,12 +67,12 @@ export function FinancePanelGate({
   loading = false,
   error,
   onRetry,
-  loadingLabel = "Carregando…",
+  loadingLabel = "Preparando dados…",
   errorFallback,
   children,
 }: FinancePanelGateProps) {
   if (clinicLoading) {
-    return <FinancePanelLoading label="Carregando clínica ativa…" />;
+    return <FinancePanelLoading label="Identificando clínica ativa…" />;
   }
 
   if (!clinicId) {

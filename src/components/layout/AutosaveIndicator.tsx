@@ -20,7 +20,7 @@ function AutosaveIndicatorInner({ saving, lastSavedAt, className }: AutosaveIndi
         )}
       >
         <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-        Salvando…
+        Salvando alterações…
       </span>
     );
   }
@@ -35,7 +35,7 @@ function AutosaveIndicatorInner({ saving, lastSavedAt, className }: AutosaveIndi
         )}
       >
         <Cloud className="h-3 w-3" aria-hidden />
-        Salvo às {lastSavedAt.toLocaleTimeString().slice(0, 5)}
+        Tudo salvo · {lastSavedAt.toLocaleTimeString().slice(0, 5)}
       </span>
     );
   }
@@ -48,7 +48,7 @@ function AutosaveIndicatorInner({ saving, lastSavedAt, className }: AutosaveIndi
       )}
     >
       <CloudOff className="h-3 w-3" aria-hidden />
-      Aguardando alterações
+      Pronto para editar
     </span>
   );
 }

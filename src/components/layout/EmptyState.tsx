@@ -24,7 +24,11 @@ function EmptyStateInner({ icon: Icon, title, description, action, className }: 
     <div
       role="status"
       aria-live="polite"
-      className={cn(clinical.emptyState, "flex flex-col items-center justify-center px-8 py-16 text-center", className)}
+      className={cn(
+        clinical.emptyState,
+        "fos-animate-in flex flex-col items-center justify-center px-5 py-10 text-center sm:px-8 sm:py-14",
+        className,
+      )}
     >
       <div className="fos-empty-state__icon mb-6 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl">
         <SafeIcon className="h-9 w-9 text-primary" strokeWidth={1.75} />

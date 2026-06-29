@@ -71,9 +71,9 @@ export const SAAS_NAV_ITEMS: SaasNavItem[] = [
   {
     id: "billing",
     label: "Cobranças",
-    description: "Faturamento (em breve)",
+    description: "Centro financeiro SaaS",
     icon: Receipt,
-    placeholder: true,
+    tab: "billing",
   },
   {
     id: "support",

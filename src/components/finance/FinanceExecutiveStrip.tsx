@@ -50,7 +50,7 @@ export function FinanceExecutiveStrip({
       loading={isLoading}
       error={error}
       onRetry={refetch}
-      loadingLabel="Carregando indicadores…"
+      loadingLabel="Preparando indicadores…"
       errorFallback="Não foi possível carregar os indicadores financeiros."
     >
       <section aria-label="Dashboard financeiro" className="min-w-0 w-full max-w-full space-y-4">

@@ -7,9 +7,13 @@ import {
   Clock,
   DollarSign,
   Eye,
+  FileWarning,
+  HeartPulse,
   Package,
   Phone,
+  Sparkles,
   Trash2,
+  UserCheck,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -26,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/layout";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { clinical } from "@/components/layout/clinical-classes";
 
 export type PatientCrmData = {
   id: string;
@@ -40,6 +45,15 @@ export type PatientCrmData = {
 export type ApptSummary = {
   last: { data: string; horario: string } | null;
   next: { data: string; horario: string } | null;
+};
+
+export type PatientCrmInsights = {
+  recent?: boolean;
+  noReturn?: boolean;
+  pending?: boolean;
+  delayedEvolution?: boolean;
+  discharged?: boolean;
+  risk?: boolean;
 };
 
 export function contactOf(p: PatientCrmData) {
@@ -139,6 +153,7 @@ function QuickActions({
 type PatientCrmCardProps = {
   patient: PatientCrmData;
   summary?: ApptSummary;
+  insights?: PatientCrmInsights;
   selected?: boolean;
   isAdmin?: boolean;
   onSelect: () => void;
@@ -151,6 +166,7 @@ type PatientCrmCardProps = {
 export function PatientCrmCard({
   patient: p,
   summary,
+  insights,
   selected,
   isAdmin,
   onSelect,
@@ -164,6 +180,14 @@ export function PatientCrmCard({
   const nextLabel = summary?.next
     ? `${fmtDate(summary.next.data)} · ${String(summary.next.horario).slice(0, 5)}`
     : "Não agendado";
+  const tags = [
+    insights?.recent ? { label: "Recente", tone: "info" as const, icon: Sparkles } : null,
+    insights?.noReturn ? { label: "Sem retorno", tone: "warning" as const, icon: CalendarDays } : null,
+    insights?.pending ? { label: "Pendência", tone: "warning" as const, icon: FileWarning } : null,
+    insights?.delayedEvolution ? { label: "Evolução atrasada", tone: "danger" as const, icon: HeartPulse } : null,
+    insights?.discharged ? { label: "Em alta", tone: "neutral" as const, icon: UserCheck } : null,
+    insights?.risk ? { label: "Risco abandono", tone: "danger" as const, icon: HeartPulse } : null,
+  ].filter(Boolean);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -173,8 +197,8 @@ export function PatientCrmCard({
   };
 
   const shellClass = cn(
-    "patient-crm-card group relative overflow-hidden rounded-2xl border bg-white/90 text-left transition-all duration-200",
-    "hover:-translate-y-0.5 hover:border-[rgba(15,76,92,0.18)] hover:shadow-[0_8px_28px_-12px_rgba(15,76,92,0.22)]",
+    "patient-crm-card group relative overflow-hidden rounded-2xl border bg-white/90 text-left",
+    clinical.cardHover,
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fos-primary)]/40",
     selected
       ? "border-[var(--fos-primary)]/40 ring-2 ring-[var(--fos-primary)]/15 shadow-[0_4px_20px_-10px_rgba(15,76,92,0.25)]"
@@ -223,8 +247,36 @@ export function PatientCrmCard({
           >
             <CrmMetaRow icon={Clock} label="Última sessão" value={lastLabel} />
             <CrmMetaRow icon={CalendarDays} label="Próxima sessão" value={nextLabel} />
-            <CrmMetaRow icon={Package} label="Plano / Pacote" value={planLabel(p)} />
+            <CrmMetaRow icon={Package} label="Convênio" value={planLabel(p)} />
+            <CrmMetaRow icon={ClipboardList} label="Última evolução" value={summary?.last ? lastLabel : "Sem registro"} />
+            <CrmMetaRow icon={Eye} label="Última avaliação" value="Ver prontuário" />
+            <CrmMetaRow icon={FileWarning} label="Docs pendentes" value={insights?.pending ? "Acompanhar" : "Sem alerta"} />
+            <CrmMetaRow icon={DollarSign} label="Financeiro" value="Ver financeiro" />
+            <CrmMetaRow icon={HeartPulse} label="Risco" value={insights?.risk ? "Alto" : "Monitorado"} />
           </div>
+
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((tag) => {
+                const Icon = tag!.icon;
+                return (
+                  <span
+                    key={tag!.label}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ring-1",
+                      tag!.tone === "info" && "bg-sky-50 text-sky-700 ring-sky-200",
+                      tag!.tone === "warning" && "bg-amber-50 text-amber-700 ring-amber-200",
+                      tag!.tone === "danger" && "bg-rose-50 text-rose-700 ring-rose-200",
+                      tag!.tone === "neutral" && "bg-slate-100 text-slate-600 ring-slate-200",
+                    )}
+                  >
+                    <Icon className="h-3 w-3" aria-hidden />
+                    {tag!.label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(15,76,92,0.06)] pt-3">
             <QuickActions patientId={p.id} />

@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
-import { resolveClinicLogoUrl } from "@/lib/clinic-logo";
+import { getCachedClinicLogoUrl, resolveClinicLogoUrl } from "@/lib/clinic-logo";
 import { preloadImageUrl } from "@/lib/image-preload";
 import { pcGet, pcSet } from "@/lib/persistent-cache";
 
@@ -26,6 +27,8 @@ export type Branding = {
   logo: string | null;
   /** Alias legado de `logo` — mantido para componentes existentes */
   logoUrl: string | null;
+  /** Caminho bruto em storage (`clinic_settings.logo_url`) */
+  logoPath?: string | null;
   /** Cor primária da clínica (HEX) */
   primaryColor: string;
   /** Cor secundária da clínica (HEX) */
@@ -35,8 +38,8 @@ export type Branding = {
   /** Registro CREFITO default (preenche assinaturas) */
   crefitoDefault: string | null;
   /**
-   * true quando a clínica possui logo própria (após resolveClinicLogoUrl).
-   * Usado para decidir entre mostrar a logo cadastrada ou o monograma/“Powered by FisioOS”.
+   * true quando a clínica possui logo cadastrada no banco (`logo_url`).
+   * Usado para decidir entre mostrar a logo ou o monograma institucional.
    */
   hasOwnLogo: boolean;
 };
@@ -53,6 +56,7 @@ const DEFAULTS: Branding = {
   slogan: DEFAULT_SLOGAN,
   logo: null,
   logoUrl: null,
+  logoPath: null,
   primaryColor: DEFAULT_PRIMARY,
   secondaryColor: DEFAULT_SECONDARY,
   footer: `${DEFAULT_APP_NAME} · ${DEFAULT_SLOGAN}`,
@@ -62,8 +66,42 @@ const DEFAULTS: Branding = {
 
 const BRAND_TTL_MS = 24 * 60 * 60_000; // 24h — only as instant-render hint
 const BRAND_QUERY_STALE_MS = 30 * 60_000; // 30 min — sessão estável entre rotas
+const LOGO_QUERY_STALE_MS = 50 * 60_000; // alinhado ao cache de signed URL
 const brandKey = (cid: string) => `fos:branding:${cid}`;
 const brandingSession = new Map<string, Branding>();
+
+function normalizeBranding(data: Branding | undefined): Branding {
+  if (!data) return DEFAULTS;
+
+  const merged: Branding = { ...DEFAULTS, ...data };
+
+  if ((data as Branding).logoUrl != null && merged.logo == null) {
+    merged.logo = (data as Branding).logoUrl ?? null;
+  }
+  if ((data as Branding).logo != null && merged.logoUrl == null) {
+    merged.logoUrl = (data as Branding).logo ?? null;
+  }
+  if ((data as Branding).clinicName && merged.name === DEFAULTS.name) {
+    merged.name = (data as Branding).clinicName;
+    merged.clinicName = (data as Branding).clinicName;
+  }
+
+  const logoPath = merged.logoPath?.trim() || null;
+  merged.logoPath = logoPath;
+  merged.hasOwnLogo = !!logoPath;
+
+  return merged;
+}
+
+/** Cache instantâneo de metadados — sem URL assinada (expira antes do TTL do branding). */
+function brandingHintFromCache(cached: Branding | null | undefined): Branding | undefined {
+  if (!cached) return undefined;
+  return normalizeBranding({
+    ...cached,
+    logo: null,
+    logoUrl: null,
+  });
+}
 
 async function loadBranding(cid: string): Promise<Branding> {
   const { data } = await supabase
@@ -76,7 +114,7 @@ async function loadBranding(cid: string): Promise<Branding> {
 
   if (!data) return DEFAULTS;
 
-  const resolvedLogo = await resolveClinicLogoUrl(data.logo_url);
+  const logoPath = data.logo_url?.trim() || null;
   const name = data.nome_fantasia || DEFAULTS.appName;
   const cityState = [data.cidade, data.estado].filter(Boolean).join("/");
   const footer =
@@ -84,22 +122,23 @@ async function loadBranding(cid: string): Promise<Branding> {
     [name, cityState].filter(Boolean).join(" · ") ||
     DEFAULTS.footer;
 
-  const branding: Branding = {
+  const branding: Branding = normalizeBranding({
     appName: data.app_name || DEFAULTS.appName,
     name,
     clinicName: name,
     slogan: data.slogan || DEFAULTS.slogan,
-    logo: resolvedLogo,
-    logoUrl: resolvedLogo,
+    logo: null,
+    logoUrl: null,
+    logoPath,
     primaryColor: data.primary_color || DEFAULTS.primaryColor,
     secondaryColor: data.secondary_color || DEFAULTS.secondaryColor,
     footer,
     crefitoDefault: data.crefito_default || null,
-    hasOwnLogo: !!resolvedLogo,
-  };
+    hasOwnLogo: !!logoPath,
+  });
+
   brandingSession.set(cid, branding);
   pcSet(brandKey(cid), branding, BRAND_TTL_MS);
-  if (resolvedLogo) void preloadImageUrl(resolvedLogo);
   return branding;
 }
 
@@ -107,34 +146,57 @@ export function useBranding(): Branding & { isLoading: boolean } {
   const { clinicId, loading: clinicLoading } = useActiveClinic();
 
   const sessionBrand = clinicId ? brandingSession.get(clinicId) : null;
-  const initialBrand = sessionBrand ?? (clinicId ? pcGet<Branding>(brandKey(clinicId)) : null);
+  const cachedBrand = sessionBrand ?? (clinicId ? pcGet<Branding>(brandKey(clinicId)) : null);
+  const initialBrand = brandingHintFromCache(cachedBrand);
 
-  const { data, isLoading: brLoading } = useQuery({
+  const { data, isLoading: brLoading, isFetching: brFetching } = useQuery({
     queryKey: ["branding", clinicId ?? "none"],
     enabled: !!clinicId,
     staleTime: BRAND_QUERY_STALE_MS,
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnReconnect: false,
-    initialData: initialBrand ?? undefined,
-    placeholderData: (prev) => prev ?? initialBrand ?? undefined,
+    initialData: initialBrand,
+    placeholderData: (prev) => prev ?? initialBrand,
     queryFn: () => loadBranding(clinicId!),
   });
 
-  const hasBrand = !!data;
-  const isLoading = !!clinicId && !hasBrand && (clinicLoading || brLoading);
-  // Defensive: cached entries pré-migração podem não ter `logo`/`name`/`footer`.
-  const merged = data ? { ...DEFAULTS, ...data } : DEFAULTS;
-  // Normaliza aliases legados que possam ter vindo do cache antigo.
-  if (data && (data as any).logoUrl !== undefined && merged.logo === DEFAULTS.logo) {
-    merged.logo = (data as any).logoUrl ?? null;
-  }
-  if (data && (data as any).clinicName && merged.name === DEFAULTS.name) {
-    merged.name = (data as any).clinicName;
-    merged.clinicName = (data as any).clinicName;
-  }
-  return { ...merged, isLoading };
+  const merged = normalizeBranding(data);
+  const logoPath = merged.logoPath?.trim() || null;
+
+  const cachedLogoUrl = logoPath ? getCachedClinicLogoUrl(logoPath) : null;
+
+  const { data: resolvedLogo, isLoading: logoLoading } = useQuery({
+    queryKey: ["clinic-logo-url", clinicId, logoPath],
+    queryFn: () => resolveClinicLogoUrl(logoPath),
+    enabled: !!clinicId && !!logoPath,
+    staleTime: LOGO_QUERY_STALE_MS,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    initialData: cachedLogoUrl ?? undefined,
+    placeholderData: (prev) => prev ?? cachedLogoUrl ?? undefined,
+  });
+
+  const logo = logoPath ? resolvedLogo ?? cachedLogoUrl ?? null : null;
+
+  useEffect(() => {
+    if (logo) void preloadImageUrl(logo);
+  }, [logo]);
+
+  const metaReady = !!data;
+  const logoPending = !!logoPath && logoLoading && !logo;
+  const isLoading =
+    !!clinicId && (!metaReady || logoPending) && (clinicLoading || brLoading || brFetching || logoPending);
+
+  return {
+    ...merged,
+    logo,
+    logoUrl: logo,
+    hasOwnLogo: !!logoPath,
+    isLoading,
+  };
 }
 
 export const FISIOOS_DEFAULTS = DEFAULTS;

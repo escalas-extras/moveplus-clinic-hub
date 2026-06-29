@@ -65,9 +65,11 @@ import {
   getClinicCounts,
   softDeleteClinic,
   getSaasCommercialCenter,
+  resetMovePlusDemoData,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
 import { SaasDashboardPanel, SaasDashboardSkeleton } from "@/components/saas/SaasDashboardPanel";
+import { SaasBillingCenter } from "@/components/saas/SaasBillingCenter";
 import {
   OPERATIONAL_STATUS_LABEL,
   resolveOperationalStatus,
@@ -161,6 +163,7 @@ function AdminSaasPage() {
               <TabsTrigger value="painel">Painel</TabsTrigger>
               <TabsTrigger value="clinics">Clínicas</TabsTrigger>
               <TabsTrigger value="commercial">Comercial</TabsTrigger>
+              <TabsTrigger value="billing">Billing SaaS</TabsTrigger>
               <TabsTrigger value="plans">Planos contratados</TabsTrigger>
               <TabsTrigger value="catalog">Catálogo de Planos</TabsTrigger>
               <TabsTrigger value="audit">Auditoria</TabsTrigger>
@@ -191,6 +194,9 @@ function AdminSaasPage() {
           </TabsContent>
           <TabsContent value="commercial" className="mt-4">
             <CommercialTab />
+          </TabsContent>
+          <TabsContent value="billing" className="mt-4">
+            <SaasBillingCenter />
           </TabsContent>
           <TabsContent value="plans" className="mt-4">
             <PlansShowcaseTab />
@@ -225,6 +231,42 @@ type ClinicConfirmAction =
   | { kind: "inactive" | "suspend" | "cancel" | "reactivate"; clinic: any }
   | { kind: "mark_test"; clinic: any };
 
+function AdminSaasErrorState({
+  title = "Não foi possível carregar dados do Admin SaaS",
+  error,
+}: {
+  title?: string;
+  error: unknown;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4 text-sm text-destructive">
+        {title}: {(error as Error)?.message ?? "erro desconhecido"}
+      </CardContent>
+    </Card>
+  );
+}
+
+function canChangePlan(_clinic: any) {
+  return true;
+}
+
+function canChangeStatus(clinic: any) {
+  return !clinic.protected;
+}
+
+function canDeleteClinic(clinic: any) {
+  return !clinic.protected;
+}
+
+function canSetDeleted(clinic: any) {
+  return !clinic.protected;
+}
+
+function canHideFromProduction(clinic: any) {
+  return !clinic.protected;
+}
+
 // ============================================================
 // Dashboard
 // ============================================================
@@ -238,11 +280,14 @@ function DashboardTab({
   onOpenAudit: () => void;
 }) {
   const fetchDash = useServerFn(getSaasDashboard);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, isError } = useQuery({
     queryKey: ["saas-dashboard"],
     queryFn: () => fetchDash(),
   });
 
+  if (isError) {
+    return <AdminSaasErrorState title="Não foi possível carregar o painel SaaS" error={error} />;
+  }
   if (isLoading || !data) return <SaasDashboardSkeleton />;
 
   return (
@@ -390,11 +435,14 @@ function fmtDateTime(value: string | null | undefined) {
 
 function CommercialTab() {
   const fetchCommercial = useServerFn(getSaasCommercialCenter);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, isError } = useQuery({
     queryKey: ["saas-commercial-center"],
     queryFn: () => fetchCommercial(),
   });
 
+  if (isError) {
+    return <AdminSaasErrorState title="Não foi possível carregar o centro comercial" error={error} />;
+  }
   if (isLoading || !data) {
     return <p className="text-sm text-muted-foreground">Carregando estrutura comercial...</p>;
   }
@@ -641,10 +689,14 @@ function ClinicsTab() {
   const resendOwner = useServerFn(resendOwnerInvite);
   const cancelOwner = useServerFn(cancelOwnerInvite);
   const changeOwner = useServerFn(changeClinicOwner);
+  const resetMovePlus = useServerFn(resetMovePlusDemoData);
   const qc = useQueryClient();
   const [detail, setDetail] = useState<any | null>(null);
   const [changeOwnerFor, setChangeOwnerFor] = useState<any | null>(null);
   const [deleteFor, setDeleteFor] = useState<any | null>(null);
+  const [resetFor, setResetFor] = useState<any | null>(null);
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetReport, setResetReport] = useState<any | null>(null);
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [segmentFilter, setSegmentFilter] = useState<ClinicListSegment>("production");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -785,6 +837,30 @@ function ClinicsTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const resetDryRunMut = useMutation({
+    mutationFn: (clinic_id: string) =>
+      resetMovePlus({ data: { clinic_id, dry_run: true } }),
+    onSuccess: (res: any) => setResetReport(res),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const resetExecuteMut = useMutation({
+    mutationFn: (input: { clinic_id: string; confirm: string }) =>
+      resetMovePlus({
+        data: { clinic_id: input.clinic_id, dry_run: false, confirm: input.confirm },
+      }),
+    onSuccess: (res: any) => {
+      toast.success("Reset comercial da Move+ concluído");
+      setResetReport(res);
+      setResetConfirm("");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+      qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["saas-commercial-center"] });
+      qc.invalidateQueries({ queryKey: ["saas-clinic-diagnostic"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
   if (isError) {
     return (
@@ -883,6 +959,11 @@ function ClinicsTab() {
                 trial_ends_at: c.trial_ends_at,
               });
               const blocked = ["inactive", "suspended", "canceled"].includes(c.status);
+              const canUpdatePlan = canChangePlan(c);
+              const currentPlanCode = c.plan_code ?? c.plan ?? planOptions[0]?.code ?? "";
+              const canUpdateStatus = canChangeStatus(c);
+              const canDelete = canDeleteClinic(c) && canSetDeleted(c);
+              const canHide = canHideFromProduction(c);
               const ownerLabel =
                 c.owner_status === "active"
                   ? "Ativo"
@@ -921,24 +1002,31 @@ function ClinicsTab() {
                     /{c.slug ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={c.plan ?? planOptions[0]?.code ?? ""}
-                      onValueChange={(v) =>
-                        planMut.mutate({ clinic_id: c.id, plan_code: v })
-                      }
-                      disabled={c.protected}
-                    >
-                      <SelectTrigger className="h-8 w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {planOptions.map((p: any) => (
-                          <SelectItem key={p.code} value={p.code}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-1">
+                      <Select
+                        value={currentPlanCode}
+                        onValueChange={(v) =>
+                          planMut.mutate({ clinic_id: c.id, plan_code: v })
+                        }
+                        disabled={!canUpdatePlan || planMut.isPending || planOptions.length === 0}
+                      >
+                        <SelectTrigger className="h-8 w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {planOptions.map((p: any) => (
+                            <SelectItem key={p.code} value={p.code}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {c.protected && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Plano liberado; ações críticas protegidas.
+                        </p>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -1020,7 +1108,7 @@ function ClinicsTab() {
                           <UserCheck className="h-4 w-4 mr-2" /> Alterar
                           proprietário
                         </DropdownMenuItem>
-                        {!blocked && !c.protected && (
+                        {!blocked && canUpdateStatus && (
                           <>
                             {c.plan_status !== "trial" && (
                               <DropdownMenuItem
@@ -1049,7 +1137,7 @@ function ClinicsTab() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {!c.is_test && (c.test_candidate || c.segment === "test") && (
+                            {canHide && !c.is_test && (c.test_candidate || c.segment === "test") && (
                               <DropdownMenuItem
                                 onClick={() => {
                                   setConfirmName("");
@@ -1077,20 +1165,37 @@ function ClinicsTab() {
                             </DropdownMenuItem>
                           </>
                         )}
-                        {blocked && !c.protected && (
+                        {blocked && canUpdateStatus && (
                           <DropdownMenuItem
                             onClick={() => setConfirmAction({ kind: "reactivate", clinic: c })}
                           >
                             <Power className="h-4 w-4 mr-2" /> Reativar acesso
                           </DropdownMenuItem>
                         )}
-                        {!c.protected && (
-                        <DropdownMenuItem
-                          onClick={() => setDeleteFor(c)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Excluir clínica
-                        </DropdownMenuItem>
+                        {canDelete && (
+                          <DropdownMenuItem
+                            onClick={() => setDeleteFor(c)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Excluir clínica
+                          </DropdownMenuItem>
+                        )}
+                        {c.protected && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setResetFor(c);
+                                setResetConfirm("");
+                                setResetReport(null);
+                                resetDryRunMut.mutate(c.id);
+                              }}
+                            >
+                              <Shield className="h-4 w-4 mr-2" /> Resetar dados de teste
+                            </DropdownMenuItem>
+                          <DropdownMenuItem disabled>
+                            <Shield className="h-4 w-4 mr-2" /> Ações críticas protegidas
+                          </DropdownMenuItem>
+                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1251,7 +1356,156 @@ function ClinicsTab() {
           qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
         }}
       />
+      <MovePlusResetDialog
+        clinic={resetFor}
+        open={!!resetFor}
+        confirm={resetConfirm}
+        onConfirmChange={setResetConfirm}
+        report={resetReport}
+        isDryRunLoading={resetDryRunMut.isPending}
+        isExecuting={resetExecuteMut.isPending}
+        onOpenChange={(b) => {
+          if (!b) {
+            setResetFor(null);
+            setResetConfirm("");
+            setResetReport(null);
+          }
+        }}
+        onRefreshDryRun={() => resetFor && resetDryRunMut.mutate(resetFor.id)}
+        onExecute={() => {
+          if (!resetFor) return;
+          resetExecuteMut.mutate({ clinic_id: resetFor.id, confirm: resetConfirm });
+        }}
+      />
     </Card>
+  );
+}
+
+function MovePlusResetDialog({
+  clinic,
+  open,
+  confirm,
+  onConfirmChange,
+  report,
+  isDryRunLoading,
+  isExecuting,
+  onOpenChange,
+  onRefreshDryRun,
+  onExecute,
+}: {
+  clinic: any | null;
+  open: boolean;
+  confirm: string;
+  onConfirmChange: (value: string) => void;
+  report: any | null;
+  isDryRunLoading: boolean;
+  isExecuting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onRefreshDryRun: () => void;
+  onExecute: () => void;
+}) {
+  const counts = report?.counts ?? {};
+  const rows = Object.entries(counts) as Array<[string, number]>;
+  const executed = report?.dry_run === false;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Resetar dados de teste · {clinic?.nome_fantasia ?? clinic?.nome}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+            Esta ação limpa dados operacionais e financeiros de teste da Move+, preservando clínica,
+            usuários, membros, planos, configurações, templates e pacientes.
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-medium">{executed ? "Relatório pós-reset" : "Dry-run"}</p>
+              <p className="text-xs text-muted-foreground">
+                {executed
+                  ? `${report?.preserved_patients ?? 0} paciente(s) preservado(s).`
+                  : "Nenhum dado é alterado antes da confirmação."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRefreshDryRun}
+              disabled={isDryRunLoading || isExecuting}
+            >
+              {isDryRunLoading ? "Calculando..." : "Atualizar dry-run"}
+            </Button>
+          </div>
+
+          <div className="max-h-64 overflow-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tabela</TableHead>
+                  <TableHead className="text-right">
+                    {executed ? "Removidos/zerados" : "Seriam removidos/zerados"}
+                  </TableHead>
+                  {executed && <TableHead className="text-right">Restante</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isDryRunLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={executed ? 3 : 2} className="py-6 text-center text-muted-foreground">
+                      Calculando impacto...
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={executed ? 3 : 2} className="py-6 text-center text-muted-foreground">
+                      Sem relatório disponível.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map(([table, count]) => (
+                    <TableRow key={table}>
+                      <TableCell className="font-mono text-xs">{table}</TableCell>
+                      <TableCell className="text-right">{count}</TableCell>
+                      {executed && (
+                        <TableCell className="text-right">
+                          {report?.counts_after?.[table] ?? 0}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Digite RESET MOVE+ para executar</Label>
+            <Input
+              value={confirm}
+              onChange={(e) => onConfirmChange(e.target.value)}
+              placeholder="RESET MOVE+"
+              disabled={isExecuting || executed}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onExecute}
+              disabled={confirm !== "RESET MOVE+" || isExecuting || executed}
+            >
+              {isExecuting ? "Executando..." : "Executar reset"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1395,11 +1649,14 @@ function Counter({ label, value }: { label: string; value: number }) {
 // ============================================================
 function PlansShowcaseTab() {
   const fetchPlans = useServerFn(listPlans);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, isError } = useQuery({
     queryKey: ["saas-plans"],
     queryFn: () => fetchPlans(),
   });
 
+  if (isError) {
+    return <AdminSaasErrorState title="Não foi possível carregar os planos contratados" error={error} />;
+  }
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   const visible = (data ?? []).filter((p: any) => p.active);
@@ -1511,7 +1768,7 @@ function CatalogTab() {
   const [editing, setEditing] = useState<PlanRow | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, isError } = useQuery({
     queryKey: ["saas-plans"],
     queryFn: () => fetchPlans(),
   });
@@ -1551,6 +1808,9 @@ function CatalogTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  if (isError) {
+    return <AdminSaasErrorState title="Não foi possível carregar o catálogo de planos" error={error} />;
+  }
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
 
   const rows: PlanRow[] = data ?? [];
@@ -2150,14 +2410,25 @@ function AuditTab() {
     to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
   };
 
-  const { data: clinics } = useQuery({
+  const {
+    data: clinics,
+    error: clinicsError,
+    isError: isClinicsError,
+  } = useQuery({
     queryKey: ["admin-saas-clinics-mini"],
     queryFn: () => fetchClinics({ data: { segment: "all" } }),
   });
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, isError } = useQuery({
     queryKey: ["saas-audit", filters],
     queryFn: () => fetchAudit({ data: filters as any }),
   });
+
+  if (isClinicsError) {
+    return <AdminSaasErrorState title="Não foi possível carregar clínicas para auditoria" error={clinicsError} />;
+  }
+  if (isError) {
+    return <AdminSaasErrorState title="Não foi possível carregar eventos de auditoria" error={error} />;
+  }
 
   const rows = data ?? [];
 

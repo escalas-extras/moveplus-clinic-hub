@@ -34,7 +34,7 @@ export function QuickActionCard({ items = [], className }: QuickActionCardProps)
             <Link
               key={item.to ?? item.label}
               to={item.to ?? "/app"}
-              className="quick-action-chip inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,76,92,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-all hover:border-[rgba(15,76,92,0.22)] hover:bg-[rgba(15,76,92,0.04)] hover:text-[var(--fos-primary)]"
+              className="quick-action-chip inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,76,92,0.12)] bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-[transform,box-shadow,background-color,border-color] duration-200 hover:-translate-y-px hover:border-[rgba(15,76,92,0.22)] hover:bg-[rgba(15,76,92,0.04)] hover:text-[var(--fos-primary)] hover:shadow-[0_4px_12px_-6px_rgba(15,76,92,0.2)] active:translate-y-0"
             >
               <Icon className="h-3.5 w-3.5 opacity-70" strokeWidth={2} aria-hidden />
               {item.label}

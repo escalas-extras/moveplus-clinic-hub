@@ -11,6 +11,7 @@ import {
   EmptyState,
   InfoCard,
   StatusBadge,
+  ClinicalSkeleton,
   ClinicalDialogBody,
   ClinicalDialogContent,
   ClinicalDialogHeader,
@@ -229,7 +230,7 @@ function PatientPage() {
   if (patient.isLoading || !clinicId) {
     return (
       <AppShell clinical>
-        <div className="text-sm text-muted-foreground">Carregando…</div>
+        <ClinicalSkeleton variant="record" kpiCount={0} />
       </AppShell>
     );
   }

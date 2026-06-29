@@ -21,6 +21,7 @@ import {
   KpiGrid,
   PageSection,
   StatusBadge,
+  clinical,
 } from "@/components/layout";
 import {
   ActionButton,
@@ -101,6 +102,15 @@ type ClinicHomeDashboardProps = {
   logoUploaded: boolean;
 };
 
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asNumber(value: number | null | undefined): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function PendingChip({
   label,
   value,
@@ -117,7 +127,8 @@ function PendingChip({
     <Link
       to={to}
       className={cn(
-        "flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors hover:bg-muted/40",
+        "flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm",
+        clinical.listRowInteractive,
         tone === "warning" && "border-amber-200/80 bg-amber-50/50",
         tone === "danger" && "border-rose-200/80 bg-rose-50/50",
       )}
@@ -148,7 +159,7 @@ function ListRowLink({
       <Link
         to={to}
         params={params}
-        className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30 sm:px-4"
+        className={cn("flex items-center gap-3 px-3 py-2.5 sm:px-4", clinical.listRowLink)}
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-slate-900">{title}</p>
@@ -184,7 +195,7 @@ function WhatToDoNow({ items }: { items: AttentionItem[] }) {
               <li key={item.id}>
                 <Link
                   to={item.to}
-                  className="flex items-start gap-3 px-3 py-3 transition-colors hover:bg-muted/30 sm:px-4"
+                  className="flex items-start gap-3 px-3 py-3 sm:px-4 transition-[background-color] duration-200 hover:bg-muted/35"
                 >
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Icon className="h-4 w-4" aria-hidden />
@@ -229,25 +240,47 @@ export function ClinicHomeDashboard({
   isNewClinic,
   logoUploaded,
 }: ClinicHomeDashboardProps) {
-  const reavalCount = stats.reavalPend.length;
+  const safeStats = {
+    pacientesAtivos: asNumber(stats.pacientesAtivos),
+    pacientesAntes: asNumber(stats.pacientesAntes),
+    atendHoje: asNumber(stats.atendHoje),
+    agendaSemana: asNumber(stats.agendaSemana),
+    docsMes: asNumber(stats.docsMes),
+    docsPrev: asNumber(stats.docsPrev),
+    docsTotal: asNumber(stats.docsTotal),
+    profissionais: asNumber(stats.profissionais),
+    avaliacoes: asNumber(stats.avaliacoes),
+    recibos: asNumber(stats.recibos),
+    reavalPend: asArray(stats.reavalPend),
+    docsRascunho: asNumber(stats.docsRascunho),
+    evolSemAssin: asNumber(stats.evolSemAssin),
+    hoje: asArray(stats.hoje),
+    receitaMes: asNumber(stats.receitaMes),
+    recebiveisVencidos: asNumber(stats.recebiveisVencidos),
+    recentDocs: asArray(stats.recentDocs),
+    recentPatients: asArray(stats.recentPatients),
+  };
+
+  const reavalCount = safeStats.reavalPend.length;
   const pendenciasTotal =
-    reavalCount + stats.docsRascunho + stats.evolSemAssin + stats.recebiveisVencidos;
+    reavalCount + safeStats.docsRascunho + safeStats.evolSemAssin + safeStats.recebiveisVencidos;
 
   const pacientesDelta =
-    stats.pacientesAntes > 0
-      ? Math.round(((stats.pacientesAtivos - stats.pacientesAntes) / stats.pacientesAntes) * 100)
-      : stats.pacientesAtivos > 0
+    safeStats.pacientesAntes > 0
+      ? Math.round(((safeStats.pacientesAtivos - safeStats.pacientesAntes) / safeStats.pacientesAntes) * 100)
+      : safeStats.pacientesAtivos > 0
         ? 100
         : 0;
 
   const docsDelta =
-    stats.docsPrev > 0
-      ? Math.round(((stats.docsMes - stats.docsPrev) / stats.docsPrev) * 100)
-      : stats.docsMes > 0
+    safeStats.docsPrev > 0
+      ? Math.round(((safeStats.docsMes - safeStats.docsPrev) / safeStats.docsPrev) * 100)
+      : safeStats.docsMes > 0
         ? 100
         : 0;
 
-  const proximasAcoes = stats.hoje.slice(attentionItems.filter((i) => i.id.startsWith("appt-")).length);
+  const safeAttentionItems = asArray(attentionItems);
+  const proximasAcoes = safeStats.hoje.slice(safeAttentionItems.filter((i) => i.id.startsWith("appt-")).length);
 
   return (
     <ModuleStack className="space-y-4 sm:space-y-5">
@@ -259,9 +292,9 @@ export function ClinicHomeDashboard({
         primaryColor={primaryColor}
         secondaryColor={secondaryColor}
         daySummary={[
-          { label: "atendimentos hoje", value: stats.atendHoje },
+          { label: "atendimentos hoje", value: safeStats.atendHoje },
           { label: "pendências", value: pendenciasTotal },
-          { label: "na semana", value: stats.agendaSemana },
+          { label: "na semana", value: safeStats.agendaSemana },
         ]}
         actions={
           <>
@@ -297,11 +330,11 @@ export function ClinicHomeDashboard({
       <ClinicActivationCenter
         metrics={{
           logoUploaded,
-          professionalsCount: stats.profissionais,
-          patientsCount: stats.pacientesAtivos,
-          assessmentsCount: stats.avaliacoes,
-          documentsCount: stats.docsTotal,
-          receiptsCount: stats.recibos,
+          professionalsCount: safeStats.profissionais,
+          patientsCount: safeStats.pacientesAtivos,
+          assessmentsCount: safeStats.avaliacoes,
+          documentsCount: safeStats.docsTotal,
+          receiptsCount: safeStats.recibos,
         }}
       />
 
@@ -309,8 +342,8 @@ export function ClinicHomeDashboard({
         <KpiCard
           icon={CalendarDays}
           label="Agenda de hoje"
-          value={stats.atendHoje}
-          subtitle={`${stats.agendaSemana} na semana`}
+          value={safeStats.atendHoje}
+          subtitle={`${safeStats.agendaSemana} na semana`}
           hideDelta
           variant="premium"
           accent={primaryColor}
@@ -318,7 +351,7 @@ export function ClinicHomeDashboard({
         <KpiCard
           icon={Users}
           label="Pacientes ativos"
-          value={stats.pacientesAtivos}
+          value={safeStats.pacientesAtivos}
           subtitle={pacientesDelta !== 0 ? `${pacientesDelta > 0 ? "+" : ""}${pacientesDelta}% no mês` : "Estável no mês"}
           hideDelta
           variant="premium"
@@ -327,7 +360,7 @@ export function ClinicHomeDashboard({
         <KpiCard
           icon={FileText}
           label="Documentos"
-          value={stats.docsMes}
+          value={safeStats.docsMes}
           subtitle={docsDelta !== 0 ? `${docsDelta > 0 ? "+" : ""}${docsDelta}% vs mês ant.` : "Emitidos no mês"}
           hideDelta
           variant="premium"
@@ -336,12 +369,12 @@ export function ClinicHomeDashboard({
         <KpiCard
           icon={DollarSign}
           label="Receita do mês"
-          value={stats.receitaMes ? brl(stats.receitaMes) : "—"}
-          subtitle={(stats.recebiveisVencidos ?? 0) > 0 ? `${stats.recebiveisVencidos} vencido(s)` : "Financeiro em dia"}
+          value={safeStats.receitaMes ? brl(safeStats.receitaMes) : "—"}
+          subtitle={safeStats.recebiveisVencidos > 0 ? `${safeStats.recebiveisVencidos} vencido(s)` : "Financeiro em dia"}
           hideDelta
           variant="premium"
           accent="#059669"
-          tone={(stats.recebiveisVencidos ?? 0) > 0 ? "warning" : "default"}
+          tone={safeStats.recebiveisVencidos > 0 ? "warning" : "default"}
         />
       </KpiGrid>
 
@@ -365,7 +398,7 @@ export function ClinicHomeDashboard({
             description="Próximos compromissos e follow-ups."
             contentClassName="p-0 sm:p-0"
           >
-            {proximasAcoes.length === 0 && stats.reavalPend.length === 0 ? (
+            {proximasAcoes.length === 0 && safeStats.reavalPend.length === 0 ? (
               <EmptyState
                 icon={CalendarDays}
                 title="Agenda livre"
@@ -384,7 +417,7 @@ export function ClinicHomeDashboard({
                     to="/app/agenda"
                   />
                 ))}
-                {stats.reavalPend.slice(0, 3).map((r) => (
+                {safeStats.reavalPend.slice(0, 3).map((r) => (
                   <ListRowLink
                     key={r.id}
                     title={r.patients?.nome_completo ?? "Reavaliação"}
@@ -406,7 +439,7 @@ export function ClinicHomeDashboard({
           description="Atendimentos programados para hoje."
           contentClassName="p-0 sm:p-0"
         >
-          {stats.hoje.length === 0 ? (
+          {safeStats.hoje.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
               title="Nenhum atendimento hoje"
@@ -416,7 +449,7 @@ export function ClinicHomeDashboard({
             />
           ) : (
             <ul className="divide-y divide-border/60">
-              {stats.hoje.map((a) => (
+              {safeStats.hoje.map((a) => (
                 <ListRowLink
                   key={a.id}
                   title={a.patients?.nome_completo ?? "Atendimento"}
@@ -432,7 +465,7 @@ export function ClinicHomeDashboard({
         <PageSection
           icon={AlertTriangle}
           title="Pendências"
-          description="Itens que precisam de acompanhamento."
+          description="Itens que merecem sua atenção agora."
           contentClassName="p-3 sm:p-4"
         >
           {pendenciasTotal === 0 ? (
@@ -445,9 +478,9 @@ export function ClinicHomeDashboard({
           ) : (
             <div className="grid gap-2">
               <PendingChip label="Reavaliações" value={reavalCount} to="/app/reavaliacoes" tone="warning" />
-              <PendingChip label="Documentos em rascunho" value={stats.docsRascunho} to="/app/documentos" tone="warning" />
-              <PendingChip label="Evoluções sem assinatura" value={stats.evolSemAssin} to="/app/evolucoes" tone="warning" />
-              <PendingChip label="Recebimentos vencidos" value={stats.recebiveisVencidos} to="/app/financeiro/inadimplencia" tone="danger" />
+              <PendingChip label="Documentos em rascunho" value={safeStats.docsRascunho} to="/app/documentos" tone="warning" />
+              <PendingChip label="Evoluções sem assinatura" value={safeStats.evolSemAssin} to="/app/evolucoes" tone="warning" />
+              <PendingChip label="Recebimentos vencidos" value={safeStats.recebiveisVencidos} to="/app/financeiro/inadimplencia" tone="danger" />
             </div>
           )}
         </PageSection>
@@ -460,7 +493,7 @@ export function ClinicHomeDashboard({
           description="Últimos documentos emitidos na clínica."
           contentClassName="p-0 sm:p-0"
         >
-          {stats.recentDocs.length === 0 ? (
+          {safeStats.recentDocs.length === 0 ? (
             <EmptyState
               icon={FileText}
               title="Sem documentos recentes"
@@ -470,7 +503,7 @@ export function ClinicHomeDashboard({
             />
           ) : (
             <ul className="divide-y divide-border/60">
-              {stats.recentDocs.map((d) => (
+              {safeStats.recentDocs.map((d) => (
                 <ListRowLink
                   key={d.id}
                   title={d.title}
@@ -489,7 +522,7 @@ export function ClinicHomeDashboard({
           description="Últimos cadastros na clínica."
           contentClassName="p-0 sm:p-0"
         >
-          {stats.recentPatients.length === 0 ? (
+          {safeStats.recentPatients.length === 0 ? (
             <EmptyState
               icon={Users}
               title="Nenhum paciente cadastrado"
@@ -499,12 +532,12 @@ export function ClinicHomeDashboard({
             />
           ) : (
             <ul className="divide-y divide-border/60">
-              {stats.recentPatients.map((p) => (
+              {safeStats.recentPatients.map((p) => (
                 <ListRowLink
                   key={p.id}
                   title={p.nome_completo}
                   subtitle={p.situacao ?? "ativo"}
-                  meta={fmtDate(p.created_at.slice(0, 10))}
+                  meta={p.created_at ? fmtDate(p.created_at.slice(0, 10)) : undefined}
                   to="/app/pacientes/$id"
                   params={{ id: p.id }}
                 />

@@ -415,7 +415,7 @@ export function AppShell({
     if (avatarPath) void preloadAvatarUrl(avatarPath);
   }, [avatarPath]);
 
-  const logoLoading = brand.isLoading && !brand.logoUrl;
+  const logoLoading = brand.hasOwnLogo && !brand.logoUrl;
 
   const [searchOpen, setSearchOpen] = useState(false);
 

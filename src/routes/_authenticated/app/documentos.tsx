@@ -368,7 +368,7 @@ function DocumentosPage() {
   const missing: string[] = [];
   if (!template) missing.push("Modelo de documento");
   if (!patient) missing.push("Paciente");
-  if (professionalLoading) missing.push("Validando profissional responsável…");
+  if (professionalLoading) missing.push("Verificando profissional responsável…");
   else if (professionalInfo && !professionalReady) missing.push(professionalInfo.message || "Profissional responsável");
   if (isContractTemplate && contratanteMode === "responsavel") {
     const f = contratanteForm;
@@ -456,7 +456,7 @@ function DocumentosPage() {
             <Card className={cn(clinical.card, "space-y-4 p-5 shadow-none")}>
               <div>
                 <h2 className="text-lg font-semibold text-slate-950">Escolha o modelo</h2>
-                <p className="text-xs text-muted-foreground">Modelos disponíveis na sua clínica.</p>
+                <p className="text-xs text-muted-foreground">Selecione um modelo para começar.</p>
               </div>
               <SearchField
                 placeholder="Buscar modelo por nome ou categoria…"
@@ -466,8 +466,8 @@ function DocumentosPage() {
               {filteredTemplates.length === 0 ? (
                 <EmptyState
                   icon={ClipboardList}
-                  title="Nenhum modelo encontrado"
-                  description="Ajuste a busca ou cadastre modelos em Configurações."
+                  title="Nenhum modelo por aqui"
+                  description="Tente outro termo na busca ou cadastre modelos em Templates."
                   className="py-10"
                 />
               ) : (
@@ -480,8 +480,9 @@ function DocumentosPage() {
                         type="button"
                         onClick={() => setTemplateId(t.id)}
                         className={cn(
-                          "text-left p-4 rounded-xl border transition-all hover:border-primary/60 hover:shadow-sm",
-                          selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card",
+                          "text-left p-4 rounded-xl border bg-card",
+                          clinical.cardHover,
+                          selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border",
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -511,7 +512,7 @@ function DocumentosPage() {
             <Card className={cn(clinical.card, "space-y-4 p-5 shadow-none")}>
               <div>
                 <h2 className="text-lg font-semibold text-slate-950">Selecione o paciente</h2>
-                <p className="text-xs text-muted-foreground">Apenas pacientes da clínica ativa.</p>
+                <p className="text-xs text-muted-foreground">Escolha quem receberá o documento.</p>
               </div>
               <SearchField
                 placeholder="Buscar por nome ou CPF…"
@@ -522,7 +523,7 @@ function DocumentosPage() {
                 <EmptyState
                   icon={User2}
                   title="Nenhum paciente encontrado"
-                  description="Ajuste a busca ou cadastre um paciente."
+                  description="Ajuste a busca ou cadastre um novo paciente."
                   className="py-10"
                 />
               ) : (
@@ -536,8 +537,9 @@ function DocumentosPage() {
                         type="button"
                         onClick={() => setPatientId(p.id)}
                         className={cn(
-                          "text-left p-3 rounded-xl border transition-all hover:border-primary/60 hover:shadow-sm",
-                          selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card",
+                          "text-left p-3 rounded-xl border bg-card",
+                          clinical.cardHover,
+                          selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border",
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">

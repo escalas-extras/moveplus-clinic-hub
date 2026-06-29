@@ -41,8 +41,9 @@ export function ClinicLogo({
 }: Props) {
   const variant = normalizeVariant(compact, variantProp);
   const fixedSize = resolveFixedSize(variant, size);
-  const rawLogo = brand.logoUrl?.trim() || null;
-  const showImage = brand.hasOwnLogo && !!rawLogo;
+  const rawLogo = (brand.logo ?? brand.logoUrl)?.trim() || null;
+  const showImage = !!rawLogo;
+  const awaitingLogo = brand.hasOwnLogo && !rawLogo;
 
   const initial = (brand.clinicName || "C").trim().charAt(0).toUpperCase();
   const isFisioDefault = !brand.clinicName || brand.clinicName === brand.appName;
@@ -78,7 +79,7 @@ export function ClinicLogo({
       alt={brand.clinicName}
       variant={fixedSize ? undefined : variant}
       size={fixedSize ?? "md"}
-      loading={isLoading && !rawLogo}
+      loading={isLoading || awaitingLogo}
       rounded={isSidebar ? "xl" : showImage && !isLoading ? "xl" : "2xl"}
       framed={variant !== "inline"}
       fallback={monogram}

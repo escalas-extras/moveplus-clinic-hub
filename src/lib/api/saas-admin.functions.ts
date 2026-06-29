@@ -196,7 +196,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     const isProdClinic = (c: any) =>
       segmentClinic({
         status: c.status,
-        is_test: c.is_test,
+        is_test: !!(c as any).is_test,
         ...resolveClinicNameFields(c, settingsLookup),
       }) === "production";
     const prodRows = clinicsRows.filter(isProdClinic);
@@ -523,7 +523,7 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
       const nameFields = resolveClinicNameFields(c, settingsLookup);
       const segment = segmentClinic({
         status: c.status,
-        is_test: c.is_test,
+        is_test: !!(c as any).is_test,
         ...nameFields,
       });
       const protectedMove = isProtectedMovePlusClinic(nameFields);
@@ -572,7 +572,7 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
           : null;
       const rowSegment = resolved?.segment ?? segmentClinic({
         status: c.status,
-        is_test: c.is_test,
+        is_test: !!(c as any).is_test,
         ...nameFields,
       });
       return {
@@ -587,7 +587,7 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
         trial_ends_at: trialEndsAt,
         trial_days_left: trialDaysLeft,
         status: c.status,
-        is_test: !!c.is_test,
+        is_test: !!(c as any).is_test,
         segment: rowSegment,
         protected: resolved?.protected ?? isProtectedMovePlusClinic(nameFields),
         test_candidate: isKnownTestClinicCandidate(nameFields),
@@ -694,7 +694,7 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
     const commercialClinics = clinics.filter((c: any) =>
       segmentClinic({
         status: c.status,
-        is_test: c.is_test,
+        is_test: !!(c as any).is_test,
         ...resolveClinicNameFields(c, settingsLookup),
       }) === "production",
     );
@@ -1719,11 +1719,12 @@ export const assignPlan = createServerFn({ method: "POST" })
       .in("status", ["active", "trial"])
       .maybeSingle();
 
-    await supabaseAdmin
+    const { error: cancelErr } = await supabaseAdmin
       .from("clinic_plans")
       .update({ status: "canceled", canceled_at: new Date().toISOString() })
       .eq("clinic_id", data.clinic_id)
       .in("status", ["active", "trial"]);
+    if (cancelErr) throw new Error(`Falha ao encerrar plano anterior: ${cancelErr.message}`);
 
     const { error: iErr } = await supabaseAdmin.from("clinic_plans").insert({
       clinic_id: data.clinic_id,
@@ -1732,10 +1733,11 @@ export const assignPlan = createServerFn({ method: "POST" })
     });
     if (iErr) throw new Error(iErr.message);
 
-    await supabaseAdmin
+    const { error: clinicErr } = await supabaseAdmin
       .from("clinics")
       .update({ plan: data.plan_code })
       .eq("id", data.clinic_id);
+    if (clinicErr) throw new Error(`Falha ao espelhar plano na clínica: ${clinicErr.message}`);
 
     await supabaseAdmin.from("plan_change_audit").insert({
       clinic_id: data.clinic_id,
@@ -1956,6 +1958,194 @@ export const softDeleteClinic = createServerFn({ method: "POST" })
   });
 
 // ------------------------------------------------------------
+// Reset comercial controlado da Move+ (dry-run por padrão)
+// ------------------------------------------------------------
+const movePlusResetInput = z.object({
+  clinic_id: z.string().uuid().optional(),
+  dry_run: z.boolean().default(true),
+  confirm: z.string().optional(),
+});
+
+const MOVE_PLUS_RESET_CONFIRMATION = "RESET MOVE+";
+
+const MOVE_PLUS_RESET_TABLES = [
+  "clinical_signatures",
+  "receipts",
+  "patient_package_usages",
+  "patient_package_contracts",
+  "financial_entries",
+  "financial_installment_plans",
+  "reassessment_schedule",
+  "clinical_documents",
+  "evolutions",
+  "assessments",
+  "patient_discharges",
+  "appointments",
+] as const;
+
+type MovePlusResetTable = (typeof MOVE_PLUS_RESET_TABLES)[number];
+type MovePlusResetCounts = Record<MovePlusResetTable, number>;
+
+function emptyMovePlusResetCounts(): MovePlusResetCounts {
+  return Object.fromEntries(MOVE_PLUS_RESET_TABLES.map((table) => [table, 0])) as MovePlusResetCounts;
+}
+
+async function countByClinic(supabaseAdmin: any, table: string, clinicId: string) {
+  const { count, error } = await supabaseAdmin
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .eq("clinic_id", clinicId);
+  if (error) throw new Error(`${table}: ${error.message}`);
+  return count ?? 0;
+}
+
+async function countByIds(supabaseAdmin: any, table: string, column: string, ids: string[]) {
+  if (ids.length === 0) return 0;
+  const { count, error } = await supabaseAdmin
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .in(column, ids);
+  if (error) throw new Error(`${table}: ${error.message}`);
+  return count ?? 0;
+}
+
+async function deleteByClinic(supabaseAdmin: any, table: string, clinicId: string) {
+  const { error } = await supabaseAdmin.from(table).delete().eq("clinic_id", clinicId);
+  if (error) throw new Error(`${table}: ${error.message}`);
+}
+
+async function deleteByIds(supabaseAdmin: any, table: string, column: string, ids: string[]) {
+  if (ids.length === 0) return;
+  const { error } = await supabaseAdmin.from(table).delete().in(column, ids);
+  if (error) throw new Error(`${table}: ${error.message}`);
+}
+
+async function findMovePlusClinicForReset(supabaseAdmin: any, clinicId?: string) {
+  let query = supabaseAdmin
+    .from("clinics")
+    .select("id, nome, slug, status, active, settings_id")
+    .neq("status", "deleted");
+  if (clinicId) query = query.eq("id", clinicId);
+
+  const { data: clinics, error } = await query;
+  if (error) throw new Error(error.message);
+  const rows = clinics ?? [];
+  const settingsLookup = await loadClinicSettingsLookup(supabaseAdmin, rows);
+  const protectedClinics = rows
+    .map((clinic: any) => ({
+      ...clinic,
+      nameFields: resolveClinicNameFields(clinic, settingsLookup),
+    }))
+    .filter((clinic: any) => isProtectedMovePlusClinic(clinic.nameFields));
+
+  if (protectedClinics.length === 0) {
+    throw new Error("Clínica Move+ protegida não encontrada para reset.");
+  }
+
+  return protectedClinics.find((clinic: any) => clinic.active) ?? protectedClinics[0];
+}
+
+async function collectMovePlusResetCounts(supabaseAdmin: any, clinicId: string) {
+  const counts = emptyMovePlusResetCounts();
+  const { data: patients } = await supabaseAdmin
+    .from("patients")
+    .select("id")
+    .eq("clinic_id", clinicId);
+  const patientIds = (patients ?? []).map((patient: any) => patient.id).filter(Boolean);
+
+  counts.receipts = await countByClinic(supabaseAdmin, "receipts", clinicId);
+  counts.patient_package_usages = await countByClinic(supabaseAdmin, "patient_package_usages", clinicId);
+  counts.patient_package_contracts = await countByClinic(supabaseAdmin, "patient_package_contracts", clinicId);
+  counts.financial_entries = await countByClinic(supabaseAdmin, "financial_entries", clinicId);
+  counts.financial_installment_plans = await countByClinic(supabaseAdmin, "financial_installment_plans", clinicId);
+  counts.reassessment_schedule = await countByClinic(supabaseAdmin, "reassessment_schedule", clinicId);
+  counts.clinical_documents = await countByClinic(supabaseAdmin, "clinical_documents", clinicId);
+  counts.evolutions = await countByClinic(supabaseAdmin, "evolutions", clinicId);
+  counts.assessments = await countByClinic(supabaseAdmin, "assessments", clinicId);
+  counts.appointments = await countByClinic(supabaseAdmin, "appointments", clinicId);
+  counts.clinical_signatures = await countByIds(supabaseAdmin, "clinical_signatures", "patient_id", patientIds);
+  counts.patient_discharges = await countByIds(supabaseAdmin, "patient_discharges", "patient_id", patientIds);
+
+  return { counts, patientIds };
+}
+
+export const resetMovePlusDemoData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => movePlusResetInput.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const clinic = await findMovePlusClinicForReset(supabaseAdmin, data.clinic_id);
+    const before = await collectMovePlusResetCounts(supabaseAdmin, clinic.id);
+
+    if (data.dry_run) {
+      return {
+        ok: true,
+        dry_run: true,
+        clinic: { id: clinic.id, nome: clinic.nome, slug: clinic.slug },
+        counts: before.counts,
+        preserved: [
+          "clinics",
+          "users",
+          "clinic_members",
+          "plans",
+          "clinic_plans",
+          "clinic_settings",
+          "document_templates",
+          "patients",
+          "roles/permissions",
+        ],
+      };
+    }
+
+    if (data.confirm !== MOVE_PLUS_RESET_CONFIRMATION) {
+      throw new Error(`Confirmação inválida. Digite exatamente: ${MOVE_PLUS_RESET_CONFIRMATION}`);
+    }
+
+    await deleteByIds(supabaseAdmin, "clinical_signatures", "patient_id", before.patientIds);
+    await deleteByClinic(supabaseAdmin, "receipts", clinic.id);
+    await deleteByClinic(supabaseAdmin, "patient_package_usages", clinic.id);
+    await deleteByClinic(supabaseAdmin, "patient_package_contracts", clinic.id);
+    await deleteByClinic(supabaseAdmin, "financial_entries", clinic.id);
+    await deleteByClinic(supabaseAdmin, "financial_installment_plans", clinic.id);
+    await deleteByClinic(supabaseAdmin, "reassessment_schedule", clinic.id);
+    await deleteByClinic(supabaseAdmin, "clinical_documents", clinic.id);
+    await deleteByClinic(supabaseAdmin, "evolutions", clinic.id);
+    await deleteByClinic(supabaseAdmin, "assessments", clinic.id);
+
+    if (before.patientIds.length > 0) {
+      await supabaseAdmin
+        .from("patients")
+        .update({ discharge_id: null })
+        .eq("clinic_id", clinic.id);
+      await deleteByIds(supabaseAdmin, "patient_discharges", "patient_id", before.patientIds);
+    }
+
+    await deleteByClinic(supabaseAdmin, "appointments", clinic.id);
+
+    const after = await collectMovePlusResetCounts(supabaseAdmin, clinic.id);
+    await logAudit(
+      supabaseAdmin,
+      context.userId,
+      "clinic.move_plus_demo_reset",
+      "clinic",
+      clinic.id,
+      before.counts,
+      { counts_after: after.counts, preserved_patients: before.patientIds.length },
+      clinic.id,
+    );
+
+    return {
+      ok: true,
+      dry_run: false,
+      clinic: { id: clinic.id, nome: clinic.nome, slug: clinic.slug },
+      counts: before.counts,
+      counts_after: after.counts,
+      preserved_patients: before.patientIds.length,
+    };
+  });
+
+// ------------------------------------------------------------
 // Diagnóstico SaaS (somente leitura)
 // ------------------------------------------------------------
 export const getSaasClinicDiagnostic = createServerFn({ method: "GET" })
@@ -2006,11 +2196,11 @@ export const getSaasClinicDiagnostic = createServerFn({ method: "GET" })
         nome_fantasia,
         slug: c.slug,
         status: c.status,
-        is_test: !!c.is_test,
+        is_test: !!(c as any).is_test,
         plan: c.plan,
         segment: segmentClinic({
           status: c.status,
-          is_test: c.is_test,
+          is_test: !!(c as any).is_test,
           ...nameFields,
         }),
         protected: protectedMove,

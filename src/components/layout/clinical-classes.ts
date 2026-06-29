@@ -2,7 +2,11 @@
 export const clinical = {
   card: "fos-surface-card rounded-2xl",
   cardHover:
-    "transition-[box-shadow,transform,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-[rgba(15,76,92,0.22)] hover:shadow-[var(--shadow-lift)]",
+    "transition-[box-shadow,transform,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:border-[rgba(15,76,92,0.2)] hover:shadow-[var(--shadow-lift)] active:translate-y-0 active:shadow-[var(--fos-card-shadow)]",
+  listRowLink:
+    "transition-[background-color,transform] duration-200 ease-out hover:bg-muted/35 active:bg-muted/45",
+  listRowInteractive:
+    "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-px hover:border-[rgba(15,76,92,0.18)] hover:bg-muted/25 hover:shadow-[0_4px_16px_-8px_rgba(15,76,92,0.18)] active:translate-y-0",
   infoCard:
     "fos-info-card fos-surface-card rounded-2xl transition-[box-shadow,transform,border-color] duration-200 ease-out",
   infoCardHighlight: "fos-info-card fos-info-card--highlight",

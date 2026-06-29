@@ -48,15 +48,15 @@ export function FinanceDashboardPanel({
       loading={isLoading}
       error={error}
       onRetry={refetch}
-      loadingLabel="Carregando dashboard financeiro…"
+      loadingLabel="Preparando visão financeira…"
       errorFallback="Não foi possível carregar o dashboard financeiro."
     >
       <div className={FINANCE_PANEL_ROOT}>
         {!hasData ? (
           <EmptyState
             icon={LayoutDashboard}
-            title="Sem movimentações financeiras"
-            description="Cadastre contas a receber ou a pagar para visualizar o dashboard executivo."
+            title="Comece pelo financeiro"
+            description="Registre um recebimento ou despesa para ver o resumo da clínica aqui."
             action={onNewReceivable ? { label: "Novo recebimento", onClick: onNewReceivable } : undefined}
             className="py-12"
           />

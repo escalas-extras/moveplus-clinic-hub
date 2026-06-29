@@ -37,7 +37,7 @@ export function FinanceOperationsGrid({
       loading={isLoading}
       error={error}
       onRetry={refetch}
-      loadingLabel="Carregando operação financeira…"
+      loadingLabel="Preparando operação financeira…"
       errorFallback="Não foi possível carregar os indicadores operacionais."
     >
       <PageSection

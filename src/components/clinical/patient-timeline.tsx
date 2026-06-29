@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ClipboardList, Activity, RefreshCw, LogOut, FileText, History } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { InfoCard, EmptyState } from "@/components/layout";
+import { InfoCard, EmptyState, clinical } from "@/components/layout";
 import { useActiveClinic } from "@/lib/active-clinic";
 
 type TimelineKind = "assessment" | "reassessment" | "evolution" | "discharge" | "document";
@@ -108,15 +108,27 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
   }, [filtered]);
 
   if (q.isLoading) {
-    return <div className="text-sm text-muted-foreground">Carregando timeline…</div>;
+    return (
+      <div className="space-y-2" role="status" aria-label="Carregando linha do tempo">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(clinical.skeleton, "h-14 rounded-xl")}
+            style={{ animationDelay: `${i * 65}ms` }}
+            aria-hidden
+          />
+        ))}
+        <span className="sr-only">Carregando…</span>
+      </div>
+    );
   }
 
   if (!items.length) {
     return (
       <EmptyState
         icon={History}
-        title="Nenhum evento clínico ainda"
-        description="O histórico do paciente aparecerá aqui à medida que avaliações, evoluções, reavaliações, documentos e altas forem registrados."
+        title="Histórico ainda vazio"
+        description="Conforme você registrar avaliações, evoluções, documentos e altas, tudo aparece aqui em ordem cronológica."
         className="py-12"
       />
     );
@@ -164,7 +176,7 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
                     >
                       <Icon className="h-3.5 w-3.5 text-white" />
                     </span>
-                    <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 transition-colors hover:border-slate-200">
+                    <div className={cn("rounded-xl border border-slate-100 bg-white px-3.5 py-2.5", clinical.cardHover)}>
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: meta.color }}>{meta.label}</span>
                         <span className="text-xs tabular-nums text-muted-foreground">

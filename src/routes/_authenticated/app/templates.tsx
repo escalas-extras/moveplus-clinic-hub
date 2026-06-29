@@ -397,16 +397,16 @@ function TemplatesPage() {
               {templates.length === 0 ? (
                 <EmptyState
                   icon={LayoutTemplate}
-                  title="Nenhum modelo nesta categoria"
-                  description="Crie o primeiro modelo profissional para esta categoria de documento."
+                  title="Comece com um modelo"
+                  description="Crie o primeiro modelo para esta categoria de documento."
                   action={{ label: "Novo modelo", onClick: createNew }}
                   className="py-12"
                 />
               ) : filteredTemplates.length === 0 ? (
                 <EmptyState
                   icon={SlidersHorizontal}
-                  title="Nenhum modelo encontrado"
-                  description="Ajuste a busca, categoria, versão ou status para ampliar os resultados."
+                  title="Nada encontrado"
+                  description="Ajuste a busca, categoria ou filtros para ver mais modelos."
                   className="py-12"
                 />
               ) : (
@@ -483,8 +483,8 @@ function TemplateMarketplaceCard({
       type="button"
       onClick={onSelect}
       className={cn(
-        "group flex min-h-[260px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-sm transition-all duration-200",
-        "hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_45px_-28px_rgba(15,76,92,0.45)]",
+        "group flex min-h-[260px] flex-col overflow-hidden rounded-xl border bg-white text-left shadow-sm",
+        clinical.cardHover,
         selected ? "border-primary/50 ring-2 ring-primary/18" : "border-slate-200",
         clinical.focusRing,
       )}

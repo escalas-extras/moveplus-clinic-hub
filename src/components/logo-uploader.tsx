@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Upload, X } from "lucide-react";
+import { Image, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { invalidateSignedClinicLogoUrl, resolveClinicLogoUrl } from "@/lib/clinic-logo";
 import { cn } from "@/lib/utils";
@@ -92,23 +92,35 @@ export function LogoUploader({
       }}
       className={cn(
         clinical.uploadZone,
-        "mt-1 flex items-center gap-4 p-4",
-        dragOver && "border-primary/40 bg-primary/5",
+        "mt-1 grid gap-4 p-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center",
+        dragOver && "border-primary/45 bg-primary/5 shadow-[0_10px_28px_-18px_rgba(15,76,92,0.35)]",
       )}
     >
-      <LogoBox
-        src={visiblePreviewUrl}
-        alt="Logo"
-        variant="document"
-        rounded="lg"
-        framed
-        fallback={<span className="text-xs text-muted-foreground px-2 text-center">Sem logo</span>}
-      />
-      <div className="flex-1 space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Arraste um arquivo ou selecione. JPG, PNG ou SVG. Máximo 5 MB.
-        </p>
-        <div className="flex gap-2">
+      <div className="mx-auto rounded-2xl bg-white p-2 shadow-soft ring-1 ring-black/5 sm:mx-0">
+        <LogoBox
+          src={visiblePreviewUrl}
+          alt="Logo"
+          variant="document"
+          rounded="lg"
+          framed={false}
+          fallback={
+            <span className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-xs text-muted-foreground">
+              <Image className="h-5 w-5" aria-hidden />
+              Sem logo
+            </span>
+          }
+        />
+      </div>
+      <div className="min-w-0 flex-1 space-y-3 text-center sm:text-left">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            {value ? "Logo pronta para uso" : "Arraste a logo da clínica aqui"}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Use JPG, PNG ou SVG com até 5 MB. O preview é atualizado antes de salvar.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
           <input
             ref={inputRef}
             type="file"
@@ -127,7 +139,7 @@ export function LogoUploader({
             onClick={() => inputRef.current?.click()}
             disabled={busy}
           >
-            <Upload className="h-4 w-4 mr-1" /> {busy ? "Enviando..." : "Selecionar arquivo"}
+            <Upload className="h-4 w-4 mr-1" /> {busy ? "Enviando..." : value ? "Substituir logo" : "Selecionar arquivo"}
           </Button>
           {value && (
             <Button

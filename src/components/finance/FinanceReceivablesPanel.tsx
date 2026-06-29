@@ -432,7 +432,7 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         void receivables.refetch();
         void lookups.refetch();
       }}
-      loadingLabel="Carregando contas a receber…"
+      loadingLabel="Preparando contas a receber…"
       errorFallback="Não foi possível carregar as contas a receber."
     >
     <div className={FINANCE_PANEL_ROOT}>

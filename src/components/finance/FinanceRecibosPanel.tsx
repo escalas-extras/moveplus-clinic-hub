@@ -463,10 +463,10 @@ export function FinanceRecibosPanel({ clinicId, clinicLoading, supportMode }: Fi
 
   const hasReceipts = (list.data?.length ?? 0) > 0;
   const emptyTitle = hasReceipts
-    ? "Nenhum recibo corresponde aos filtros"
-    : "Sem recibos emitidos";
+    ? "Nenhum recibo com esses filtros"
+    : "Nenhum recibo emitido ainda";
   const emptyDescription = hasReceipts
-    ? "Ajuste a busca, o período ou o paciente para localizar recibos."
+    ? "Tente ampliar o período ou limpar a busca."
     : "Emita o primeiro recibo para registrar pagamentos e imprimir comprovantes.";
 
   const statusKpiClass = (status: ReceiptFilters["status"]) =>
@@ -485,7 +485,7 @@ export function FinanceRecibosPanel({ clinicId, clinicLoading, supportMode }: Fi
         void list.refetch();
         void patients.refetch();
       }}
-      loadingLabel="Carregando recibos…"
+      loadingLabel="Preparando recibos…"
       errorFallback="Não foi possível carregar os recibos."
     >
       <div className={cn(FINANCE_PANEL_ROOT, "space-y-3")}>

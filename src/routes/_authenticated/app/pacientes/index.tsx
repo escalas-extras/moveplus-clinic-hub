@@ -26,6 +26,10 @@ import {
   Phone,
   LayoutGrid,
   List,
+  AlertTriangle,
+  HeartPulse,
+  UserPlus,
+  UserX,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -36,11 +40,14 @@ import {
   ClinicalDialogTitle,
   ClinicalSkeleton,
   EmptyState,
+  KpiCard,
+  KpiGrid,
   PageSection,
   PrimaryActionButton,
   QueryErrorState,
   SearchField,
   StatusBadge,
+  clinical,
 } from "@/components/layout";
 import {
   PageHero,
@@ -56,7 +63,6 @@ import {
   type ApptSummary,
 } from "@/components/patients/PatientCrmCard";
 import { PatientCrmFilters, type SortMode, type StatusFilter } from "@/components/patients/PatientCrmFilters";
-import { Skeleton } from "@/components/ui/skeleton";
 import { PatientForm, type PatientInput } from "@/components/patient-form";
 import { fmtDate } from "@/lib/format";
 import { useActiveClinic } from "@/lib/active-clinic";
@@ -83,6 +89,7 @@ type PatientRow = {
 };
 
 type ViewMode = "cards" | "lista";
+type QuickPatientFilter = "all" | "sem_agenda" | "recentes";
 
 type TimelineEntry = {
   id: string;
@@ -119,6 +126,7 @@ function PacientesPage() {
   const [filterConvenio, setFilterConvenio] = useState("all");
   const [sort, setSort] = useState<SortMode>("nome_asc");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [quickFilter, setQuickFilter] = useState<QuickPatientFilter>("all");
 
   const monthIso = ymd(startOfMonth(new Date()));
   const todayIso = ymd(new Date());
@@ -318,6 +326,12 @@ function PacientesPage() {
       rows = rows.filter((p) => (p.convenio_nome ?? "").trim() === filterConvenio);
     }
 
+    if (quickFilter === "sem_agenda") {
+      rows = rows.filter((p) => !apptSummary.data?.get(p.id)?.next);
+    } else if (quickFilter === "recentes") {
+      rows = rows.filter((p) => p.created_at >= monthIso);
+    }
+
     rows.sort((a, b) => {
       if (sort === "nome_desc") return b.nome_completo.localeCompare(a.nome_completo, "pt-BR");
       if (sort === "recentes")
@@ -328,18 +342,38 @@ function PacientesPage() {
     });
 
     return rows;
-  }, [list.data, q, filterProf, filterConvenio, sort, profPatientIds.data]);
+  }, [list.data, q, filterProf, filterConvenio, quickFilter, apptSummary.data, monthIso, sort, profPatientIds.data]);
 
   const selected = useMemo(
     () => filtered.find((p) => p.id === selectedId) ?? null,
     [filtered, selectedId],
   );
 
+  const crmStats = useMemo(() => {
+    const rows = list.data ?? [];
+    const activeRows = rows.filter((p) => p.situacao === "ativo" && !p.data_alta);
+    const semProxima = activeRows.filter((p) => !apptSummary.data?.get(p.id)?.next).length;
+    const risco = activeRows.filter((p) => {
+      const summary = apptSummary.data?.get(p.id);
+      if (summary?.next) return false;
+      if (!summary?.last) return true;
+      const lastAt = new Date(`${summary.last.data}T00:00:00`).getTime();
+      return Number.isFinite(lastAt) && Date.now() - lastAt > 1000 * 60 * 60 * 24 * 30;
+    }).length;
+    return {
+      ativos: activeRows.length,
+      novos: rows.filter((p) => p.created_at >= monthIso).length,
+      semProxima,
+      risco,
+    };
+  }, [list.data, apptSummary.data, monthIso]);
+
   const hasActiveFilters =
     filterStatus !== "ativo" ||
     filterProf !== "all" ||
     filterConvenio !== "all" ||
     q.trim() !== "" ||
+    quickFilter !== "all" ||
     sort !== "nome_asc";
 
   const loading = list.isLoading || kpis.isLoading;
@@ -393,6 +427,57 @@ function PacientesPage() {
         <ClinicalSkeleton variant="split" kpiCount={3} />
       ) : (
         <>
+          <KpiGrid columns={4} className="gap-2.5 lg:gap-3 xl:grid-cols-5">
+            <KpiCard
+              icon={Users}
+              label="Pacientes ativos"
+              value={crmStats.ativos}
+              subtitle="Base em acompanhamento"
+              hideDelta
+              variant="premium"
+              accent={brand.primaryColor}
+            />
+            <KpiCard
+              icon={UserPlus}
+              label="Novos no mês"
+              value={crmStats.novos}
+              subtitle="Cadastros recentes"
+              hideDelta
+              variant="premium"
+              accent={brand.secondaryColor}
+            />
+            <KpiCard
+              icon={CalendarDays}
+              label="Sem próxima sessão"
+              value={crmStats.semProxima}
+              subtitle="Pacientes sem retorno agendado"
+              hideDelta
+              variant="premium"
+              accent="#d97706"
+              tone={crmStats.semProxima > 0 ? "warning" : "default"}
+            />
+            <KpiCard
+              icon={RefreshCw}
+              label="Reavaliação pendente"
+              value="—"
+              subtitle="Sem consulta global nesta visão"
+              hideDelta
+              variant="premium"
+              accent="#6366f1"
+              isPlaceholder
+            />
+            <KpiCard
+              icon={AlertTriangle}
+              label="Pacientes em risco"
+              value={crmStats.risco}
+              subtitle="Sem agenda e sem retorno recente"
+              hideDelta
+              variant="premium"
+              accent="#e11d48"
+              tone={crmStats.risco > 0 ? "warning" : "default"}
+            />
+          </KpiGrid>
+
           <section className="patients-crm-search rounded-2xl border border-[rgba(15,76,92,0.12)] bg-white/90 px-4 py-3.5 shadow-[var(--fos-card-shadow)] sm:px-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <SearchField
@@ -426,7 +511,10 @@ function PacientesPage() {
 
           <PatientCrmFilters
             filterStatus={filterStatus}
-            onFilterStatus={setFilterStatus}
+            onFilterStatus={(value) => {
+              setFilterStatus(value);
+              setQuickFilter("all");
+            }}
             filterProf={filterProf}
             onFilterProf={setFilterProf}
             profs={profs.data ?? []}
@@ -437,7 +525,21 @@ function PacientesPage() {
             onSort={setSort}
           />
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px] xl:gap-4">
+          <QuickPatientChips
+            filterStatus={filterStatus}
+            quickFilter={quickFilter}
+            onStatus={(value) => {
+              setFilterStatus(value);
+              setQuickFilter("all");
+            }}
+            onQuick={setQuickFilter}
+            onRecentes={() => {
+              setSort("recentes");
+              setQuickFilter("recentes");
+            }}
+          />
+
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-4">
             <div className="min-w-0">
               {!filtered.length ? (
                 <EmptyState
@@ -462,6 +564,7 @@ function PacientesPage() {
                       key={p.id}
                       patient={p}
                       summary={apptSummary.data?.get(p.id)}
+                      insights={buildPatientInsights(p, apptSummary.data?.get(p.id), monthIso)}
                       selected={selectedId === p.id}
                       isAdmin={isAdmin}
                       onSelect={() => setSelectedId(p.id)}
@@ -478,6 +581,7 @@ function PacientesPage() {
                       layout="row"
                       patient={p}
                       summary={apptSummary.data?.get(p.id)}
+                      insights={buildPatientInsights(p, apptSummary.data?.get(p.id), monthIso)}
                       selected={selectedId === p.id}
                       isAdmin={isAdmin}
                       onSelect={() => setSelectedId(p.id)}
@@ -518,6 +622,66 @@ function PacientesPage() {
       )}
       </ModuleStack>
     </AppShell>
+  );
+}
+
+function buildPatientInsights(p: PatientRow, summary: ApptSummary | undefined, monthIso: string) {
+  const recent = p.created_at >= monthIso;
+  const discharged = p.situacao === "inativo" || !!p.data_alta;
+  const noNext = !summary?.next && !discharged;
+  const noLast = !summary?.last;
+  const oldLast =
+    !!summary?.last &&
+    Date.now() - new Date(`${summary.last.data}T00:00:00`).getTime() > 1000 * 60 * 60 * 24 * 30;
+  return {
+    recent,
+    noReturn: noNext,
+    pending: noNext,
+    delayedEvolution: !discharged && (noLast || oldLast),
+    discharged,
+    risk: !discharged && noNext && (noLast || oldLast),
+  };
+}
+
+function QuickPatientChips({
+  filterStatus,
+  quickFilter,
+  onStatus,
+  onQuick,
+  onRecentes,
+}: {
+  filterStatus: StatusFilter;
+  quickFilter: QuickPatientFilter;
+  onStatus: (value: StatusFilter) => void;
+  onQuick: (value: QuickPatientFilter) => void;
+  onRecentes: () => void;
+}) {
+  const chips = [
+    { id: "ativo", label: "Ativos", active: filterStatus === "ativo" && quickFilter === "all", onClick: () => onStatus("ativo") },
+    { id: "inativo", label: "Inativos", active: filterStatus === "inativo" && quickFilter === "all", onClick: () => onStatus("inativo") },
+    { id: "alta", label: "Em alta", active: filterStatus === "alta" && quickFilter === "all", onClick: () => onStatus("alta") },
+    { id: "sem_agenda", label: "Sem agenda", active: quickFilter === "sem_agenda", onClick: () => onQuick("sem_agenda") },
+    { id: "recentes", label: "Recentes", active: quickFilter === "recentes", onClick: onRecentes },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2 rounded-2xl border border-[rgba(15,76,92,0.08)] bg-white/75 p-2.5 shadow-[0_1px_3px_rgba(15,76,92,0.04)]">
+      {chips.map((chip) => (
+        <button
+          key={chip.id}
+          type="button"
+          onClick={chip.onClick}
+          className={cn(
+            "rounded-full border px-3 py-1.5 text-xs font-semibold transition-[background-color,border-color,color,transform] hover:-translate-y-px",
+            chip.active
+              ? "border-[var(--fos-primary)] bg-[var(--fos-primary)] text-white shadow-soft"
+              : "border-[rgba(15,76,92,0.12)] bg-white text-slate-600 hover:border-[rgba(15,76,92,0.24)]",
+          )}
+        >
+          {chip.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -629,11 +793,18 @@ function SelectedPatientPanel({
     },
   });
 
+  const latestEvolution = timeline.data?.find((item) => item.kind === "evolution");
+  const latestAssessment = timeline.data?.find((item) => item.kind === "assessment" || item.kind === "reassessment");
+  const latestDocument = timeline.data?.find((item) => item.kind === "document");
+  const latestFinancial = timeline.data?.find((item) => item.kind === "financial");
+  const noNext = !summary?.next && p.situacao === "ativo" && !p.data_alta;
+
   return (
     <div className="space-y-4">
       <PageSection
         icon={Users}
-        title={p.nome_completo}
+        title="Resumo clínico"
+        description={p.nome_completo}
         actions={
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} aria-label="Fechar">
             <X className="h-4 w-4" />
@@ -653,7 +824,7 @@ function SelectedPatientPanel({
           </div>
         </div>
 
-        <dl className="grid grid-cols-2 gap-3 text-sm">
+        <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-[rgba(15,76,92,0.08)] bg-slate-50/70 p-3 text-sm">
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Último atendimento
@@ -676,6 +847,54 @@ function SelectedPatientPanel({
           </div>
         </dl>
 
+        <div className="grid gap-2">
+          <CrmDetailStrip
+            icon={Activity}
+            label="Última evolução"
+            value={latestEvolution ? `${fmtDate(latestEvolution.date)} · ${latestEvolution.subtitle ?? "Evolução"}` : "Sem evolução recente"}
+          />
+          <CrmDetailStrip
+            icon={ClipboardList}
+            label="Última avaliação"
+            value={latestAssessment ? `${fmtDate(latestAssessment.date)} · ${latestAssessment.title}` : "Sem avaliação recente"}
+          />
+          <CrmDetailStrip
+            icon={FileText}
+            label="Documentos"
+            value={latestDocument ? `${fmtDate(latestDocument.date)} · ${latestDocument.title}` : "Nenhum documento recente"}
+          />
+          <CrmDetailStrip
+            icon={DollarSign}
+            label="Financeiro resumido"
+            value={latestFinancial ? `${latestFinancial.title} · ${latestFinancial.subtitle ?? "—"}` : "Sem lançamento recente"}
+          />
+        </div>
+
+        <div className="rounded-2xl border border-[rgba(15,76,92,0.08)] bg-white p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Próximos passos</p>
+          <div className="mt-3 grid gap-2">
+            <NextStepItem
+              tone={noNext ? "warning" : "success"}
+              title={noNext ? "Agendar retorno" : "Próxima sessão definida"}
+              description={
+                summary?.next
+                  ? `${fmtDate(summary.next.data)} · ${String(summary.next.horario).slice(0, 5)}`
+                  : "Paciente ativo sem próxima sessão registrada."
+              }
+            />
+            <NextStepItem
+              tone={latestEvolution ? "success" : "warning"}
+              title="Atualizar evolução"
+              description={latestEvolution ? `Último registro em ${fmtDate(latestEvolution.date)}` : "Nenhuma evolução recente encontrada."}
+            />
+            <NextStepItem
+              tone={latestDocument ? "success" : "neutral"}
+              title="Revisar documentos"
+              description={latestDocument ? latestDocument.title : "Documentos aparecerão aqui quando gerados."}
+            />
+          </div>
+        </div>
+
         <Button className="w-full rounded-xl" onClick={onOpen}>
           Abrir prontuário completo
         </Button>
@@ -685,14 +904,19 @@ function SelectedPatientPanel({
         {timeline.isLoading ? (
           <div className="space-y-2 px-1">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 rounded-lg" />
+              <div
+                key={i}
+                className={cn(clinical.skeleton, "h-12 rounded-xl")}
+                style={{ animationDelay: `${i * 70}ms` }}
+                aria-hidden
+              />
             ))}
           </div>
         ) : !timeline.data?.length ? (
           <EmptyState
             icon={ClipboardList}
-            title="Sem eventos ainda"
-            description="Registre avaliações, evoluções ou documentos no prontuário."
+            title="Nada registrado ainda"
+            description="Avaliações, evoluções e documentos do paciente aparecerão aqui."
             action={{ label: "Abrir prontuário", onClick: onOpen }}
             className="py-6"
           />
@@ -748,6 +972,52 @@ function TimelineRow({ item }: { item: TimelineEntry }) {
         )}
       </div>
     </li>
+  );
+}
+
+function CrmDetailStrip({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-[rgba(15,76,92,0.08)] bg-white p-3">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+        <p className="mt-0.5 line-clamp-2 text-sm font-medium text-slate-700">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function NextStepItem({
+  title,
+  description,
+  tone,
+}: {
+  title: string;
+  description: string;
+  tone: "success" | "warning" | "neutral";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl px-3 py-2 text-sm ring-1",
+        tone === "success" && "bg-emerald-50 text-emerald-900 ring-emerald-200",
+        tone === "warning" && "bg-amber-50 text-amber-900 ring-amber-200",
+        tone === "neutral" && "bg-slate-50 text-slate-700 ring-slate-200",
+      )}
+    >
+      <p className="font-semibold">{title}</p>
+      <p className="mt-0.5 text-xs opacity-75">{description}</p>
+    </div>
   );
 }
 

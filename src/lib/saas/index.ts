@@ -22,9 +22,27 @@ export {
   getExecutiveSoonMonitors,
   totalPlansSold,
 } from "./executive-dashboard";
+export {
+  BILLING_ENTITY_BLUEPRINT,
+  BILLING_FINANCIAL_MODEL,
+  BILLING_GATEWAY_READINESS,
+  buildBillingCenterProjection,
+} from "./billing-architecture";
 export type {
   ExecutiveAttentionItem,
   ExecutiveAuditGroup,
   ExecutiveSoonMonitor,
 } from "./executive-dashboard";
+export type {
+  BillingCenterProjection,
+  BillingEventKind,
+  BillingGatewayProvider,
+  BillingInvoiceDraft,
+  BillingInvoiceStatus,
+  BillingPaymentDraft,
+  BillingPaymentStatus,
+  BillingSubscriptionDraft,
+  BillingTransactionDraft,
+  BillingTransactionStatus,
+} from "./billing-architecture";
 export { useClinicOperationalAccess } from "./use-clinic-operational-access";

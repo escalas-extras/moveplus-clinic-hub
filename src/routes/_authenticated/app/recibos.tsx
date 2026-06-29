@@ -360,10 +360,10 @@ function RecibosPage() {
               title="Sem recibos neste fechamento"
               description={
                 visibilidade === "pendentes"
-                  ? "Nenhum recibo pendente para este pagamento."
+                  ? "Todos os recibos deste pagamento já foram emitidos."
                   : visibilidade === "arquivados"
-                    ? "Nenhum recibo arquivado para este pagamento."
-                    : "Nenhum recibo emitido para este pagamento."
+                    ? "Nenhum recibo arquivado neste pagamento."
+                    : "Ainda não há recibos para este pagamento."
               }
             />
           )}
@@ -406,8 +406,8 @@ function RecibosPage() {
           {!extrasSemRecibo.data?.length && (
             <EmptyState
               icon={FileX}
-              title="Nenhuma extra pendente de recibo"
-              description="Todas as extras pagas/aprovadas já possuem recibo ativo."
+              title="Tudo certo por aqui"
+              description="Não há extras pagas aguardando recibo."
             />
           )}
         </Card>

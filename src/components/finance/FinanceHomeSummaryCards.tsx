@@ -66,7 +66,7 @@ export function FinanceHomeSummaryCards({ clinicId, clinicLoading }: FinanceHome
       loading={paymentBreakdown.isLoading}
       error={paymentBreakdown.error}
       onRetry={() => void paymentBreakdown.refetch()}
-      loadingLabel="Carregando formas de recebimento…"
+      loadingLabel="Preparando formas de pagamento…"
       errorFallback="Não foi possível carregar o resumo por forma."
     >
       <PageSection
