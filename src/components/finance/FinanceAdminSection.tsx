@@ -4,7 +4,6 @@ import {
   ChevronDown,
   FolderTree,
   Landmark,
-  Receipt,
   ScrollText,
   Settings2,
 } from "lucide-react";
@@ -20,8 +19,7 @@ export type FinanceModuleTabId =
   | "convenios"
   | "inadimplencia"
   | "receita-profissional"
-  | "lancamentos"
-  | "recibos";
+  | "lancamentos";
 
 /** Visão analítica (hub) — não é módulo de menu. */
 export type FinanceViewId = FinanceModuleTabId | "hub";
@@ -30,7 +28,6 @@ export const FINANCE_ADMIN_TAB_IDS: FinanceModuleTabId[] = [
   "categorias",
   "centros-custo",
   "lancamentos",
-  "recibos",
 ];
 
 type AdminItem = {
@@ -43,7 +40,6 @@ const ADMIN_ITEMS: AdminItem[] = [
   { id: "categorias", label: "Categorias", icon: FolderTree },
   { id: "centros-custo", label: "Centros de Custo", icon: Landmark },
   { id: "lancamentos", label: "Lançamentos v1", icon: ScrollText },
-  { id: "recibos", label: "Recibos", icon: Receipt },
 ];
 
 type FinanceAdminSectionProps = {

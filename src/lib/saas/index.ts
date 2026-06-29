@@ -16,4 +16,15 @@ export {
   resolveClinicNameFields,
   type ClinicSettingsNameLookup,
 } from "./clinic-segmentation";
+export {
+  buildExecutiveAttentionItems,
+  buildExecutiveAuditGroups,
+  getExecutiveSoonMonitors,
+  totalPlansSold,
+} from "./executive-dashboard";
+export type {
+  ExecutiveAttentionItem,
+  ExecutiveAuditGroup,
+  ExecutiveSoonMonitor,
+} from "./executive-dashboard";
 export { useClinicOperationalAccess } from "./use-clinic-operational-access";

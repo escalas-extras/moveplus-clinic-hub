@@ -6,8 +6,9 @@ import { AppShell } from "@/components/layout";
 import { PageHero, ModuleStack, ActionButton } from "@/components/ui-system";
 import {
   FinanceDashboardPanel,
+  FinanceExecutiveStrip,
+  FinanceHomeSummaryCards,
   FinanceOperationsGrid,
-  FinanceFiltersBar,
   FINANCE_ROUTES,
 } from "@/components/finance";
 import { defaultDashboardFilters } from "@/lib/finance";
@@ -27,8 +28,8 @@ function FinanceiroHomePage() {
         variant="module"
         icon={Wallet}
         eyebrow="Gestão"
-        title="Financeiro"
-        description="Como está minha clínica? Indicadores, rankings e acesso rápido aos módulos operacionais."
+        title="Painel Financeiro"
+        description="Resumo financeiro da clínica e acesso rápido aos módulos operacionais."
         breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Financeiro" }]}
         actions={
           <ActionButton variant="outline" asChild className="h-9 px-3 text-xs">
@@ -40,17 +41,22 @@ function FinanceiroHomePage() {
         }
       />
 
-      <ModuleStack>
+      <ModuleStack className="space-y-4 sm:space-y-5">
+        <FinanceExecutiveStrip
+          clinicId={clinicId}
+          clinicLoading={clinicLoading}
+          filters={dashboardFilters}
+          onFiltersChange={setDashboardFilters}
+          onNewReceivable={() => navigate({ to: FINANCE_ROUTES.receber })}
+          onNewPayable={() => navigate({ to: FINANCE_ROUTES.pagar })}
+        />
+
+        <FinanceHomeSummaryCards clinicId={clinicId} clinicLoading={clinicLoading} />
+
         <FinanceOperationsGrid
           clinicId={clinicId}
           clinicLoading={clinicLoading}
           dashboardFilters={dashboardFilters}
-        />
-
-        <FinanceFiltersBar
-          clinicId={clinicId}
-          filters={dashboardFilters}
-          onFiltersChange={setDashboardFilters}
         />
 
         <FinanceDashboardPanel

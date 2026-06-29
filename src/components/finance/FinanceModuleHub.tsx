@@ -195,7 +195,7 @@ export function FinanceModuleHub({
                 </Button>
               )}
               <Button type="button" variant="outline" size="sm" asChild>
-                <Link to="/app/recibos">Ir para Recibos</Link>
+                <Link to="/app/financeiro/recibos">Ir para Recibos</Link>
               </Button>
             </div>
           </InfoCard>

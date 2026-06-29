@@ -53,10 +53,33 @@ export const PROFESSIONAL_REVENUE_STATUS_FILTER_LABELS = {
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   pix: "PIX",
+  boleto: "Boleto",
   dinheiro: "Dinheiro",
   cartao: "Cartão",
   transferencia: "Transferência",
+  outro: "Outro",
 };
+
+/** Ordem padrão para selects e filtros. */
+export const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = [
+  "pix",
+  "boleto",
+  "dinheiro",
+  "cartao",
+  "transferencia",
+  "outro",
+];
+
+/** Status comercial exibido na UI (inclui vencido derivado). */
+export const RECEIVABLE_DISPLAY_STATUS = {
+  aberto: "Em aberto",
+  recebido: "Recebido",
+  vencido: "Vencido",
+  cancelado: "Cancelado",
+} as const;
+
+export const BOLETO_INTEGRATION_NOTICE =
+  "Geração automática de boleto registrado exige integração com banco ou provedor de pagamentos.";
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   pago: "Pago",

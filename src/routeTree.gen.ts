@@ -37,6 +37,7 @@ import { Route as AuthenticatedAppAdminSaasRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppPacientesIndexRouteImport } from './routes/_authenticated/app/pacientes/index'
 import { Route as AuthenticatedAppFinanceiroIndexRouteImport } from './routes/_authenticated/app/financeiro/index'
 import { Route as AuthenticatedAppPacientesIdRouteImport } from './routes/_authenticated/app/pacientes/$id'
+import { Route as AuthenticatedAppFinanceiroRecibosRouteImport } from './routes/_authenticated/app/financeiro/recibos'
 import { Route as AuthenticatedAppFinanceiroReceitaProfissionalRouteImport } from './routes/_authenticated/app/financeiro/receita-profissional'
 import { Route as AuthenticatedAppFinanceiroReceberRouteImport } from './routes/_authenticated/app/financeiro/receber'
 import { Route as AuthenticatedAppFinanceiroPagarRouteImport } from './routes/_authenticated/app/financeiro/pagar'
@@ -203,6 +204,12 @@ const AuthenticatedAppPacientesIdRoute =
     path: '/pacientes/$id',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppFinanceiroRecibosRoute =
+  AuthenticatedAppFinanceiroRecibosRouteImport.update({
+    id: '/financeiro/recibos',
+    path: '/financeiro/recibos',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppFinanceiroReceitaProfissionalRoute =
   AuthenticatedAppFinanceiroReceitaProfissionalRouteImport.update({
     id: '/financeiro/receita-profissional',
@@ -285,6 +292,7 @@ export interface FileRoutesByFullPath {
   '/app/financeiro/pagar': typeof AuthenticatedAppFinanceiroPagarRoute
   '/app/financeiro/receber': typeof AuthenticatedAppFinanceiroReceberRoute
   '/app/financeiro/receita-profissional': typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
+  '/app/financeiro/recibos': typeof AuthenticatedAppFinanceiroRecibosRoute
   '/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
   '/app/financeiro/': typeof AuthenticatedAppFinanceiroIndexRoute
   '/app/pacientes/': typeof AuthenticatedAppPacientesIndexRoute
@@ -321,6 +329,7 @@ export interface FileRoutesByTo {
   '/app/financeiro/pagar': typeof AuthenticatedAppFinanceiroPagarRoute
   '/app/financeiro/receber': typeof AuthenticatedAppFinanceiroReceberRoute
   '/app/financeiro/receita-profissional': typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
+  '/app/financeiro/recibos': typeof AuthenticatedAppFinanceiroRecibosRoute
   '/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
   '/app/financeiro': typeof AuthenticatedAppFinanceiroIndexRoute
   '/app/pacientes': typeof AuthenticatedAppPacientesIndexRoute
@@ -360,6 +369,7 @@ export interface FileRoutesById {
   '/_authenticated/app/financeiro/pagar': typeof AuthenticatedAppFinanceiroPagarRoute
   '/_authenticated/app/financeiro/receber': typeof AuthenticatedAppFinanceiroReceberRoute
   '/_authenticated/app/financeiro/receita-profissional': typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
+  '/_authenticated/app/financeiro/recibos': typeof AuthenticatedAppFinanceiroRecibosRoute
   '/_authenticated/app/pacientes/$id': typeof AuthenticatedAppPacientesIdRoute
   '/_authenticated/app/financeiro/': typeof AuthenticatedAppFinanceiroIndexRoute
   '/_authenticated/app/pacientes/': typeof AuthenticatedAppPacientesIndexRoute
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/app/financeiro/pagar'
     | '/app/financeiro/receber'
     | '/app/financeiro/receita-profissional'
+    | '/app/financeiro/recibos'
     | '/app/pacientes/$id'
     | '/app/financeiro/'
     | '/app/pacientes/'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/app/financeiro/pagar'
     | '/app/financeiro/receber'
     | '/app/financeiro/receita-profissional'
+    | '/app/financeiro/recibos'
     | '/app/pacientes/$id'
     | '/app/financeiro'
     | '/app/pacientes'
@@ -473,6 +485,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/financeiro/pagar'
     | '/_authenticated/app/financeiro/receber'
     | '/_authenticated/app/financeiro/receita-profissional'
+    | '/_authenticated/app/financeiro/recibos'
     | '/_authenticated/app/pacientes/$id'
     | '/_authenticated/app/financeiro/'
     | '/_authenticated/app/pacientes/'
@@ -684,6 +697,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPacientesIdRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/financeiro/recibos': {
+      id: '/_authenticated/app/financeiro/recibos'
+      path: '/financeiro/recibos'
+      fullPath: '/app/financeiro/recibos'
+      preLoaderRoute: typeof AuthenticatedAppFinanceiroRecibosRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/financeiro/receita-profissional': {
       id: '/_authenticated/app/financeiro/receita-profissional'
       path: '/financeiro/receita-profissional'
@@ -771,6 +791,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppFinanceiroPagarRoute: typeof AuthenticatedAppFinanceiroPagarRoute
   AuthenticatedAppFinanceiroReceberRoute: typeof AuthenticatedAppFinanceiroReceberRoute
   AuthenticatedAppFinanceiroReceitaProfissionalRoute: typeof AuthenticatedAppFinanceiroReceitaProfissionalRoute
+  AuthenticatedAppFinanceiroRecibosRoute: typeof AuthenticatedAppFinanceiroRecibosRoute
   AuthenticatedAppPacientesIdRoute: typeof AuthenticatedAppPacientesIdRoute
   AuthenticatedAppFinanceiroIndexRoute: typeof AuthenticatedAppFinanceiroIndexRoute
   AuthenticatedAppPacientesIndexRoute: typeof AuthenticatedAppPacientesIndexRoute
@@ -810,6 +831,8 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
     AuthenticatedAppFinanceiroReceberRoute,
   AuthenticatedAppFinanceiroReceitaProfissionalRoute:
     AuthenticatedAppFinanceiroReceitaProfissionalRoute,
+  AuthenticatedAppFinanceiroRecibosRoute:
+    AuthenticatedAppFinanceiroRecibosRoute,
   AuthenticatedAppPacientesIdRoute: AuthenticatedAppPacientesIdRoute,
   AuthenticatedAppFinanceiroIndexRoute: AuthenticatedAppFinanceiroIndexRoute,
   AuthenticatedAppPacientesIndexRoute: AuthenticatedAppPacientesIndexRoute,

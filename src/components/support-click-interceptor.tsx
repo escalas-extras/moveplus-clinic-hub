@@ -1,9 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useActiveClinic } from "@/lib/active-clinic";
-
-const TOAST = "Modo Suporte ativo: esta ação está disponível apenas para visualização.";
-const TOOLTIP = "Modo Suporte ativo. Encerre o modo suporte para realizar alterações.";
+import { SUPPORT_TOAST, SUPPORT_TOOLTIP } from "@/lib/support-guard";
 
 // Padrões de texto que indicam ação de escrita/edição/exclusão. Botões com esse
 // rótulo são automaticamente marcados como bloqueados em Modo Suporte.
@@ -92,7 +90,7 @@ export function SupportClickInterceptor() {
         b.setAttribute("data-support-checked", "1");
         if (shouldBlock(b)) {
           b.setAttribute("data-support-blocked-auto", "1");
-          b.title = TOOLTIP;
+          b.title = SUPPORT_TOOLTIP;
           b.style.cursor = "not-allowed";
           b.style.opacity = "0.6";
         }
@@ -111,7 +109,7 @@ export function SupportClickInterceptor() {
       if (el.getAttribute("data-support-blocked-auto") === "1") {
         e.preventDefault();
         e.stopPropagation();
-        toast.error(TOAST);
+        toast.error(SUPPORT_TOAST);
       }
     }
     document.addEventListener("click", onClickCapture, true);

@@ -4,13 +4,12 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { OpsDataListPanel } from "@/components/ops";
-import { EmptyState, InfoCard } from "@/components/layout";
+import { EmptyState } from "@/components/layout";
 import { FinanceKpiCard, FinanceKpiGrid } from "./FinanceKpiCard";
 import { PageSection } from "@/components/layout/PageSection";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import type { DashboardFilters } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
 import { FINANCE_PANEL_ROOT } from "./finance-layout";
 import { useFinanceExecutiveDashboard } from "./useFinanceExecutiveDashboard";
@@ -59,37 +58,51 @@ export function FinanceDashboardPanel({
             title="Sem movimentações financeiras"
             description="Cadastre contas a receber ou a pagar para visualizar o dashboard executivo."
             action={onNewReceivable ? { label: "Novo recebimento", onClick: onNewReceivable } : undefined}
+            className="py-12"
           />
         ) : (
           <>
             <PageSection
-              title="Análise executiva"
-              description="Comparativos, vencimentos e rankings consolidados no período selecionado."
+              title="Análise do período"
+              description="Vencimentos, saldo mensal e rankings consolidados."
             >
-            <FinanceKpiGrid columns={4}>
-              <FinanceKpiCard icon={ArrowDownCircle} label="Receitas em aberto" value={brl(kpis.receitasEmAberto)} hideDelta tone="warning" />
-              <FinanceKpiCard icon={ArrowUpCircle} label="Despesas em aberto" value={brl(kpis.despesasEmAberto)} hideDelta tone="warning" />
-              <FinanceKpiCard icon={ArrowDownCircle} label="Vencidos a receber" value={brl(kpis.vencidosReceber)} hideDelta tone={kpis.vencidosReceber > 0 ? "warning" : "default"} />
-              <FinanceKpiCard icon={ArrowUpCircle} label="Vencidos a pagar" value={brl(kpis.vencidosPagar)} hideDelta tone={kpis.vencidosPagar > 0 ? "warning" : "default"} />
-            </FinanceKpiGrid>
-
-            <PageSection title="Resumo do mês atual" description={`Consolidado de ${monthSummary.monthLabel} (independente do filtro de período).`}>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <InfoCard icon={ArrowDownCircle} title="Receitas" description="Realizadas no mês corrente.">
-                  <p className="text-2xl font-bold tabular-nums text-emerald-700">{brl(monthSummary.receitaRealizada)}</p>
-                </InfoCard>
-                <InfoCard icon={ArrowUpCircle} title="Despesas" description="Realizadas no mês corrente.">
-                  <p className="text-2xl font-bold tabular-nums text-rose-700">{brl(monthSummary.despesaRealizada)}</p>
-                </InfoCard>
-                <InfoCard icon={LayoutDashboard} title="Saldo" description="Resultado do mês corrente.">
-                  <p className={cn("text-2xl font-bold tabular-nums", monthSummary.saldoRealizado < 0 ? "text-amber-700" : "text-slate-900")}>
-                    {brl(monthSummary.saldoRealizado)}
-                  </p>
-                </InfoCard>
-              </div>
+              <FinanceKpiGrid columns={4}>
+                <FinanceKpiCard icon={ArrowDownCircle} label="Receitas em aberto" value={brl(kpis.receitasEmAberto)} hideDelta tone="warning" />
+                <FinanceKpiCard icon={ArrowUpCircle} label="Despesas em aberto" value={brl(kpis.despesasEmAberto)} hideDelta tone="warning" />
+                <FinanceKpiCard icon={ArrowDownCircle} label="Vencidos a receber" value={brl(kpis.vencidosReceber)} hideDelta tone={kpis.vencidosReceber > 0 ? "warning" : "default"} />
+                <FinanceKpiCard icon={ArrowUpCircle} label="Vencidos a pagar" value={brl(kpis.vencidosPagar)} hideDelta tone={kpis.vencidosPagar > 0 ? "warning" : "default"} />
+              </FinanceKpiGrid>
             </PageSection>
 
-            <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+            <FinanceKpiGrid columns={3}>
+              <FinanceKpiCard
+                icon={ArrowDownCircle}
+                label={`Receitas · ${monthSummary.monthLabel}`}
+                value={brl(monthSummary.receitaRealizada)}
+                subtitle="Realizadas no mês"
+                hideDelta
+                accent="#059669"
+              />
+              <FinanceKpiCard
+                icon={ArrowUpCircle}
+                label={`Despesas · ${monthSummary.monthLabel}`}
+                value={brl(monthSummary.despesaRealizada)}
+                subtitle="Realizadas no mês"
+                hideDelta
+                accent="#e11d48"
+              />
+              <FinanceKpiCard
+                icon={LayoutDashboard}
+                label={`Saldo · ${monthSummary.monthLabel}`}
+                value={brl(monthSummary.saldoRealizado)}
+                subtitle="Resultado do mês"
+                hideDelta
+                accent="#0284c7"
+                tone={monthSummary.saldoRealizado < 0 ? "warning" : "default"}
+              />
+            </FinanceKpiGrid>
+
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <OpsDataListPanel
                 title="Próximos recebimentos"
                 emptyLabel="Nenhum recebimento pendente."
@@ -120,7 +133,7 @@ export function FinanceDashboardPanel({
               />
             </div>
 
-            <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
               <OpsDataListPanel
                 title="Maiores receitas por categoria"
                 valueTone="income"
@@ -152,7 +165,6 @@ export function FinanceDashboardPanel({
                 }))}
               />
             </div>
-            </PageSection>
           </>
         )}
       </div>

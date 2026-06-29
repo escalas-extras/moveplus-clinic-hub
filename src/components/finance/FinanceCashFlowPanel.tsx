@@ -39,6 +39,7 @@ import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
 import {
+  FINANCE_FILTER_BAR,
   FINANCE_FILTER_GRID,
   FINANCE_PANEL_ROOT,
   FINANCE_TABLE,
@@ -194,8 +195,8 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
         />
       </FinanceKpiGrid>
 
-      <Card className="min-w-0 max-w-full p-4 space-y-4">
-        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className={cn(FINANCE_FILTER_BAR, "space-y-3")}>
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className={cn(FINANCE_FILTER_GRID, "min-w-0 flex-1")}>
             <div>
               <Label className="text-xs">Período de</Label>
@@ -274,8 +275,8 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
               </Select>
             </div>
           </div>
-          <Button variant="outline" onClick={exportCsv} disabled={!lines.length}>
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" className="h-9" onClick={exportCsv} disabled={!lines.length}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
             Exportar CSV
           </Button>
         </div>
@@ -284,13 +285,13 @@ export function FinanceCashFlowPanel({ clinicId, clinicLoading }: FinanceCashFlo
           value={filters.view}
           onValueChange={(v) => setFilters((f) => ({ ...f, view: v as CashFlowView }))}
         >
-          <TabsList>
+          <TabsList className="h-9">
             {(Object.keys(VIEW_LABELS) as CashFlowView[]).map((v) => (
-              <TabsTrigger key={v} value={v}>{VIEW_LABELS[v]}</TabsTrigger>
+              <TabsTrigger key={v} value={v} className="text-xs">{VIEW_LABELS[v]}</TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
-      </Card>
+      </div>
 
       {grouped.length > 0 && (
         <Card className={FINANCE_TABLE_CARD}>

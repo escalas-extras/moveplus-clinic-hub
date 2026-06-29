@@ -1,8 +1,12 @@
 /** Layout tokens for Finance module — keeps panels within AppShell width. */
 
-export const FINANCE_PANEL_ROOT = "min-w-0 w-full max-w-full space-y-7";
+export const FINANCE_PANEL_ROOT = "min-w-0 w-full max-w-full space-y-5";
 
-export const FINANCE_PANEL_ROOT_LOOSE = "min-w-0 w-full max-w-full space-y-9";
+export const FINANCE_PANEL_ROOT_LOOSE = "min-w-0 w-full max-w-full space-y-6";
+
+/** Barra de filtros compacta — alinhada a Recibos / Relatórios. */
+export const FINANCE_FILTER_BAR =
+  "min-w-0 max-w-full rounded-lg border border-border/50 bg-card/60 p-2 shadow-none";
 
 /** Filter grids wrap instead of forcing horizontal page scroll. */
 export const FINANCE_FILTER_GRID =

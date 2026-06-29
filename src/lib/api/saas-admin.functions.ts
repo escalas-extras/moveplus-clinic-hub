@@ -351,13 +351,9 @@ export const listClinicsAdmin = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => listClinicsFiltersSchema.parse(d ?? {}))
   .handler(async ({ data: filters, context }) => {
     await assertSuperAdmin(context.supabase, context.userId);
-    let queryClient = context.supabase;
-    let serviceClient: any = null;
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      queryClient = supabaseAdmin;
-      serviceClient = supabaseAdmin;
-    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const queryClient = supabaseAdmin;
+    const serviceClient = supabaseAdmin;
 
     const { data: clinics, error } = await queryClient
       .from("clinics")

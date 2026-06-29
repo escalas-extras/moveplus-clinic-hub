@@ -1,41 +1,21 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
-import { fmtDate, brl } from "@/lib/format";
-import { appointmentStatusLabel } from "@/lib/appointment-status";
+import { AppShell, ClinicalSkeleton, QueryErrorState } from "@/components/layout";
+import { ClinicHomeDashboard } from "@/components/home";
+import type { AttentionItem } from "@/components/dashboard";
 import {
-  AppShell,
-  ClinicalSkeleton,
-  InfoCard,
-  QueryErrorState,
-} from "@/components/layout";
-import {
-  PageHero,
-  ModuleStack,
-  OperationalCard,
-  OperationalCardsGrid,
-  QuickAction,
-  ActionButton,
-} from "@/components/ui-system";
-import { AttentionList, type AttentionItem } from "@/components/dashboard";
-import {
-  Users,
   CalendarDays,
+  ClipboardList,
   FileText,
   RefreshCw,
-  Sparkles,
-  AlertTriangle,
-  ClipboardList,
-  ArrowRight,
-  Plus,
-  DollarSign,
-  Stethoscope,
   Wallet,
 } from "lucide-react";
+import { fmtDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   beforeLoad: async () => {
@@ -87,25 +67,6 @@ function getDisplayName(user: ReturnType<typeof useAuth>["user"]) {
   return "";
 }
 
-type ApptRow = {
-  id: string;
-  data?: string;
-  horario: string;
-  status: string | null;
-  observacao: string | null;
-  patients: { nome_completo: string } | null;
-  professionals: { nome: string } | null;
-};
-
-type ReavalRow = {
-  id: string;
-  patient_id: string;
-  scheduled_for: string;
-  patients: { nome_completo: string } | null;
-};
-
-const STATUS_LABEL = appointmentStatusLabel;
-
 function PainelClinico() {
   const { clinicId } = useActiveClinic();
   const { user } = useAuth();
@@ -148,12 +109,18 @@ function PainelClinico() {
         agendaSemana,
         docsMes,
         docsPrev,
+        docsTotal,
+        profissionais,
+        avaliacoes,
+        recibos,
         reavalPend,
         docsRascunho,
         evolSemAssin,
         hoje,
         receitaMesRows,
         recebiveisVencidos,
+        recentDocs,
+        recentPatients,
       ] = await Promise.all([
         supabase
           .from("patients")
@@ -189,6 +156,22 @@ function PainelClinico() {
           .gte("issued_at", prevMonthIso)
           .lt("issued_at", thisMonthIso),
         supabase
+          .from("clinical_documents")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid),
+        supabase
+          .from("professionals")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid),
+        supabase
+          .from("assessments")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid),
+        supabase
+          .from("receipts")
+          .select("id", { count: "exact", head: true })
+          .eq("clinic_id", cid),
+        supabase
           .from("reassessment_schedule")
           .select("id, patient_id, scheduled_for, patients(nome_completo)")
           .eq("clinic_id", cid)
@@ -212,7 +195,7 @@ function PainelClinico() {
           .eq("clinic_id", cid)
           .eq("data", todayIso)
           .order("horario")
-          .limit(6),
+          .limit(12),
         supabase
           .from("financial_entries")
           .select("valor")
@@ -227,6 +210,18 @@ function PainelClinico() {
           .eq("entry_type", "receivable")
           .eq("status", "pendente")
           .lt("data_vencimento", todayIso),
+        supabase
+          .from("clinical_documents")
+          .select("id, title, doc_type, issued_at, locked_at, patients(nome_completo)")
+          .eq("clinic_id", cid)
+          .order("issued_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("patients")
+          .select("id, nome_completo, created_at, situacao")
+          .eq("clinic_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(5),
       ]);
 
       const receitaMes = (receitaMesRows.data ?? []).reduce((sum, r) => sum + Number(r.valor), 0);
@@ -238,20 +233,23 @@ function PainelClinico() {
         agendaSemana: agendaSemana.count ?? 0,
         docsMes: docsMes.count ?? 0,
         docsPrev: docsPrev.count ?? 0,
-        reavalPend: (reavalPend.data ?? []) as ReavalRow[],
+        docsTotal: docsTotal.count ?? 0,
+        profissionais: profissionais.count ?? 0,
+        avaliacoes: avaliacoes.count ?? 0,
+        recibos: recibos.count ?? 0,
+        reavalPend: reavalPend.data ?? [],
         docsRascunho: docsRascunho.count ?? 0,
         evolSemAssin: evolSemAssin.count ?? 0,
-        hoje: (hoje.data ?? []) as ApptRow[],
+        hoje: hoje.data ?? [],
         receitaMes,
         recebiveisVencidos: recebiveisVencidos.count ?? 0,
+        recentDocs: recentDocs.data ?? [],
+        recentPatients: recentPatients.data ?? [],
       };
     },
   });
 
   const s = stats.data;
-  const reavalCount = s?.reavalPend.length ?? 0;
-  const pendenciasTotal =
-    reavalCount + (s?.docsRascunho ?? 0) + (s?.evolSemAssin ?? 0) + (s?.recebiveisVencidos ?? 0);
   const isNewClinic = !!s && s.pacientesAtivos === 0 && s.docsMes === 0 && s.atendHoje === 0;
   const loading = stats.isLoading;
 
@@ -265,7 +263,7 @@ function PainelClinico() {
         icon: CalendarDays,
         title: a.patients?.nome_completo ?? "Atendimento",
         subtitle: `${String(a.horario).slice(0, 5)} · ${a.professionals?.nome ?? "Consulta"}`,
-        meta: STATUS_LABEL(a.status ?? ""),
+        meta: a.status ?? undefined,
         to: "/app/agenda",
         tone: "default",
       });
@@ -322,163 +320,26 @@ function PainelClinico() {
     return items.slice(0, 8);
   }, [s]);
 
-  const pacientesDelta =
-    s && s.pacientesAntes > 0
-      ? Math.round(((s.pacientesAtivos - s.pacientesAntes) / s.pacientesAntes) * 100)
-      : s && s.pacientesAtivos > 0
-        ? 100
-        : 0;
-
-  const docsDelta =
-    s && s.docsPrev > 0
-      ? Math.round(((s.docsMes - s.docsPrev) / s.docsPrev) * 100)
-      : s && s.docsMes > 0
-        ? 100
-        : 0;
-
   return (
     <AppShell clinical>
-      <ModuleStack className="space-y-4 sm:space-y-5">
-        <PageHero
+      {stats.isError ? (
+        <QueryErrorState onRetry={() => void stats.refetch()} />
+      ) : loading || !s ? (
+        <ClinicalSkeleton variant="dashboard" kpiCount={4} />
+      ) : (
+        <ClinicHomeDashboard
           greeting={greeting}
           displayName={displayName || undefined}
           clinicName={brand.clinicName}
           dateLabel={dateLabel}
           primaryColor={brand.primaryColor}
           secondaryColor={brand.secondaryColor}
-          daySummary={
-            !loading && s
-              ? [
-                  { label: "atendimentos hoje", value: s.atendHoje },
-                  { label: "pendências", value: pendenciasTotal },
-                  { label: "na semana", value: s.agendaSemana },
-                ]
-              : undefined
-          }
-          actions={
-            <>
-              <ActionButton asChild className="h-10 px-4 text-sm" style={{ background: brand.primaryColor }}>
-                <Link to="/app/pacientes">
-                  <Plus className="h-4 w-4" />
-                  Novo paciente
-                </Link>
-              </ActionButton>
-              <ActionButton variant="secondary" asChild className="h-10 px-4 text-sm bg-white/90">
-                <Link to="/app/agenda">
-                  <CalendarDays className="h-4 w-4" />
-                  Agendar
-                </Link>
-              </ActionButton>
-            </>
-          }
+          stats={s}
+          attentionItems={attentionItems}
+          isNewClinic={isNewClinic}
+          logoUploaded={brand.hasOwnLogo}
         />
-
-        {stats.isError ? (
-          <QueryErrorState onRetry={() => void stats.refetch()} />
-        ) : loading ? (
-          <ClinicalSkeleton variant="dashboard" kpiCount={6} />
-        ) : (
-          <>
-            {isNewClinic && (
-              <InfoCard variant="highlight" hoverable icon={Sparkles} title="Sua clínica está pronta para iniciar" description="Cadastre o primeiro paciente e abra sua agenda.">
-                <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                  <Link to="/app/pacientes" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
-                    Cadastrar paciente <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                  <Link to="/app/agenda" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
-                    Abrir agenda <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              </InfoCard>
-            )}
-
-            <OperationalCardsGrid>
-              <OperationalCard
-                title="Agenda de hoje"
-                icon={CalendarDays}
-                value={s?.atendHoje ?? 0}
-                context={s?.atendHoje ? "Atendimentos programados para hoje" : "Nenhum atendimento — agende agora"}
-                to="/app/agenda"
-                accent={brand.primaryColor}
-                trend={{ label: `${s?.agendaSemana ?? 0} na semana`, tone: "neutral" }}
-              />
-              <OperationalCard
-                title="Pacientes ativos"
-                icon={Users}
-                value={s?.pacientesAtivos ?? 0}
-                context="Cadastros ativos na clínica"
-                to="/app/pacientes"
-                accent={brand.secondaryColor}
-                trend={
-                  pacientesDelta !== 0
-                    ? { label: `${pacientesDelta > 0 ? "+" : ""}${pacientesDelta}% vs mês`, tone: pacientesDelta > 0 ? "success" : "neutral" }
-                    : { label: "Estável no mês", tone: "neutral" }
-                }
-              />
-              <OperationalCard
-                title="Reavaliações"
-                icon={RefreshCw}
-                value={reavalCount}
-                context={reavalCount > 0 ? "Reavaliações vencidas ou pendentes" : "Reavaliações em dia"}
-                to="/app/reavaliacoes"
-                accent={reavalCount > 0 ? "var(--fos-warning)" : brand.primaryColor}
-                alert={reavalCount > 0}
-                trend={reavalCount > 0 ? { label: "Requer atenção", tone: "warning" } : { label: "Em dia", tone: "success" }}
-              />
-              <OperationalCard
-                title="Financeiro do mês"
-                icon={DollarSign}
-                value={s?.receitaMes ? brl(s.receitaMes) : "—"}
-                context={s?.receitaMes ? "Receitas realizadas no mês" : "Acompanhe receitas e pendências"}
-                to="/app/financeiro"
-                accent="#059669"
-                alert={(s?.recebiveisVencidos ?? 0) > 0}
-                trend={
-                  (s?.recebiveisVencidos ?? 0) > 0
-                    ? { label: `${s?.recebiveisVencidos} vencido(s)`, tone: "danger" }
-                    : { label: "Ver centro financeiro", tone: "neutral" }
-                }
-              />
-              <OperationalCard
-                title="Documentos recentes"
-                icon={FileText}
-                value={s?.docsMes ?? 0}
-                context="Emitidos no mês corrente"
-                to="/app/documentos"
-                accent={brand.primaryColor}
-                trend={
-                  docsDelta !== 0
-                    ? { label: `${docsDelta > 0 ? "+" : ""}${docsDelta}% vs mês ant.`, tone: docsDelta > 0 ? "success" : "neutral" }
-                    : undefined
-                }
-              />
-              <OperationalCard
-                title="Pendências clínicas"
-                icon={AlertTriangle}
-                value={pendenciasTotal}
-                context="Docs, evoluções, reavaliações e financeiro"
-                to="/app/documentos"
-                accent={pendenciasTotal > 0 ? "var(--fos-warning)" : brand.secondaryColor}
-                alert={pendenciasTotal > 0}
-                trend={pendenciasTotal > 0 ? { label: "Resolver agora", tone: "warning" } : { label: "Tudo em dia", tone: "success" }}
-              />
-            </OperationalCardsGrid>
-
-            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr] lg:gap-5">
-              <AttentionList items={attentionItems} />
-              <QuickAction
-                items={[
-                  { label: "Agenda", icon: CalendarDays, to: "/app/agenda" },
-                  { label: "Pacientes", icon: Users, to: "/app/pacientes" },
-                  { label: "Financeiro", icon: DollarSign, to: "/app/financeiro" },
-                  { label: "Documentos", icon: FileText, to: "/app/documentos" },
-                  { label: "Avaliações", icon: Stethoscope, to: "/app/avaliacoes" },
-                ]}
-              />
-            </div>
-          </>
-        )}
-      </ModuleStack>
+      )}
     </AppShell>
   );
 }

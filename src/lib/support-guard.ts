@@ -4,6 +4,16 @@ import { useActiveClinic } from "@/lib/active-clinic";
 export const SUPPORT_TOAST = "Modo Suporte ativo: esta ação está disponível apenas para visualização.";
 export const SUPPORT_TOOLTIP = "Modo Suporte ativo. Encerre o modo suporte para realizar alterações.";
 
+export function assertSupportWriteAllowed(supportMode: boolean): void {
+  if (supportMode) {
+    throw new Error(SUPPORT_TOAST);
+  }
+}
+
+export function isSupportWriteAllowed(supportMode: boolean): boolean {
+  return !supportMode;
+}
+
 /**
  * Hook que devolve utilidades para bloquear ações de escrita em Modo Suporte
  * mantendo feedback amigável ao usuário (toast + cursor + tooltip).
@@ -23,7 +33,7 @@ export function useSupportGuard() {
 
   function guard<T extends any[]>(fn: (...args: T) => void) {
     return (...args: T) => {
-      if (supportMode) {
+      if (!isSupportWriteAllowed(supportMode)) {
         toast.error(SUPPORT_TOAST);
         return;
       }

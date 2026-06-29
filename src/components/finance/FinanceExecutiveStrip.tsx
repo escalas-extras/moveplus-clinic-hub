@@ -5,7 +5,7 @@ import {
   LayoutDashboard,
   Plus,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { FINANCE_FILTER_BAR } from "./finance-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,7 +87,7 @@ export function FinanceExecutiveStrip({
           />
         </FinanceExecutiveKpiGrid>
 
-        <Card className="min-w-0 max-w-full border-border/50 bg-card/60 p-3 shadow-none">
+        <div className={FINANCE_FILTER_BAR}>
           <div className="grid min-w-0 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <Label className="text-[11px] text-muted-foreground">Período de</Label>
@@ -156,7 +156,7 @@ export function FinanceExecutiveStrip({
               )}
             </div>
           </div>
-        </Card>
+        </div>
       </section>
     </FinancePanelGate>
   );

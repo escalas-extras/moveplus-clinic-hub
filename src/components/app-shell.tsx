@@ -12,7 +12,6 @@ import {
   X,
   ShieldCheck,
   Activity,
-  FileText,
   RefreshCw,
   BarChart3,
   BookOpen,
@@ -26,6 +25,8 @@ import {
   FilePlus2,
   Stethoscope,
   Home as HomeIcon,
+  ArrowDownCircle,
+  Receipt,
 } from "lucide-react";
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -36,7 +37,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
-import { useAuth, useRoles } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 import { GlobalSearch } from "@/components/global-search";
 
@@ -67,6 +69,7 @@ import { SupportBanner } from "@/components/support-banner";
 import { SupportClickInterceptor } from "@/components/support-click-interceptor";
 
 import { pcGet, pcSet } from "@/lib/persistent-cache";
+import { AdminSaasShell } from "@/components/admin-saas-shell";
 
 const ADMIN_SAAS_BRAND = {
   ...FISIOOS_DEFAULTS,
@@ -104,6 +107,8 @@ type NavItemDef = {
   superAdminOnly?: boolean;
 
   feature?: string;
+
+  status?: "beta" | "legacy";
 };
 
 type NavGroup = { title: string; items: NavItemDef[]; platform?: boolean };
@@ -168,7 +173,7 @@ const groups: NavGroup[] = [
       {
         to: "/app/financeiro",
 
-        label: "Financeiro",
+        label: "Painel Financeiro",
 
         icon: Wallet,
 
@@ -178,18 +183,40 @@ const groups: NavGroup[] = [
       },
 
       {
-        to: "/app/recibos",
+        to: "/app/financeiro/receber",
 
-        label: "Recibos",
+        label: "Recebimentos",
 
-        icon: FileText,
+        icon: ArrowDownCircle,
 
         adminOnly: true,
 
         feature: "financeiro",
       },
 
-      { to: "/app/relatorios", label: "Relatórios", icon: BarChart3, feature: "relatorios" },
+      {
+        to: "/app/financeiro/recibos",
+
+        label: "Recibos",
+
+        icon: Receipt,
+
+        adminOnly: true,
+
+        feature: "financeiro",
+      },
+
+      {
+        to: "/app/relatorios",
+
+        label: "Relatórios",
+
+        icon: BarChart3,
+
+        adminOnly: true,
+
+        feature: "relatorios",
+      },
     ],
   },
 
@@ -197,11 +224,11 @@ const groups: NavGroup[] = [
     title: "Sistema",
 
     items: [
-      { to: "/app/home-care", label: "Home Care", icon: HomeIcon, feature: "home_care" },
+      { to: "/app/home-care", label: "Home Care", icon: HomeIcon, feature: "home_care", status: "beta" },
 
-      { to: "/app/marketing", label: "Marketing", icon: Megaphone, feature: "marketing" },
+      { to: "/app/marketing", label: "Marketing", icon: Megaphone, feature: "marketing", status: "beta" },
 
-      { to: "/app/diferenciais", label: "Diferenciais", icon: Sparkles },
+      { to: "/app/diferenciais", label: "Diferenciais", icon: Sparkles, status: "beta" },
 
       { to: "/app/profissionais", label: "Profissionais", icon: UserCog, adminOnly: true },
 
@@ -259,7 +286,7 @@ export function AppShell({
 
   const user = authUser ?? (authLoading ? initialUser : null);
 
-  const { isAdmin, clinicRole } = useRoles(user?.id);
+  const { isAdmin, clinicRole } = useActiveClinic();
 
   const { isPlatformAdmin } = usePlatformContext();
 
@@ -408,8 +435,8 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  return (
-    <TooltipProvider delayDuration={150}>
+  const appFrame = (
+    <>
       <SupportClickInterceptor />
 
       <div className="min-h-screen flex flex-col">
@@ -596,6 +623,16 @@ export function AppShell({
           </Dialog>
         )}
       </div>
+    </>
+  );
+
+  if (isAdminSaasArea) {
+    return <AdminSaasShell>{appFrame}</AdminSaasShell>;
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      {appFrame}
     </TooltipProvider>
   );
 }

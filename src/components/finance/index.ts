@@ -18,6 +18,8 @@ export {
   FINANCE_ADMIN_TAB_IDS,
 } from "./FinanceAdminSection";
 export { FinanceOperationsGrid } from "./FinanceOperationsGrid";
+export { FinanceHomeSummaryCards } from "./FinanceHomeSummaryCards";
+export { FinanceRecibosPanel } from "./FinanceRecibosPanel";
 export { FinanceOperationCard } from "./FinanceOperationCard";
 export { FinanceFiltersBar } from "./FinanceFiltersBar";
 export { FinanceModuleShell } from "./FinanceModuleShell";
@@ -38,6 +40,7 @@ export {
 export {
   FINANCE_PANEL_ROOT,
   FINANCE_PANEL_ROOT_LOOSE,
+  FINANCE_FILTER_BAR,
   FINANCE_FILTER_GRID,
   FINANCE_TABLE_CARD,
   FINANCE_TABLE_SCROLL,

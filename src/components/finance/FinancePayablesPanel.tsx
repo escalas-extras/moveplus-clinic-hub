@@ -59,6 +59,7 @@ import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
 import {
+  FINANCE_FILTER_BAR,
   FINANCE_FILTER_GRID,
   FINANCE_PANEL_ROOT,
   FINANCE_TABLE,
@@ -386,8 +387,8 @@ export function FinancePayablesPanel({ clinicId, clinicLoading, supportMode }: F
         />
       </FinanceKpiGrid>
 
-      <Card className="min-w-0 max-w-full p-4 space-y-4">
-        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div className={cn(FINANCE_FILTER_BAR, "space-y-2")}>
+        <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div className={cn(FINANCE_FILTER_GRID, "min-w-0 flex-1")}>
             <FilterDate label="Venc. de" value={filters.from} onChange={(v) => setFilters((f) => ({ ...f, from: v }))} />
             <FilterDate label="Venc. até" value={filters.to} onChange={(v) => setFilters((f) => ({ ...f, to: v }))} />
@@ -445,15 +446,15 @@ export function FinancePayablesPanel({ clinicId, clinicLoading, supportMode }: F
           </SupportGuardButton>
         </div>
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9"
+            className="h-9 pl-9"
             placeholder="Pesquisar observação, documento ou profissional…"
             value={filters.search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
           />
         </div>
-      </Card>
+      </div>
 
       {filteredRows.length === 0 ? (
         <EmptyState

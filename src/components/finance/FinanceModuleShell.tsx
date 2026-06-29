@@ -37,7 +37,7 @@ export function FinanceModuleShell({
         ]}
       />
 
-      <ModuleStack className="min-w-0 w-full max-w-full">{children}</ModuleStack>
+      <ModuleStack className="min-w-0 w-full max-w-full space-y-4 sm:space-y-5">{children}</ModuleStack>
     </AppShell>
   );
 }

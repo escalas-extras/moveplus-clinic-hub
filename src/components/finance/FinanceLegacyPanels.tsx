@@ -19,23 +19,14 @@ import {
   printReceiptPdf,
   getStoredReceiptPrintMode,
   type ReceiptPdfData,
-  type ReceiptPrintMode,
 } from "@/lib/receipt-pdf";
-import { ReceiptPrintModeSelector } from "@/components/receipt-print-mode";
 import { invalidateFinanceModuleQueries } from "@/lib/finance";
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS, formatPaymentMethod } from "@/lib/finance";
 import { SupportGuardButton } from "@/components/support-guard";
 import { FinancePanelGate } from "./FinancePanelGate";
 import { FINANCE_TABLE_CARD, FINANCE_TABLE_SCROLL, FINANCE_TABLE } from "./finance-layout";
 
 type Form = { patient_id: string; professional_id: string; data: string; valor: number; forma_pagamento?: any; status: "pago" | "pendente"; observacoes?: string };
-type ReceiptForm = {
-  patient_id: string;
-  financial_entry_id?: string | null;
-  description: string;
-  amount: number;
-  payment_method: "pix" | "dinheiro" | "cartao" | "transferencia";
-  payment_date: string;
-};
 
 function requiredDate(value?: string | null) {
   const v = value?.trim();
@@ -238,7 +229,7 @@ export function FinanceLegacyLancamentosPanel({ clinicId, clinicLoading, support
               <tr key={e.id}>
                 <td className="px-4 py-2 tabular-nums">{fmtDate(e.data)}</td>
                 <td className="px-4 py-2">{e.patients?.nome_completo}</td>
-                <td className="px-4 py-2 hidden md:table-cell">{e.forma_pagamento || "—"}</td>
+                <td className="px-4 py-2 hidden md:table-cell">{formatPaymentMethod(e.forma_pagamento)}</td>
                 <td className="px-4 py-2 text-right tabular-nums">{brl(e.valor)}</td>
                 <td className="px-4 py-2"><span className={"text-xs rounded-full px-2 py-0.5 " + (e.status === "pago" ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground")}>{e.status}</span></td>
                 <td className="px-4 py-2 text-right">
@@ -303,7 +294,7 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
               <Select value={forma} onValueChange={(v) => setValue("forma_pagamento", v)} disabled={disabled}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["pix", "dinheiro", "cartao", "transferencia"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  {PAYMENT_METHOD_OPTIONS.map((f) => <SelectItem key={f} value={f}>{PAYMENT_METHOD_LABELS[f]}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -326,325 +317,5 @@ function NewEntryDialog({ open, setOpen, create, patients, profs, disabled }: an
   );
 }
 
-export function FinanceLegacyRecibosPanel({ clinicId, clinicLoading, supportMode }: { clinicId: string | null; clinicLoading: boolean; supportMode: boolean }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [cancelOf, setCancelOf] = useState<any | null>(null);
-  const [printMode, setPrintMode] = useState<ReceiptPrintMode>(() => getStoredReceiptPrintMode());
-
-  const list = useQuery({
-    queryKey: ["receipts", clinicId],
-    enabled: !!clinicId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("receipts")
-        .select("id, numero, data, valor, forma_pagamento, description, status, cancelled_at, cancellation_reason, created_at, patient_id, professional_id, financial_entry_id, patients(nome_completo, cpf, responsavel), professionals(nome, profissao, conselho, registro)")
-        .eq("clinic_id", clinicId!)
-        .order("numero", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const patients = useQuery({
-    queryKey: ["patients-all", clinicId],
-    enabled: !!clinicId,
-    queryFn: async () => (await supabase.from("patients").select("id, nome_completo, cpf, responsavel").eq("clinic_id", clinicId!).order("nome_completo")).data ?? [],
-  });
-
-  const create = useMutation({
-    mutationFn: async (v: ReceiptForm) => {
-      if (!clinicId) throw new Error("Clínica ativa não identificada.");
-      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
-      const { data: u } = await supabase.auth.getUser();
-      const payload: any = {
-        clinic_id: clinicId,
-        patient_id: requiredText(v.patient_id, "Paciente"),
-        financial_entry_id: v.financial_entry_id || null,
-        description: requiredText(v.description, "Descrição"),
-        valor: requiredAmount(v.amount),
-        data: requiredDate(v.payment_date),
-        forma_pagamento: v.payment_method,
-        created_by: u.user?.id ?? null,
-      };
-      if (!payload.data) throw new Error("Data de pagamento é obrigatória.");
-      const { data, error } = await supabase.from("receipts").insert(payload).select("numero").single();
-      if (error) throw error;
-      return data!.numero as number;
-    },
-    onSuccess: async (numero, v) => {
-      toast.success(`Recibo nº ${numero} emitido`);
-      setOpen(false);
-      const pat = (patients.data ?? []).find((p: any) => p.id === v.patient_id);
-      await renderReceiptPdf({
-        numero,
-        patientName: pat?.nome_completo,
-        patientCpf: pat?.cpf,
-        responsavelFinanceiro: pat?.responsavel,
-        description: v.description,
-        serviceLabel: v.description,
-        amount: v.amount,
-        payment_method: v.payment_method,
-        payment_date: v.payment_date,
-        issued_at: new Date().toISOString(),
-        clinicId,
-        printMode,
-      }, "download");
-      qc.invalidateQueries({ queryKey: ["receipts", clinicId] });
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const cancel = useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      if (!clinicId) throw new Error("Clínica ativa não identificada.");
-      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
-      const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("receipts")
-        .update({ status: "cancelado", cancelled_at: new Date().toISOString(), cancelled_by: u.user?.id, cancellation_reason: reason } as any)
-        .eq("id", id)
-        .eq("clinic_id", clinicId)
-        .neq("status", "cancelado");
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Recibo cancelado"); setCancelOf(null); qc.invalidateQueries({ queryKey: ["receipts", clinicId] }); },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  async function reprint(r: any, mode: "preview" | "download" | "print") {
-    await renderReceiptPdf({
-      numero: r.numero,
-      patientName: r.patients?.nome_completo,
-      patientCpf: r.patients?.cpf,
-      responsavelFinanceiro: r.patients?.responsavel,
-      description: r.description ?? "Atendimento",
-      serviceLabel: r.description ?? "atendimento fisioterapêutico",
-      amount: Number(r.valor),
-      payment_method: r.forma_pagamento ?? "—",
-      payment_date: r.data,
-      issued_at: r.created_at,
-      professional: r.professionals,
-      cancelled: r.status === "cancelado",
-      cancellation_reason: r.cancellation_reason,
-      clinicId,
-      printMode,
-    }, mode);
-  }
-
-
-  return (
-    <FinancePanelGate
-      clinicId={clinicId}
-      clinicLoading={clinicLoading}
-      loading={list.isLoading || patients.isLoading}
-      error={list.error ?? patients.error}
-      onRetry={() => {
-        void list.refetch();
-        void patients.refetch();
-      }}
-      loadingLabel="Carregando recibos…"
-      errorFallback="Não foi possível carregar os recibos."
-    >
-    <>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <ReceiptPrintModeSelector value={printMode} onChange={setPrintMode} className="rounded-lg border bg-muted/30 p-4" />
-        <SupportGuardButton supportMode={supportMode} onClick={() => setOpen(true)} tooltip="Novo recibo bloqueado no Modo Suporte">
-          <Plus className="h-4 w-4 mr-2" />Novo recibo
-        </SupportGuardButton>
-      </div>
-      <NewReceiptDialog
-        open={open}
-        setOpen={setOpen}
-        create={create}
-        patients={patients.data ?? []}
-        disabled={supportMode}
-        clinicId={clinicId}
-        printMode={printMode}
-        onPrintModeChange={setPrintMode}
-      />
-
-      <Card className={FINANCE_TABLE_CARD}>
-        <div className={FINANCE_TABLE_SCROLL}>
-        <table className={FINANCE_TABLE}>
-          <thead className="bg-muted/60">
-            <tr className="text-left">
-              <th className="px-4 py-3">Nº</th>
-              <th className="px-4 py-3">Data</th>
-              <th className="px-4 py-3">Paciente</th>
-              <th className="px-4 py-3 hidden md:table-cell">Descrição</th>
-              <th className="px-4 py-3 text-right">Valor</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {list.data?.map((r: any) => (
-              <tr key={r.id} className={r.status === "cancelado" ? "opacity-60" : ""}>
-                <td className="px-4 py-2 tabular-nums font-semibold">#{r.numero}</td>
-                <td className="px-4 py-2 tabular-nums">{fmtDate(r.data)}</td>
-                <td className="px-4 py-2">{r.patients?.nome_completo ?? "—"}</td>
-                <td className="px-4 py-2 hidden md:table-cell text-muted-foreground truncate max-w-[260px]">{r.description ?? "—"}</td>
-                <td className="px-4 py-2 text-right tabular-nums">{brl(r.valor)}</td>
-                <td className="px-4 py-2">
-                  {r.status === "cancelado"
-                    ? <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">Cancelado</Badge>
-                    : <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Ativo</Badge>}
-                </td>
-                <td className="px-4 py-2 text-right">
-                  <div className="inline-flex flex-wrap justify-end gap-1">
-                    <Button size="sm" variant="outline" onClick={() => reprint(r, "preview")}><Eye className="h-3 w-3 mr-1" />Ver</Button>
-                    <Button size="sm" variant="outline" onClick={() => reprint(r, "download")}><FileDown className="h-3 w-3 mr-1" />Baixar</Button>
-                    <Button size="sm" variant="outline" onClick={() => reprint(r, "print")}><Printer className="h-3 w-3 mr-1" />Imprimir</Button>
-                    {r.status !== "cancelado" && (
-                      <SupportGuardButton size="sm" variant="outline" supportMode={supportMode} onClick={() => setCancelOf(r)} tooltip="Cancelar recibo bloqueado no Modo Suporte" className="text-rose-600 hover:text-rose-700">
-                        <XCircle className="h-3 w-3 mr-1" />Cancelar
-                      </SupportGuardButton>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-        {!list.data?.length && <div className="p-8 text-center text-sm text-muted-foreground">Sem recibos emitidos.</div>}
-      </Card>
-
-      <CancelReceiptDialog
-        receipt={cancelOf}
-        onClose={() => setCancelOf(null)}
-        onConfirm={(reason) => cancelOf && cancel.mutate({ id: cancelOf.id, reason })}
-        pending={cancel.isPending}
-      />
-    </>
-    </FinancePanelGate>
-  );
-}
-
-function NewReceiptDialog({ open, setOpen, create, patients, disabled, clinicId, printMode, onPrintModeChange }: any) {
-  const { register, handleSubmit, setValue, watch, reset } = useForm<ReceiptForm>({
-    defaultValues: {
-      payment_date: new Date().toISOString().slice(0, 10),
-      payment_method: "pix",
-      description: "Atendimento fisioterapêutico",
-    },
-  });
-  const patient_id = watch("patient_id");
-  const payment_method = watch("payment_method");
-  const financial_entry_id = watch("financial_entry_id");
-
-  // Lançamentos do paciente selecionado (opcional)
-  const entries = useQuery({
-    queryKey: ["fin-by-patient", clinicId, patient_id],
-    enabled: !!clinicId && !!patient_id,
-    queryFn: async () => (await supabase
-      .from("financial_entries")
-      .select("id, data, valor, forma_pagamento, status")
-      .eq("clinic_id", clinicId!)
-      .eq("entry_type", "receivable")
-      .eq("patient_id", patient_id)
-      .neq("status", "cancelado")
-      .order("data", { ascending: false })
-      .limit(50)).data ?? [],
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Emitir recibo</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit((v) => create.mutate(v))} className="space-y-3">
-          <div>
-            <Label className="text-xs uppercase">Paciente</Label>
-            <Select value={patient_id ?? ""} onValueChange={(v) => { setValue("patient_id", v); setValue("financial_entry_id", null); }} disabled={disabled}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>{patients.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome_completo}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-xs uppercase">Vincular a lançamento (opcional)</Label>
-            <Select
-              value={financial_entry_id ?? "none"}
-              onValueChange={(v) => setValue("financial_entry_id", v === "none" ? null : v)}
-              disabled={disabled || !patient_id}
-            >
-              <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhum</SelectItem>
-                {(entries.data ?? []).map((e: any) => (
-                  <SelectItem key={e.id} value={e.id}>{fmtDate(e.data)} — {brl(e.valor)} ({e.status})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-xs uppercase">Descrição do serviço</Label>
-            <Textarea rows={2} {...register("description", { required: true })} disabled={disabled} />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-xs uppercase">Valor</Label>
-              <Input type="number" step="0.01" min="0.01" {...register("amount", { valueAsNumber: true, required: true })} disabled={disabled} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Data</Label>
-              <Input type="date" {...register("payment_date", { required: true })} disabled={disabled} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Forma</Label>
-              <Select value={payment_method} onValueChange={(v) => setValue("payment_method", v as any)} disabled={disabled}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["pix", "dinheiro", "cartao", "transferencia"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <ReceiptPrintModeSelector value={printMode} onChange={onPrintModeChange} compact />
-
-          <DialogFooter>
-            <Button type="submit" disabled={disabled || create.isPending || !patient_id}>Emitir recibo</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CancelReceiptDialog({ receipt, onClose, onConfirm, pending }: { receipt: any | null; onClose: () => void; onConfirm: (reason: string) => void; pending: boolean }) {
-  const [reason, setReason] = useState("");
-  const open = !!receipt;
-  return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setReason(""); } }}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Cancelar recibo nº {receipt?.numero}</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            O recibo será marcado como <strong>cancelado</strong> e preservado no histórico.
-            Esta ação não pode ser desfeita.
-          </p>
-          <div>
-            <Label className="text-xs uppercase">Motivo do cancelamento</Label>
-            <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Informe o motivo…" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { onClose(); setReason(""); }}>Voltar</Button>
-          <Button
-            variant="destructive"
-            disabled={pending || reason.trim().length < 3}
-            onClick={() => { onConfirm(reason.trim()); setReason(""); }}
-          >
-            Confirmar cancelamento
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+export { FinanceRecibosPanel as FinanceLegacyRecibosPanel } from "./FinanceRecibosPanel";
 

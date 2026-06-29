@@ -2148,9 +2148,12 @@ export type Database = {
       financial_entries: {
         Row: {
           appointment_id: string | null
+          boleto_link: string | null
+          boleto_nosso_numero: string | null
           category_id: string | null
           clinic_id: string | null
           collection_notes: string | null
+          comprovante_url: string | null
           cost_center_id: string | null
           created_at: string
           created_by: string | null
@@ -2168,16 +2171,21 @@ export type Database = {
           observacoes: string | null
           patient_health_insurance_id: string | null
           patient_id: string | null
+          pix_chave: string | null
           professional_id: string | null
+          recebido_por: string | null
           status: Database["public"]["Enums"]["payment_status"]
           updated_at: string
           valor: number
         }
         Insert: {
           appointment_id?: string | null
+          boleto_link?: string | null
+          boleto_nosso_numero?: string | null
           category_id?: string | null
           clinic_id?: string | null
           collection_notes?: string | null
+          comprovante_url?: string | null
           cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2195,16 +2203,21 @@ export type Database = {
           observacoes?: string | null
           patient_health_insurance_id?: string | null
           patient_id: string | null
+          pix_chave?: string | null
           professional_id: string | null
+          recebido_por?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
           valor: number
         }
         Update: {
           appointment_id?: string | null
+          boleto_link?: string | null
+          boleto_nosso_numero?: string | null
           category_id?: string | null
           clinic_id?: string | null
           collection_notes?: string | null
+          comprovante_url?: string | null
           cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2222,7 +2235,9 @@ export type Database = {
           observacoes?: string | null
           patient_health_insurance_id?: string | null
           patient_id?: string
+          pix_chave?: string | null
           professional_id?: string
+          recebido_por?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
           valor?: number
@@ -3982,7 +3997,7 @@ export type Database = {
         | "post_social"
         | "pop"
       library_scope: "global" | "clinic" | "shared"
-      payment_method: "pix" | "dinheiro" | "cartao" | "transferencia"
+      payment_method: "pix" | "boleto" | "dinheiro" | "cartao" | "transferencia" | "outro"
       payment_status: "pago" | "pendente" | "cancelado"
       patient_package_status: "ativo" | "encerrado" | "cancelado"
       patient_package_usage_status: "active" | "reversed"
@@ -4182,7 +4197,7 @@ export const Constants = {
         "pop",
       ],
       library_scope: ["global", "clinic", "shared"],
-      payment_method: ["pix", "dinheiro", "cartao", "transferencia"],
+      payment_method: ["pix", "boleto", "dinheiro", "cartao", "transferencia", "outro"],
       payment_status: ["pago", "pendente", "cancelado"],
       patient_package_status: ["ativo", "encerrado", "cancelado"],
       patient_package_usage_status: ["active", "reversed"],

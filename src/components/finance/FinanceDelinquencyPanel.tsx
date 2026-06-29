@@ -60,6 +60,7 @@ import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinancePanelGate } from "./FinancePanelGate";
 import {
+  FINANCE_FILTER_BAR,
   FINANCE_FILTER_GRID,
   FINANCE_PANEL_ROOT,
   FINANCE_TABLE,
@@ -283,7 +284,7 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
         />
       </FinanceKpiGrid>
 
-      <Card className="min-w-0 max-w-full p-4">
+      <div className={FINANCE_FILTER_BAR}>
         <div className={FINANCE_FILTER_GRID}>
           <FilterDate
             label="Vencimento de"
@@ -348,7 +349,7 @@ export function FinanceDelinquencyPanel({ clinicId, clinicLoading, supportMode }
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
 
       <PageSection
         title="Recebíveis vencidos"

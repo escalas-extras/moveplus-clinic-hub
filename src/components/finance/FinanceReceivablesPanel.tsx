@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowDownCircle,
   CheckCircle2,
+  Eye,
   Loader2,
   Pencil,
   Plus,
@@ -38,8 +39,10 @@ import { FinanceKpiCard, FinanceKpiGrid } from "./FinanceKpiCard";
 import { StatusBadge } from "@/components/layout/StatusBadge";
 import { SupportGuardButton } from "@/components/support-guard";
 import {
+  BOLETO_INTEGRATION_NOTICE,
   PAYMENT_METHOD_LABELS,
-  RECEIVABLE_STATUS_LABELS,
+  PAYMENT_METHOD_OPTIONS,
+  RECEIVABLE_DISPLAY_STATUS,
   assertFinanceClinicId,
   createFinancialInstallmentPlan,
   computeReceivableSummary,
@@ -47,11 +50,13 @@ import {
   filterActiveCategories,
   filterReceivablesClient,
   financeQueryKeys,
+  formatPaymentMethod,
+  getReceivableDisplayStatus,
   invalidateFinanceModuleQueries,
   isReceivableOverdue,
   parseReceivableForm,
   parseInstallmentOptions,
-  receivableStatusVariant,
+  receivableDisplayStatusVariant,
   type PaymentMethod,
   type PaymentStatus,
   type ReceivableFilters,
@@ -60,8 +65,11 @@ import {
 import { brl, fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FinanceInstallmentPlanDialog } from "./FinanceInstallmentPlanDialog";
+import { FinanceReceiveDialog, type ReceivePaymentPayload } from "./FinanceReceiveDialog";
+import { FinanceReceivableDetailDialog } from "./FinanceReceivableDetailDialog";
 import { FinancePanelGate } from "./FinancePanelGate";
 import {
+  FINANCE_FILTER_BAR,
   FINANCE_FILTER_GRID,
   FINANCE_PANEL_ROOT,
   FINANCE_TABLE,
@@ -85,6 +93,9 @@ type ReceivableFormState = {
   cost_center_id: string;
   documento: string;
   observacoes: string;
+  forma_pagamento: PaymentMethod;
+  boleto_nosso_numero: string;
+  boleto_link: string;
   parcelar: boolean;
   installments_count: string;
   first_due_date: string;
@@ -105,6 +116,9 @@ function emptyForm(): ReceivableFormState {
     cost_center_id: "",
     documento: "",
     observacoes: "",
+    forma_pagamento: "pix",
+    boleto_nosso_numero: "",
+    boleto_link: "",
     parcelar: false,
     installments_count: "2",
     first_due_date: today,
@@ -121,11 +135,10 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
   const [filters, setFilters] = useState<ReceivableFilters>(() => defaultReceivableFilters());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveTarget, setReceiveTarget] = useState<ReceivableRow | null>(null);
+  const [detailTarget, setDetailTarget] = useState<ReceivableRow | null>(null);
   const [cancelTarget, setCancelTarget] = useState<ReceivableRow | null>(null);
   const [editing, setEditing] = useState<ReceivableRow | null>(null);
   const [form, setForm] = useState<ReceivableFormState>(emptyForm);
-  const [receiveDate, setReceiveDate] = useState(todayIso());
-  const [receiveMethod, setReceiveMethod] = useState<PaymentMethod>("pix");
   const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const lookups = useQuery({
@@ -173,7 +186,10 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         .order("data_vencimento", { ascending: false })
         .limit(500);
 
-      if (filters.status !== SELECT_ALL) q = q.eq("status", filters.status);
+      if (filters.status !== SELECT_ALL && filters.status !== "vencido") {
+        q = q.eq("status", filters.status);
+      }
+      if (filters.paymentMethod !== SELECT_ALL) q = q.eq("forma_pagamento", filters.paymentMethod);
       if (filters.categoryId !== SELECT_ALL) q = q.eq("category_id", filters.categoryId);
       if (filters.costCenterId !== SELECT_ALL) q = q.eq("cost_center_id", filters.costCenterId);
       if (filters.patientId !== SELECT_ALL) q = q.eq("patient_id", filters.patientId);
@@ -185,10 +201,13 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
     },
   });
 
-  const filteredRows = useMemo(
-    () => filterReceivablesClient(receivables.data ?? [], filters.search),
-    [receivables.data, filters.search],
-  );
+  const filteredRows = useMemo(() => {
+    let rows = filterReceivablesClient(receivables.data ?? [], filters.search);
+    if (filters.status === "vencido") {
+      rows = rows.filter((r) => r.status === "pendente" && isReceivableOverdue(r));
+    }
+    return rows;
+  }, [receivables.data, filters.search, filters.status]);
 
   const summary = useMemo(() => computeReceivableSummary(filteredRows), [filteredRows]);
 
@@ -205,6 +224,18 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         category_id: form.category_id || null,
         cost_center_id: form.cost_center_id || null,
       });
+
+      const paymentExtras =
+        parsed.forma_pagamento === "boleto"
+          ? {
+              boleto_nosso_numero: form.boleto_nosso_numero.trim() || null,
+              boleto_link: form.boleto_link.trim() || null,
+            }
+          : {
+              boleto_nosso_numero: null,
+              boleto_link: null,
+            };
+
       const { data: u } = await supabase.auth.getUser();
 
       const payload = {
@@ -219,6 +250,8 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         cost_center_id: parsed.cost_center_id,
         documento: parsed.documento,
         observacoes: parsed.observacoes,
+        forma_pagamento: parsed.forma_pagamento as PaymentMethod,
+        ...paymentExtras,
       };
 
       if (editing) {
@@ -280,16 +313,27 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
   });
 
   const markReceived = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: ReceivePaymentPayload) => {
       assertFinanceClinicId(clinicId);
       if (!receiveTarget) return;
       if (supportMode) throw new Error("Modo Suporte ativo: somente leitura. Encerre a sessão para fazer alterações.");
+
+      const obsAppend = payload.observacao?.trim();
+      const mergedObs =
+        obsAppend && receiveTarget.observacoes
+          ? `${receiveTarget.observacoes}\n${obsAppend}`
+          : obsAppend || receiveTarget.observacoes;
+
       const { error } = await supabase
         .from("financial_entries")
         .update({
           status: "pago",
-          data_recebimento: receiveDate,
-          forma_pagamento: receiveMethod,
+          data_recebimento: payload.receiveDate,
+          forma_pagamento: payload.receiveMethod,
+          pix_chave: payload.pix_chave,
+          comprovante_url: payload.comprovante_url,
+          recebido_por: payload.recebido_por,
+          observacoes: mergedObs,
         })
         .eq("id", receiveTarget.id)
         .eq("clinic_id", clinicId)
@@ -313,7 +357,9 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         .update({
           status: "pendente",
           data_recebimento: null,
-          forma_pagamento: null,
+          pix_chave: null,
+          comprovante_url: null,
+          recebido_por: null,
         })
         .eq("id", row.id)
         .eq("clinic_id", clinicId)
@@ -366,6 +412,9 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
       cost_center_id: row.cost_center_id ?? "",
       documento: row.documento ?? "",
       observacoes: row.observacoes ?? "",
+      forma_pagamento: row.forma_pagamento ?? "pix",
+      boleto_nosso_numero: row.boleto_nosso_numero ?? "",
+      boleto_link: row.boleto_link ?? "",
       parcelar: false,
       installments_count: "2",
       first_due_date: row.data_vencimento ?? row.data,
@@ -423,20 +472,30 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         />
       </FinanceKpiGrid>
 
-      <Card className="min-w-0 max-w-full p-4 space-y-4">
-        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <div className={cn(FINANCE_FILTER_BAR, "space-y-2")}>
+        <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div className={cn(FINANCE_FILTER_GRID, "min-w-0 flex-1")}>
             <FilterDate label="Venc. de" value={filters.from} onChange={(v) => setFilters((f) => ({ ...f, from: v }))} />
             <FilterDate label="Venc. até" value={filters.to} onChange={(v) => setFilters((f) => ({ ...f, to: v }))} />
             <FilterSelect
               label="Status"
               value={filters.status}
-              onChange={(v) => setFilters((f) => ({ ...f, status: v as PaymentStatus | "all" }))}
+              onChange={(v) => setFilters((f) => ({ ...f, status: v as ReceivableFilters["status"] }))}
               options={[
                 { value: SELECT_ALL, label: "Todos" },
-                { value: "pendente", label: RECEIVABLE_STATUS_LABELS.pendente },
-                { value: "pago", label: RECEIVABLE_STATUS_LABELS.pago },
-                { value: "cancelado", label: RECEIVABLE_STATUS_LABELS.cancelado },
+                { value: "pendente", label: RECEIVABLE_DISPLAY_STATUS.aberto },
+                { value: "pago", label: RECEIVABLE_DISPLAY_STATUS.recebido },
+                { value: "vencido", label: RECEIVABLE_DISPLAY_STATUS.vencido },
+                { value: "cancelado", label: RECEIVABLE_DISPLAY_STATUS.cancelado },
+              ]}
+            />
+            <FilterSelect
+              label="Forma de recebimento"
+              value={filters.paymentMethod}
+              onChange={(v) => setFilters((f) => ({ ...f, paymentMethod: v as PaymentMethod | "all" }))}
+              options={[
+                { value: SELECT_ALL, label: "Todas" },
+                ...PAYMENT_METHOD_OPTIONS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] })),
               ]}
             />
             <FilterSelect
@@ -482,15 +541,15 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
           </SupportGuardButton>
         </div>
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9"
+            className="h-9 pl-9"
             placeholder="Pesquisar paciente, observação ou documento…"
             value={filters.search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
           />
         </div>
-      </Card>
+      </div>
 
       {filteredRows.length === 0 ? (
         <EmptyState
@@ -509,6 +568,7 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
                   <th className="px-4 py-3">Paciente</th>
                   <th className="px-4 py-3 hidden lg:table-cell">Profissional</th>
                   <th className="px-4 py-3 hidden md:table-cell">Categoria</th>
+                  <th className="px-4 py-3 hidden lg:table-cell">Forma</th>
                   <th className="px-4 py-3 text-right">Valor</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -546,14 +606,21 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
                       <td className="px-4 py-2 hidden md:table-cell text-muted-foreground">
                         {row.financial_categories?.name ?? "—"}
                       </td>
+                      <td className="px-4 py-2 hidden lg:table-cell text-muted-foreground">
+                        {formatPaymentMethod(row.forma_pagamento)}
+                      </td>
                       <td className="px-4 py-2 text-right tabular-nums font-medium">{brl(row.valor)}</td>
                       <td className="px-4 py-2">
-                        <StatusBadge variant={receivableStatusVariant(row.status)}>
-                          {RECEIVABLE_STATUS_LABELS[row.status]}
+                        <StatusBadge variant={receivableDisplayStatusVariant(getReceivableDisplayStatus(row))}>
+                          {RECEIVABLE_DISPLAY_STATUS[getReceivableDisplayStatus(row)]}
                         </StatusBadge>
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex justify-end flex-wrap gap-1">
+                          <Button size="sm" variant="outline" onClick={() => setDetailTarget(row)}>
+                            <Eye className="h-3 w-3 mr-1" />
+                            Detalhe
+                          </Button>
                           {row.installment_plan_id && (
                             <Button
                               size="sm"
@@ -581,11 +648,7 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
                                 size="sm"
                                 variant="outline"
                                 supportMode={supportMode}
-                                onClick={() => {
-                                  setReceiveTarget(row);
-                                  setReceiveDate(todayIso());
-                                  setReceiveMethod("pix");
-                                }}
+                                onClick={() => setReceiveTarget(row)}
                                 tooltip="Registrar recebimento bloqueado no Modo Suporte"
                               >
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -653,39 +716,18 @@ export function FinanceReceivablesPanel({ clinicId, clinicLoading, supportMode }
         supportMode={supportMode}
       />
 
-      <Dialog open={!!receiveTarget} onOpenChange={(o) => !o && setReceiveTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar recebimento</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {receiveTarget?.patients?.nome_completo} — {brl(receiveTarget?.valor ?? 0)}
-            </p>
-            <div>
-              <Label className="text-xs uppercase">Data do recebimento</Label>
-              <Input type="date" value={receiveDate} onChange={(e) => setReceiveDate(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs uppercase">Forma de pagamento</Label>
-              <Select value={receiveMethod} onValueChange={(v) => setReceiveMethod(v as PaymentMethod)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
-                    <SelectItem key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReceiveTarget(null)}>Voltar</Button>
-            <Button onClick={() => markReceived.mutate()} disabled={markReceived.isPending || supportMode}>
-              Confirmar recebimento
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FinanceReceiveDialog
+        open={!!receiveTarget}
+        onOpenChange={(o) => !o && setReceiveTarget(null)}
+        patientLabel={receiveTarget?.patients?.nome_completo ?? "—"}
+        amountLabel={brl(receiveTarget?.valor ?? 0)}
+        initialMethod={receiveTarget?.forma_pagamento ?? "pix"}
+        onConfirm={(payload) => markReceived.mutate(payload)}
+        pending={markReceived.isPending}
+        supportMode={supportMode}
+      />
+
+      <FinanceReceivableDetailDialog row={detailTarget} onClose={() => setDetailTarget(null)} />
 
       <Dialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
         <DialogContent>
@@ -814,6 +856,48 @@ function ReceivableFormDialog({
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <Label className="text-xs uppercase">Forma de recebimento *</Label>
+            <Select
+              value={form.forma_pagamento}
+              onValueChange={(v) => setForm({ ...form, forma_pagamento: v as PaymentMethod })}
+              disabled={readOnly}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_METHOD_OPTIONS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {PAYMENT_METHOD_LABELS[m]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {form.forma_pagamento === "boleto" && (
+            <div className="space-y-3 rounded-lg border border-amber-200/80 bg-amber-50/50 p-3">
+              <p className="text-xs text-amber-900">{BOLETO_INTEGRATION_NOTICE}</p>
+              <div>
+                <Label className="text-xs uppercase">Nosso número / referência</Label>
+                <Input
+                  value={form.boleto_nosso_numero}
+                  onChange={(e) => setForm({ ...form, boleto_nosso_numero: e.target.value })}
+                  disabled={readOnly}
+                  placeholder="Referência do boleto"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase">Link do boleto (opcional)</Label>
+                <Input
+                  value={form.boleto_link}
+                  onChange={(e) => setForm({ ...form, boleto_link: e.target.value })}
+                  disabled={readOnly}
+                  placeholder="https://…"
+                />
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs uppercase">Valor</Label>

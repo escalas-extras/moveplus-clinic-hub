@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { FolderTree, Landmark, Receipt, ScrollText, Settings2 } from "lucide-react";
+import { FolderTree, Landmark, ScrollText, Settings2 } from "lucide-react";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -8,7 +8,6 @@ import {
   FinanceCategoriesPanel,
   FinanceCostCentersPanel,
   FinanceLegacyLancamentosPanel,
-  FinanceLegacyRecibosPanel,
 } from "@/components/finance";
 
 export const Route = createFileRoute("/_authenticated/app/financeiro/administracao")({
@@ -22,7 +21,7 @@ function FinanceAdministracaoPage() {
   return (
     <FinanceModuleShell
       title="Administração Financeira"
-      description="Categorias, centros de custo, lançamentos legados e recibos."
+      description="Categorias, centros de custo e lançamentos legados."
       breadcrumb="Administração"
       icon={Settings2}
     >
@@ -39,10 +38,6 @@ function FinanceAdministracaoPage() {
           <TabsTrigger value="lancamentos" className="gap-1.5 text-xs">
             <ScrollText className="h-3.5 w-3.5" />
             Lançamentos v1
-          </TabsTrigger>
-          <TabsTrigger value="recibos" className="gap-1.5 text-xs">
-            <Receipt className="h-3.5 w-3.5" />
-            Recibos
           </TabsTrigger>
         </TabsList>
 
@@ -62,13 +57,6 @@ function FinanceAdministracaoPage() {
         </TabsContent>
         <TabsContent value="lancamentos" className="mt-0 min-w-0">
           <FinanceLegacyLancamentosPanel
-            clinicId={clinicId}
-            clinicLoading={clinicLoading}
-            supportMode={supportMode}
-          />
-        </TabsContent>
-        <TabsContent value="recibos" className="mt-0 min-w-0">
-          <FinanceLegacyRecibosPanel
             clinicId={clinicId}
             clinicLoading={clinicLoading}
             supportMode={supportMode}

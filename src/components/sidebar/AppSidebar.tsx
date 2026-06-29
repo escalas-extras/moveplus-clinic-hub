@@ -31,6 +31,7 @@ export type SidebarNavItemDef = {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
+  status?: "beta" | "legacy";
 };
 
 export type SidebarNavGroup = {
@@ -193,6 +194,7 @@ function SidebarNavItem({
   exact,
   icon: Icon,
   label,
+  status,
   collapsed,
   onClick,
 }: SidebarNavItemDef & { collapsed: boolean; onClick: () => void }) {
@@ -237,7 +239,23 @@ function SidebarNavItem({
         )}
         strokeWidth={active ? 2.25 : 1.75}
       />
-      {!collapsed && <span className="truncate flex-1">{label}</span>}
+      {!collapsed && (
+        <>
+          <span className="truncate flex-1">{label}</span>
+          {status && (
+            <span
+              className={cn(
+                "ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em]",
+                status === "beta"
+                  ? "bg-amber-400/16 text-amber-100 ring-1 ring-amber-300/25"
+                  : "bg-slate-400/14 text-slate-200 ring-1 ring-white/10",
+              )}
+            >
+              {status === "beta" ? "Beta" : "Legado"}
+            </span>
+          )}
+        </>
+      )}
     </Link>
   );
 

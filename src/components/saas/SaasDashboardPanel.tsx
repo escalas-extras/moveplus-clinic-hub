@@ -3,33 +3,41 @@ import {
   Activity,
   AlertTriangle,
   Building2,
-  Clock,
-  DollarSign,
+  CalendarPlus,
+  Download,
   FlaskConical,
+  HeartPulse,
   History,
   Power,
+  Receipt,
+  TrendingUp,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ModuleStack } from "@/components/ui-system";
 import {
-  PageHero,
-  ModuleStack,
-  OperationalCard,
-  OperationalCardsGrid,
-  QuickAction,
-  ActionButton,
-} from "@/components/ui-system";
-import { AttentionList } from "@/components/dashboard/AttentionList";
-import { ClinicalSkeleton, InfoCard, StatusBadge } from "@/components/layout";
+  ClinicalSkeleton,
+  EmptyState,
+  InfoCard,
+  KpiCard,
+  KpiGrid,
+  OutlineActionButton,
+  PageHeader,
+  PageSection,
+  PrimaryActionButton,
+} from "@/components/layout";
 import {
-  SAAS_NAV_ITEMS,
   SAAS_PLATFORM,
-  SAAS_TRIAL_EXPIRY_DAYS,
-  auditToAttentionItems,
+  buildExecutiveAttentionItems,
+  buildExecutiveAuditGroups,
   formatSaasMoney,
+  getExecutiveSoonMonitors,
+  totalPlansSold,
   type SaasDashboardData,
   type SaasNavTarget,
 } from "@/lib/saas";
+import { SaasAttentionPanel, SaasAuditPanel, SaasMetricRow } from "./SaasExecutiveSections";
 
 type SaasDashboardPanelProps = {
   data: SaasDashboardData;
@@ -39,204 +47,232 @@ type SaasDashboardPanelProps = {
 };
 
 export function SaasDashboardPanel({ data, onNavigate, onOpenAudit, onNewClinic }: SaasDashboardPanelProps) {
-  const dateLabel = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const attentionItems = useMemo(() => buildExecutiveAttentionItems(data), [data]);
+  const soonMonitors = useMemo(() => getExecutiveSoonMonitors(), []);
+  const auditGroups = useMemo(() => buildExecutiveAuditGroups(data.recent_access), [data.recent_access]);
+  const plansSold = totalPlansSold(data);
 
-  const attentionItems = useMemo(() => {
-    const auditItems = auditToAttentionItems(data.recent_access).map((item) => ({
-      ...item,
-      icon: History,
-      to: "/app/admin-saas",
-    }));
-    if (data.trials_expiring > 0) {
-      auditItems.unshift({
-        id: "trials-expiring",
-        icon: AlertTriangle,
-        title: `${data.trials_expiring} trial(s) vencendo em ${SAAS_TRIAL_EXPIRY_DAYS} dias`,
-        subtitle: "Revisar conversão ou extensão",
-        meta: "Atenção",
-        tone: "warning" as const,
-        to: "/app/admin-saas",
-      });
-    }
-    return auditItems.slice(0, 8);
-  }, [data.recent_access, data.trials_expiring]);
-
-  const navQuickItems = SAAS_NAV_ITEMS.map((item) => ({
-    label: item.label,
-    icon: item.icon,
-    to: "/app/admin-saas",
-  }));
+  const notifySoon = (label: string) => {
+    toast.info(`${label} — em breve.`);
+  };
 
   return (
-    <ModuleStack className="saas-platform space-y-3 sm:space-y-4">
-      <PageHero
-        className="saas-platform-hero"
-        title="Painel SaaS"
-        clinicName={SAAS_PLATFORM.eyebrow}
-        dateLabel={dateLabel}
-        primaryColor={SAAS_PLATFORM.primaryColor}
-        secondaryColor={SAAS_PLATFORM.secondaryColor}
-        chips={[
-          { label: "clínicas", value: data.clinics.total_all },
-          { label: "pagantes", value: data.paid_clients },
-          { label: "MRR", value: formatSaasMoney(data.mrr) },
-        ]}
+    <ModuleStack className="saas-platform space-y-4 sm:space-y-5">
+      <PageHeader
+        eyebrow={SAAS_PLATFORM.eyebrow}
+        icon={Building2}
+        title="Painel Executivo SaaS"
+        description="Gestão da plataforma FisioOS."
         actions={
-          onNewClinic ? (
-            <ActionButton
-              className="h-9 px-3.5 text-sm"
-              style={{ background: SAAS_PLATFORM.primaryColor }}
-              onClick={onNewClinic}
-            >
-              <Building2 className="h-4 w-4" />
-              Nova clínica
-            </ActionButton>
-          ) : undefined
+          <>
+            {onNewClinic && (
+              <PrimaryActionButton className="h-9 px-3 text-xs" onClick={onNewClinic}>
+                <Building2 className="mr-1.5 h-3.5 w-3.5" />
+                Nova Clínica
+              </PrimaryActionButton>
+            )}
+            <OutlineActionButton className="h-9 px-3 text-xs" onClick={() => notifySoon("Nova Assinatura")}>
+              <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+              Nova Assinatura
+            </OutlineActionButton>
+            <OutlineActionButton className="h-9 px-3 text-xs" onClick={() => notifySoon("Exportar Dados")}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Exportar Dados
+            </OutlineActionButton>
+          </>
         }
       />
 
-      <OperationalCardsGrid className="xl:grid-cols-4">
-        <OperationalCard
-          compact
-          title="Total de clínicas"
-          icon={Building2}
-          value={data.clinics.total_all}
-          context={`${data.clinics.test} sandbox · ${data.clinics.total} produção`}
-          accent={SAAS_PLATFORM.primaryColor}
-          onClick={() => onNavigate("clinics")}
-        />
-        <OperationalCard
-          compact
-          title="Clínicas ativas"
+      <div className="space-y-3">
+        <KpiGrid columns={4} className="gap-2.5 lg:gap-3">
+          <KpiCard
+            icon={Activity}
+            label="Clínicas Ativas"
+            value={data.clinics.active}
+            subtitle={`${data.clinics.total} produção`}
+            hideDelta
+            variant="premium"
+            accent={SAAS_PLATFORM.primaryColor}
+          />
+          <KpiCard
+            icon={Receipt}
+            label="MRR"
+            value={formatSaasMoney(data.mrr)}
+            subtitle={`Ticket ${formatSaasMoney(data.avg_ticket)}`}
+            hideDelta
+            variant="premium"
+            accent="#059669"
+          />
+          <KpiCard
+            icon={TrendingUp}
+            label="ARR"
+            value={formatSaasMoney(data.arr)}
+            subtitle="Projeção anual"
+            hideDelta
+            variant="premium"
+            accent="#0d9488"
+          />
+          <KpiCard
+            icon={HeartPulse}
+            label="Health Médio"
+            value="Em breve"
+            subtitle="Disponível na aba Comercial"
+            hideDelta
+            variant="premium"
+            accent="#6366f1"
+            isPlaceholder
+          />
+        </KpiGrid>
+
+        <section
+          aria-label="Indicadores operacionais"
+          className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5 lg:gap-3"
+        >
+          <KpiCard
+            icon={FlaskConical}
+            label="Trials"
+            value={data.trial_count}
+            subtitle={`${data.trials_expiring} vencendo`}
+            hideDelta
+            variant="premium"
+            accent={SAAS_PLATFORM.secondaryColor}
+            tone={data.trials_expiring > 0 ? "warning" : "default"}
+          />
+          <KpiCard
+            icon={Power}
+            label="Suspensas"
+            value={data.clinics.suspended}
+            subtitle={`${data.clinics.inactive} inativa(s)`}
+            hideDelta
+            variant="premium"
+            accent="#e11d48"
+            tone={data.clinics.suspended > 0 ? "warning" : "default"}
+          />
+          <KpiCard
+            icon={CalendarPlus}
+            label="Novas este mês"
+            value={data.growth.at(-1)?.count ?? data.clinics.new_30d}
+            subtitle="Cadastros produção"
+            hideDelta
+            variant="premium"
+            accent="#3b82f6"
+          />
+          <KpiCard
+            icon={Users}
+            label="Usuários"
+            value={data.users.total}
+            subtitle="Membros ativos"
+            hideDelta
+            variant="premium"
+            accent="#8b5cf6"
+          />
+          <KpiCard
+            icon={Building2}
+            label="Pacientes"
+            value={data.patients.total}
+            subtitle="Base consolidada"
+            hideDelta
+            variant="premium"
+            accent="#0891b2"
+          />
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <PageSection
+          icon={AlertTriangle}
+          title="Necessitam Atenção"
+          description="Alertas operacionais e comerciais derivados do painel."
+          contentClassName="pt-0"
+        >
+          <SaasAttentionPanel items={attentionItems} soonMonitors={soonMonitors} />
+        </PageSection>
+
+        <PageSection
+          icon={Receipt}
+          title="Comercial"
+          description="Receita, planos e movimentações de assinatura."
+          contentClassName="pt-0"
+        >
+          <div className="rounded-xl border bg-card/80 p-3 sm:p-4">
+            <SaasMetricRow label="Receita mensal" value={formatSaasMoney(data.mrr)} hint="MRR estimado" />
+            <SaasMetricRow label="Receita anual" value={formatSaasMoney(data.arr)} hint="ARR projetado" />
+            <SaasMetricRow
+              label="Planos vendidos"
+              value={String(plansSold)}
+              hint={`${data.paid_clients} pagante(s) · ${data.active_plan_contracts} contrato(s)`}
+            />
+            <SaasMetricRow label="Upgrade recente" soon />
+            <SaasMetricRow label="Downgrade recente" soon />
+            <SaasMetricRow label="Cancelamentos" value={String(data.canceled_count)} hint="Contratos cancelados" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <OutlineActionButton className="h-8 px-2.5 text-xs" onClick={() => onNavigate("commercial")}>
+              Ver comercial
+            </OutlineActionButton>
+            <OutlineActionButton className="h-8 px-2.5 text-xs" onClick={() => notifySoon("Cancelar assinatura")}>
+              Cancelar
+            </OutlineActionButton>
+          </div>
+        </PageSection>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <PageSection
           icon={Activity}
-          value={data.clinics.active}
-          context="Produção com status ativo"
-          accent="#059669"
-          onClick={() => onNavigate("clinics")}
-        />
-        <OperationalCard
-          compact
-          title="Clínicas em trial"
-          icon={FlaskConical}
-          value={data.trial_count}
-          context="Contratos em período de teste"
-          accent={SAAS_PLATFORM.secondaryColor}
-          onClick={() => onNavigate("trials")}
-        />
-        <OperationalCard
-          compact
-          title="Clínicas suspensas"
-          icon={Power}
-          value={data.clinics.suspended}
-          context={`${data.clinics.inactive} inativa(s) adicional(is)`}
-          accent="#e11d48"
-          alert={data.clinics.suspended > 0}
-          onClick={() => onNavigate("clinics")}
-        />
-        <OperationalCard
-          compact
-          title="Clientes pagantes"
-          icon={Users}
-          value={data.paid_clients}
-          context="Assinaturas active (produção)"
-          accent="#0d9488"
-          onClick={() => onNavigate("plans")}
-        />
-        <OperationalCard
-          compact
-          title="Receita mensal estimada"
-          icon={DollarSign}
-          value={formatSaasMoney(data.mrr)}
-          context={`Ticket médio ${formatSaasMoney(data.avg_ticket)}`}
-          accent="#059669"
-          onClick={() => onNavigate("plans")}
-        />
-        <OperationalCard
-          compact
-          title="Trials vencendo"
-          icon={Clock}
-          value={data.trials_expiring}
-          context={`Próximos ${SAAS_TRIAL_EXPIRY_DAYS} dias`}
-          accent="#d97706"
-          alert={data.trials_expiring > 0}
-          onClick={() => onNavigate("trials")}
-        />
-        <OperationalCard
-          compact
-          title="Acessos recentes"
+          title="Operacional"
+          description="Uso da plataforma e sinais de adoção."
+          contentClassName="pt-0"
+        >
+          <div className="rounded-xl border bg-card/80 p-3 sm:p-4">
+            <SaasMetricRow
+              label="Documentos emitidos"
+              value={String(data.documents.total)}
+              hint={`${data.documents.this_month} neste mês`}
+            />
+            <SaasMetricRow label="Uploads" soon hint="Arquivos e anexos" />
+            <SaasMetricRow label="Storage" soon hint="Consumo por clínica" />
+            <SaasMetricRow label="Logins" soon hint="Sessões autenticadas" />
+            <SaasMetricRow
+              label="Atividade clínica"
+              value={String(data.documents.this_month)}
+              hint="Documentos no mês corrente"
+            />
+          </div>
+        </PageSection>
+
+        <PageSection
           icon={History}
-          value={data.recent_access.length}
-          context="Últimas ações no audit log"
-          accent={SAAS_PLATFORM.accent}
-          onClick={() => (onOpenAudit ? onOpenAudit() : onNavigate("audit"))}
-        />
-      </OperationalCardsGrid>
-
-      <section aria-label="Módulos SaaS" className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-        {SAAS_NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                if (item.placeholder) {
-                  toast.info(`${item.label} — módulo previsto para próxima sprint.`);
-                  return;
-                }
-                onNavigate(item.id);
-              }}
-              className="saas-nav-card group flex flex-col rounded-2xl border border-indigo-100/80 bg-white/90 p-3.5 text-left shadow-[var(--fos-card-shadow)] transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-[0_8px_24px_-12px_rgba(79,70,229,0.25)]"
+          title="Auditoria"
+          description="Provisionamentos, planos, bloqueios e reativações."
+          actions={
+            <OutlineActionButton
+              className="h-8 px-2.5 text-xs"
+              onClick={() => (onOpenAudit ? onOpenAudit() : onNavigate("audit"))}
             >
-              <div className="flex items-start justify-between gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
-                  <Icon className="h-4 w-4" aria-hidden />
-                </span>
-                {item.placeholder ? (
-                  <StatusBadge variant="neutral" className="text-[10px]">
-                    Em breve
-                  </StatusBadge>
-                ) : null}
-              </div>
-              <p className="mt-2 text-sm font-semibold text-slate-900 group-hover:text-indigo-800">
-                {item.label}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>
-            </button>
-          );
-        })}
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-        <AttentionList
-          items={attentionItems}
-          emptyTitle="Operação estável"
-          emptyDescription="Nenhum trial crítico nem evento recente no audit log."
-          className="saas-attention-list"
-        />
-        <QuickAction
-          className="saas-quick-nav"
-          items={navQuickItems.map((item, idx) => ({
-            ...item,
-            to: item.to,
-            label: SAAS_NAV_ITEMS[idx]?.label ?? item.label,
-          }))}
-        />
+              Ver auditoria
+            </OutlineActionButton>
+          }
+          contentClassName="pt-0"
+        >
+          <SaasAuditPanel groups={auditGroups} />
+        </PageSection>
       </div>
 
       <InfoCard
         icon={Building2}
         title="Últimas clínicas cadastradas"
-        description="Cadastros mais recentes na plataforma."
+        description="Cadastros recentes em produção."
         padded={false}
         className="overflow-hidden"
       >
         {data.recent_clinics.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-muted-foreground">Nenhuma clínica cadastrada.</p>
+          <EmptyState
+            icon={Building2}
+            title="Nenhuma clínica recente"
+            description="Novos provisionamentos aparecerão aqui."
+            className="py-10"
+          />
         ) : (
           <ul className="divide-y divide-slate-100">
             {data.recent_clinics.map((c) => (
@@ -245,11 +281,9 @@ export function SaasDashboardPanel({ data, onNavigate, onOpenAudit, onNewClinic 
                   <p className="truncate text-sm font-medium text-slate-900">{c.nome}</p>
                   <p className="truncate text-xs text-slate-500">/{c.slug ?? "—"}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <StatusBadge variant="neutral">{c.plan ?? "—"}</StatusBadge>
-                  <StatusBadge variant={c.status === "active" ? "success" : "warning"}>
-                    {c.status}
-                  </StatusBadge>
+                <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                  <span>{c.plan ?? "—"}</span>
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">{c.status}</span>
                 </div>
               </li>
             ))}
@@ -261,5 +295,5 @@ export function SaasDashboardPanel({ data, onNavigate, onOpenAudit, onNewClinic 
 }
 
 export function SaasDashboardSkeleton() {
-  return <ClinicalSkeleton variant="dashboard" kpiCount={8} />;
+  return <ClinicalSkeleton variant="dashboard" kpiCount={9} />;
 }
