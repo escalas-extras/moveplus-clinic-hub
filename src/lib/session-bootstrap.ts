@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { getStoredActiveClinicId } from "@/lib/active-clinic-storage";
 
 export type ActiveClinicRole =
   | "owner"
@@ -10,10 +11,19 @@ export type ActiveClinicRole =
   | "financeiro"
   | string;
 
+export type ClinicMembership = {
+  clinicId: string;
+  role: ActiveClinicRole;
+  isDefault: boolean;
+};
+
 export type SessionBootstrap = {
   isSuperAdmin: boolean;
   isPlatformAdmin: boolean;
   hasClinic: boolean;
+  membershipCount: number;
+  needsClinicSelection: boolean;
+  memberships: ClinicMembership[];
   clinicId: string | null;
   clinicRole: ActiveClinicRole | null;
   isOwner: boolean;
@@ -22,6 +32,98 @@ export type SessionBootstrap = {
   supportMode: boolean;
   supportClinicId: string | null;
 };
+
+function resolveActiveMember(
+  members: Array<{ clinic_id: string; role: string; is_default: boolean }>,
+  userId: string,
+  supportClinicId: string | null,
+) {
+  const memberships: ClinicMembership[] = members.map((m) => ({
+    clinicId: m.clinic_id,
+    role: m.role as ActiveClinicRole,
+    isDefault: !!m.is_default,
+  }));
+
+  if (supportClinicId) {
+    const member = members.find((m) => m.clinic_id === supportClinicId) ?? members[0];
+    const role = (member?.role as ActiveClinicRole | undefined) ?? "owner";
+    return {
+      memberships,
+      membershipCount: members.length,
+      needsClinicSelection: false,
+      clinicId: supportClinicId,
+      clinicRole: role,
+      isOwner: true,
+      isAdmin: true,
+      isProfessional: false,
+      supportMode: true,
+      supportClinicId,
+    };
+  }
+
+  if (members.length === 0) {
+    return {
+      memberships,
+      membershipCount: 0,
+      needsClinicSelection: false,
+      clinicId: null,
+      clinicRole: null,
+      isOwner: false,
+      isAdmin: false,
+      isProfessional: false,
+      supportMode: false,
+      supportClinicId: null,
+    };
+  }
+
+  if (members.length === 1) {
+    const m = members[0];
+    const role = m.role as ActiveClinicRole;
+    return {
+      memberships,
+      membershipCount: 1,
+      needsClinicSelection: false,
+      clinicId: m.clinic_id,
+      clinicRole: role,
+      isOwner: role === "owner",
+      isAdmin: role === "owner" || role === "admin",
+      isProfessional: role === "profissional",
+      supportMode: false,
+      supportClinicId: null,
+    };
+  }
+
+  const storedId = getStoredActiveClinicId(userId);
+  const storedMember = storedId ? members.find((m) => m.clinic_id === storedId) : null;
+  if (storedMember) {
+    const role = storedMember.role as ActiveClinicRole;
+    return {
+      memberships,
+      membershipCount: members.length,
+      needsClinicSelection: false,
+      clinicId: storedMember.clinic_id,
+      clinicRole: role,
+      isOwner: role === "owner",
+      isAdmin: role === "owner" || role === "admin",
+      isProfessional: role === "profissional",
+      supportMode: false,
+      supportClinicId: null,
+    };
+  }
+
+  return {
+    memberships,
+    membershipCount: members.length,
+    needsClinicSelection: true,
+    clinicId: null,
+    clinicRole: null,
+    isOwner: false,
+    isAdmin: false,
+    isProfessional: false,
+    supportMode: false,
+    supportClinicId: null,
+  };
+}
 
 export async function fetchSessionBootstrap(userId: string): Promise<SessionBootstrap> {
   const [rolesRes, membersRes, supportRes] = await Promise.all([
@@ -43,36 +145,13 @@ export async function fetchSessionBootstrap(userId: string): Promise<SessionBoot
   const isPlatformAdmin = isSuperAdmin && !inSupport;
   const hasClinic = members.length > 0;
 
-  if (supportClinicId) {
-    const member = members.find((m) => m.clinic_id === supportClinicId) ?? members[0];
-    const role = (member?.role as ActiveClinicRole | undefined) ?? "owner";
-    return {
-      isSuperAdmin,
-      isPlatformAdmin,
-      hasClinic,
-      clinicId: supportClinicId,
-      clinicRole: role,
-      isOwner: true,
-      isAdmin: true,
-      isProfessional: false,
-      supportMode: true,
-      supportClinicId,
-    };
-  }
+  const resolved = resolveActiveMember(members, userId, supportClinicId);
 
-  const active = members[0];
-  const role = (active?.role as ActiveClinicRole | undefined) ?? null;
   return {
     isSuperAdmin,
     isPlatformAdmin,
     hasClinic,
-    clinicId: active?.clinic_id ?? null,
-    clinicRole: role,
-    isOwner: role === "owner",
-    isAdmin: role === "owner" || role === "admin",
-    isProfessional: role === "profissional",
-    supportMode: false,
-    supportClinicId: null,
+    ...resolved,
   };
 }
 

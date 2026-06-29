@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { useRouterState } from "@tanstack/react-router";
-import { ShieldOff } from "lucide-react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useClinicOperationalAccess } from "@/lib/saas/use-clinic-operational-access";
-import { OPERATIONAL_STATUS_LABEL } from "@/lib/saas/clinic-operational-status";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { AccessRestrictedScreen } from "@/components/access/AccessRestrictedScreen";
+import { isEntryHelperPath } from "@/lib/post-login-routing";
+import { supabase } from "@/integrations/supabase/client";
+import { ClinicalSkeleton } from "@/components/layout";
 
 const BYPASS_PATHS = ["/app/admin-saas", "/app/configuracoes"];
 
@@ -12,39 +13,46 @@ type Props = { children: ReactNode };
 
 export function ClinicAccessGate({ children }: Props) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const access = useClinicOperationalAccess();
 
-  const bypass = BYPASS_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const bypass =
+    BYPASS_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+    isEntryHelperPath(pathname);
 
-  if (bypass || access.loading || access.allowed) {
+  if (bypass) {
     return <>{children}</>;
   }
 
-  const statusLabel = access.status ? OPERATIONAL_STATUS_LABEL[access.status] : "indisponível";
+  if (access.loading) {
+    return (
+      <div className="p-6">
+        <ClinicalSkeleton variant="dashboard" kpiCount={2} />
+      </div>
+    );
+  }
+
+  if (access.allowed) {
+    return <>{children}</>;
+  }
+
+  async function logout() {
+    await qc.cancelQueries();
+    qc.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
+
+  const blockedStatus =
+    access.status === "trial" && (access.trialDaysLeft ?? 0) === 0 ? "suspended" : access.status;
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center p-6">
-      <Card className="max-w-md w-full border-slate-200 shadow-sm">
-        <CardContent className="flex flex-col items-center gap-4 py-10 px-6 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-200">
-            <ShieldOff className="h-7 w-7" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-slate-900">Acesso temporariamente indisponível</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Entre em contato com o suporte para regularizar o acesso da sua clínica.
-            </p>
-            {access.status && (
-              <p className="text-xs text-muted-foreground">
-                Status atual: <span className="font-medium">{statusLabel}</span>
-              </p>
-            )}
-          </div>
-          <Button variant="outline" asChild>
-            <a href="mailto:suporte@fisioos.app">Contatar suporte</a>
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <AccessRestrictedScreen
+      status={blockedStatus}
+      trialDaysLeft={access.trialDaysLeft}
+      embedded
+      onLogout={() => void logout()}
+    />
   );
 }

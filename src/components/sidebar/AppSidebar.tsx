@@ -6,6 +6,7 @@ import {
   PanelLeftOpen,
   Settings,
   UserCircle2,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Branding } from "@/lib/branding";
@@ -56,6 +57,7 @@ type AppSidebarProps = {
   isAdmin: boolean;
   onAvatarClick: () => void;
   onLogout: () => void;
+  onSwitchClinic?: () => void;
 };
 
 export function AppSidebar({
@@ -75,6 +77,7 @@ export function AppSidebar({
   isAdmin,
   onAvatarClick,
   onLogout,
+  onSwitchClinic,
 }: AppSidebarProps) {
   const expanded = isSidebarExpanded(collapsed, mobileOpen);
 
@@ -136,6 +139,7 @@ export function AppSidebar({
         onToggleCollapsed={onToggleCollapsed}
         onAvatarClick={onAvatarClick}
         onLogout={onLogout}
+        onSwitchClinic={onSwitchClinic}
       />
     </aside>
   );
@@ -283,6 +287,7 @@ function SidebarFooter({
   onToggleCollapsed,
   onAvatarClick,
   onLogout,
+  onSwitchClinic,
 }: {
   expanded: boolean;
   userName: string;
@@ -295,6 +300,7 @@ function SidebarFooter({
   onToggleCollapsed: () => void;
   onAvatarClick: () => void;
   onLogout: () => void;
+  onSwitchClinic?: () => void;
 }) {
   const settingsMenu = (
     <DropdownMenuContent align={expanded ? "end" : "center"} side="right" className="w-48">
@@ -302,6 +308,12 @@ function SidebarFooter({
         <UserCircle2 className="h-3.5 w-3.5" />
         Foto de perfil
       </DropdownMenuItem>
+      {onSwitchClinic ? (
+        <DropdownMenuItem onClick={onSwitchClinic} className="gap-2 text-xs">
+          <Building2 className="h-3.5 w-3.5" />
+          Trocar clínica
+        </DropdownMenuItem>
+      ) : null}
       {isAdmin && (
         <DropdownMenuItem asChild className="gap-2 text-xs">
           <Link to="/app/configuracoes">

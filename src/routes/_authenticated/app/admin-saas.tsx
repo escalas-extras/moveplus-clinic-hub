@@ -81,6 +81,7 @@ import {
   type SaasCommercialCenterData,
 } from "@/lib/saas";
 import { supabase } from "@/integrations/supabase/client";
+import { isAdminAppMode } from "@/lib/app-mode";
 import { toast } from "sonner";
 import {
   Building2,
@@ -114,7 +115,7 @@ export const Route = createFileRoute("/_authenticated/app/admin-saas")({
       _user_id: sess.user.id,
       _role: "super_admin",
     });
-    if (!ok) throw redirect({ to: "/app" });
+    if (!ok) throw redirect({ to: isAdminAppMode() ? "/auth" : "/app" });
   },
   component: AdminSaasPage,
 });

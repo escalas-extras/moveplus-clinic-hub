@@ -1,4 +1,4 @@
-import { useSessionBootstrap, fetchSessionBootstrap } from "@/lib/session-bootstrap";
+import { useSessionBootstrap } from "@/lib/session-bootstrap";
 import { useAuth } from "@/lib/auth";
 
 export type PlatformContext = {
@@ -20,9 +20,5 @@ export function usePlatformContext(): PlatformContext {
   };
 }
 
-export async function resolvePostLoginRedirect(userId: string): Promise<string> {
-  const ctx = await fetchSessionBootstrap(userId);
-  return ctx.isSuperAdmin ? "/app/admin-saas" : "/app";
-}
-
-export { fetchSessionBootstrap as fetchContext };
+export { resolvePostLoginRedirect, resolveEntryPath } from "@/lib/post-login-routing";
+export { fetchSessionBootstrap as fetchContext } from "@/lib/session-bootstrap";

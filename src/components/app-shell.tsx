@@ -70,6 +70,7 @@ import { SupportClickInterceptor } from "@/components/support-click-interceptor"
 
 import { pcGet, pcSet } from "@/lib/persistent-cache";
 import { AdminSaasShell } from "@/components/admin-saas-shell";
+import { isAdminAppMode } from "@/lib/app-mode";
 
 const ADMIN_SAAS_BRAND = {
   ...FISIOOS_DEFAULTS,
@@ -286,7 +287,7 @@ export function AppShell({
 
   const user = authUser ?? (authLoading ? initialUser : null);
 
-  const { isAdmin, clinicRole } = useActiveClinic();
+  const { isAdmin, clinicRole, membershipCount } = useActiveClinic();
 
   const { isPlatformAdmin } = usePlatformContext();
 
@@ -302,25 +303,19 @@ export function AppShell({
 
   const location = useLocation();
 
+  const adminAppMode = isAdminAppMode();
+
   const isAdminSaasArea = location.pathname.startsWith("/app/admin-saas");
 
-  const clinicBrand = useBranding({ disabled: isAdminSaasArea });
+  const clinicBrand = useBranding({ disabled: adminAppMode || isAdminSaasArea });
 
-  const brand = isAdminSaasArea ? ADMIN_SAAS_BRAND : clinicBrand;
+  const brand = adminAppMode || isAdminSaasArea ? ADMIN_SAAS_BRAND : clinicBrand;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     window.localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
-
-  useEffect(() => {
-    if (!isPlatformAdmin) return;
-
-    if (location.pathname.startsWith("/app") && !location.pathname.startsWith("/app/admin-saas")) {
-      navigate({ to: "/app/admin-saas", replace: true });
-    }
-  }, [isPlatformAdmin, location.pathname, navigate]);
 
   const qc = useQueryClient();
 
@@ -336,7 +331,7 @@ export function AppShell({
 
   const { has: hasFeature } = usePlanFeatures();
 
-  const activeGroups = isPlatformAdmin ? platformGroups : groups;
+  const activeGroups = adminAppMode || isPlatformAdmin ? platformGroups : groups;
 
   const visibleGroups = activeGroups
 
@@ -523,6 +518,11 @@ export function AppShell({
             isAdmin={isAdmin}
             onAvatarClick={() => setAvatarOpen(true)}
             onLogout={logout}
+            onSwitchClinic={
+              !adminAppMode && !isPlatformAdmin && !isAdminSaasArea && membershipCount > 1
+                ? () => navigate({ to: "/app/selecionar-clinica" })
+                : undefined
+            }
           />
 
           <main className="fos-app-canvas flex-1 min-w-0 pt-16 lg:pt-0">
@@ -626,7 +626,7 @@ export function AppShell({
     </>
   );
 
-  if (isAdminSaasArea) {
+  if (adminAppMode || isAdminSaasArea) {
     return <AdminSaasShell>{appFrame}</AdminSaasShell>;
   }
 

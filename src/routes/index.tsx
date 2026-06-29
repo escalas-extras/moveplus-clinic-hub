@@ -1,4 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { fetchSessionBootstrap } from "@/lib/session-bootstrap";
+import { resolveEntryPath } from "@/lib/post-login-routing";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -7,9 +9,8 @@ export const Route = createFileRoute("/")({
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/auth" });
 
-    const { fetchSessionBootstrap } = await import("@/lib/session-bootstrap");
     const boot = await fetchSessionBootstrap(data.session.user.id);
-    throw redirect({ to: boot.isSuperAdmin ? "/app/admin-saas" : "/app" });
+    throw redirect({ to: resolveEntryPath(boot) });
   },
   component: () => null,
 });

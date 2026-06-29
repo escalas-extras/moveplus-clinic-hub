@@ -15,6 +15,8 @@ export type ActiveClinicContext = {
   isProfessional: boolean;
   supportMode: boolean;
   supportClinicId: string | null;
+  membershipCount: number;
+  needsClinicSelection: boolean;
   loading: boolean;
 };
 
@@ -30,6 +32,8 @@ export function useActiveClinic(): ActiveClinicContext {
     isProfessional: data?.isProfessional ?? false,
     supportMode: data?.supportMode ?? false,
     supportClinicId: data?.supportClinicId ?? null,
+    membershipCount: data?.membershipCount ?? 0,
+    needsClinicSelection: data?.needsClinicSelection ?? false,
     loading: authLoading || loading,
   };
 }

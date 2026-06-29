@@ -1,162 +1,133 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
-import { toast } from "sonner";
-import { useBranding } from "@/lib/branding";
-import { ClinicLogo } from "@/components/clinic-logo";
-import type { Branding } from "@/lib/branding";
-
+import { resolvePostLoginRedirect } from "@/lib/post-login-routing";
+import {
+  AuthEntryPortal,
+  friendlyAuthError,
+  type AuthView,
+} from "@/components/auth";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   component: AuthPage,
 });
 
-// Branding institucional fixo na tela de login — nunca usar branding de clínica
-// pois ainda não há sessão/clinic_id resolvidos.
-const INSTITUTIONAL_BRAND: Branding = {
-  appName: "FisioOS",
-  name: "FisioOS",
-  clinicName: "FisioOS",
-  slogan: "Transformando atendimentos em resultados",
-  logo: null,
-  logoUrl: null,
-  hasOwnLogo: false,
-  primaryColor: "#0F4C5C",
-  secondaryColor: "#2BB673",
-  footer: "FisioOS · Transformando atendimentos em resultados",
-  crefitoDefault: null,
-};
-
+const TRANSITION_STEP_MS = 380;
+const TRANSITION_FINISH_MS = 320;
 
 function AuthPage() {
   const navigate = useNavigate();
-  const brand = INSTITUTIONAL_BRAND;
+  const mountedRef = useRef(true);
 
-  const [mode, setMode] = useState<"signin" | "forgot">("signin");
+  const [view, setView] = useState<AuthView>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [transitionStep, setTransitionStep] = useState(-1);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Bem-vindo(a)!");
-    const userId = data.user?.id;
-    let target: "/app" | "/app/admin-saas" = "/app";
-    if (userId) {
-      const { resolvePostLoginRedirect } = await import("@/lib/platform-context");
-      target = (await resolvePostLoginRedirect(userId)) as any;
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
+      if (mountedRef.current) {
+        setError(friendlyAuthError(signInError.message));
+        setLoading(false);
+      }
+      return;
     }
-    navigate({ to: target });
+
+    if (!mountedRef.current) return;
+    setLoading(false);
+    setView("transition");
+    setTransitionStep(-1);
+
+    const userId = data.user?.id;
+    let step = -1;
+    const stepTimer = window.setInterval(() => {
+      if (step < 2) {
+        step += 1;
+        if (mountedRef.current) setTransitionStep(step);
+      }
+    }, TRANSITION_STEP_MS);
+
+    try {
+      const target = userId ? await resolvePostLoginRedirect(userId) : "/app";
+      if (mountedRef.current) setTransitionStep(3);
+      await new Promise((resolve) => window.setTimeout(resolve, TRANSITION_FINISH_MS));
+      if (mountedRef.current) {
+        navigate({ to: target, replace: true });
+      }
+    } catch (err) {
+      window.clearInterval(stepTimer);
+      if (mountedRef.current) {
+        setView("signin");
+        setError("Não conseguimos preparar seu acesso. Tente entrar novamente.");
+      }
+    } finally {
+      window.clearInterval(stepTimer);
+    }
   }
 
   async function sendReset(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return toast.error("Informe seu e-mail.");
+    setError(null);
+    setResetSuccess(false);
+    if (!email) {
+      setError("Informe seu e-mail para receber o link de redefinição.");
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/set-password`,
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Se o e-mail existir, enviaremos um link de redefinição.");
-    setMode("signin");
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/set-password`,
+      });
+      if (resetError) {
+        if (mountedRef.current) setError(friendlyAuthError(resetError.message));
+        return;
+      }
+      if (mountedRef.current) {
+        setResetSuccess(true);
+        setView("signin");
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }
 
-  const gradient = `linear-gradient(160deg, ${brand.primaryColor}15 0%, ${brand.secondaryColor}10 60%, ${brand.primaryColor}05 100%)`;
-
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 fos-auth-page">
-      <div className="hidden lg:flex flex-col justify-between p-12" style={{ background: gradient }}>
-        <div>
-          <div className="flex items-center gap-3">
-            <ClinicLogo brand={brand} size="xl" />
-            <div className="leading-tight">
-              <div className="text-2xl font-semibold tracking-tight" style={{ color: brand.primaryColor }}>{brand.clinicName}</div>
-              <div className="text-xs uppercase tracking-widest" style={{ color: brand.secondaryColor }}>
-                {brand.hasOwnLogo ? "Plataforma Clínica" : "Powered by FisioOS"}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-3 max-w-md">
-          <h1 className="text-3xl leading-tight" style={{ color: brand.primaryColor }}>{brand.slogan}</h1>
-          <p className="text-sm text-muted-foreground">
-            Pacientes, avaliações, escalas, evoluções, reavaliações, altas e documentos profissionais — uma única fonte de verdade clínica.
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} {brand.appName}</p>
-      </div>
-
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <Card className="w-full max-w-md p-8">
-          <div className="lg:hidden mb-6 flex items-center gap-3">
-            <ClinicLogo brand={brand} size="xl" />
-            <div>
-              <div className="text-xl font-semibold" style={{ color: brand.primaryColor }}>{brand.clinicName}</div>
-              <div className="text-[10px] uppercase tracking-widest" style={{ color: brand.secondaryColor }}>{brand.appName}</div>
-            </div>
-          </div>
-
-          {mode === "signin" ? (
-            <>
-              <h2 className="text-2xl mb-1">Acesse sua conta</h2>
-              <p className="text-sm text-muted-foreground mb-6">Painel profissional {brand.appName}.</p>
-              <form className="space-y-4" onSubmit={signIn}>
-                <div className="space-y-2">
-                  <Label htmlFor="e">E-mail</Label>
-                  <Input id="e" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="p">Senha</Label>
-                    <button
-                      type="button"
-                      onClick={() => setMode("forgot")}
-                      className="text-xs underline text-muted-foreground hover:text-foreground"
-                    >
-                      Esqueceu sua senha?
-                    </button>
-                  </div>
-                  <Input id="p" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                <Button type="submit" disabled={loading} className="w-full" style={{ backgroundColor: brand.primaryColor }}>Entrar</Button>
-              </form>
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                Novas contas são criadas apenas pelo administrador em Usuários.
-              </p>
-            </>
-          ) : (
-            <>
-              <h2 className="text-2xl mb-1">Redefinir senha</h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Informe seu e-mail e enviaremos um link para criar uma nova senha.
-              </p>
-              <form className="space-y-4" onSubmit={sendReset}>
-                <div className="space-y-2">
-                  <Label htmlFor="er">E-mail</Label>
-                  <Input id="er" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <Button type="submit" disabled={loading} className="w-full" style={{ backgroundColor: brand.primaryColor }}>
-                  {loading ? "Enviando…" : "Enviar link de redefinição"}
-                </Button>
-                <Button type="button" variant="ghost" className="w-full" onClick={() => setMode("signin")}>
-                  Voltar para entrar
-                </Button>
-              </form>
-            </>
-          )}
-        </Card>
-      </div>
-    </div>
+    <AuthEntryPortal
+      view={view}
+      onViewChange={(next) => {
+        setView(next);
+        if (next !== "signin") setResetSuccess(false);
+      }}
+      email={email}
+      onEmailChange={setEmail}
+      password={password}
+      onPasswordChange={setPassword}
+      loading={loading}
+      error={error}
+      resetSuccess={resetSuccess}
+      onClearError={() => {
+        setError(null);
+        setResetSuccess(false);
+      }}
+      onSignIn={signIn}
+      onSendReset={sendReset}
+      transitionStep={transitionStep}
+    />
   );
 }
-

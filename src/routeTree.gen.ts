@@ -18,6 +18,8 @@ import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as AuthenticatedAppUsuariosRouteImport } from './routes/_authenticated/app/usuarios'
 import { Route as AuthenticatedAppTemplatesRouteImport } from './routes/_authenticated/app/templates'
+import { Route as AuthenticatedAppSemClinicaRouteImport } from './routes/_authenticated/app/sem-clinica'
+import { Route as AuthenticatedAppSelecionarClinicaRouteImport } from './routes/_authenticated/app/selecionar-clinica'
 import { Route as AuthenticatedAppRelatoriosRouteImport } from './routes/_authenticated/app/relatorios'
 import { Route as AuthenticatedAppRecibosRouteImport } from './routes/_authenticated/app/recibos'
 import { Route as AuthenticatedAppReavaliacoesRouteImport } from './routes/_authenticated/app/reavaliacoes'
@@ -91,6 +93,18 @@ const AuthenticatedAppTemplatesRoute =
   AuthenticatedAppTemplatesRouteImport.update({
     id: '/templates',
     path: '/templates',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppSemClinicaRoute =
+  AuthenticatedAppSemClinicaRouteImport.update({
+    id: '/sem-clinica',
+    path: '/sem-clinica',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppSelecionarClinicaRoute =
+  AuthenticatedAppSelecionarClinicaRouteImport.update({
+    id: '/selecionar-clinica',
+    path: '/selecionar-clinica',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
 const AuthenticatedAppRelatoriosRoute =
@@ -281,6 +295,8 @@ export interface FileRoutesByFullPath {
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/recibos': typeof AuthenticatedAppRecibosRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
+  '/app/selecionar-clinica': typeof AuthenticatedAppSelecionarClinicaRoute
+  '/app/sem-clinica': typeof AuthenticatedAppSemClinicaRoute
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -318,6 +334,8 @@ export interface FileRoutesByTo {
   '/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/app/recibos': typeof AuthenticatedAppRecibosRoute
   '/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
+  '/app/selecionar-clinica': typeof AuthenticatedAppSelecionarClinicaRoute
+  '/app/sem-clinica': typeof AuthenticatedAppSemClinicaRoute
   '/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -358,6 +376,8 @@ export interface FileRoutesById {
   '/_authenticated/app/reavaliacoes': typeof AuthenticatedAppReavaliacoesRoute
   '/_authenticated/app/recibos': typeof AuthenticatedAppRecibosRoute
   '/_authenticated/app/relatorios': typeof AuthenticatedAppRelatoriosRoute
+  '/_authenticated/app/selecionar-clinica': typeof AuthenticatedAppSelecionarClinicaRoute
+  '/_authenticated/app/sem-clinica': typeof AuthenticatedAppSemClinicaRoute
   '/_authenticated/app/templates': typeof AuthenticatedAppTemplatesRoute
   '/_authenticated/app/usuarios': typeof AuthenticatedAppUsuariosRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -398,6 +418,8 @@ export interface FileRouteTypes {
     | '/app/reavaliacoes'
     | '/app/recibos'
     | '/app/relatorios'
+    | '/app/selecionar-clinica'
+    | '/app/sem-clinica'
     | '/app/templates'
     | '/app/usuarios'
     | '/app/'
@@ -435,6 +457,8 @@ export interface FileRouteTypes {
     | '/app/reavaliacoes'
     | '/app/recibos'
     | '/app/relatorios'
+    | '/app/selecionar-clinica'
+    | '/app/sem-clinica'
     | '/app/templates'
     | '/app/usuarios'
     | '/app'
@@ -474,6 +498,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/reavaliacoes'
     | '/_authenticated/app/recibos'
     | '/_authenticated/app/relatorios'
+    | '/_authenticated/app/selecionar-clinica'
+    | '/_authenticated/app/sem-clinica'
     | '/_authenticated/app/templates'
     | '/_authenticated/app/usuarios'
     | '/_authenticated/app/'
@@ -562,6 +588,20 @@ declare module '@tanstack/react-router' {
       path: '/templates'
       fullPath: '/app/templates'
       preLoaderRoute: typeof AuthenticatedAppTemplatesRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/sem-clinica': {
+      id: '/_authenticated/app/sem-clinica'
+      path: '/sem-clinica'
+      fullPath: '/app/sem-clinica'
+      preLoaderRoute: typeof AuthenticatedAppSemClinicaRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/selecionar-clinica': {
+      id: '/_authenticated/app/selecionar-clinica'
+      path: '/selecionar-clinica'
+      fullPath: '/app/selecionar-clinica'
+      preLoaderRoute: typeof AuthenticatedAppSelecionarClinicaRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
     '/_authenticated/app/relatorios': {
@@ -780,6 +820,8 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppReavaliacoesRoute: typeof AuthenticatedAppReavaliacoesRoute
   AuthenticatedAppRecibosRoute: typeof AuthenticatedAppRecibosRoute
   AuthenticatedAppRelatoriosRoute: typeof AuthenticatedAppRelatoriosRoute
+  AuthenticatedAppSelecionarClinicaRoute: typeof AuthenticatedAppSelecionarClinicaRoute
+  AuthenticatedAppSemClinicaRoute: typeof AuthenticatedAppSemClinicaRoute
   AuthenticatedAppTemplatesRoute: typeof AuthenticatedAppTemplatesRoute
   AuthenticatedAppUsuariosRoute: typeof AuthenticatedAppUsuariosRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -814,6 +856,9 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppReavaliacoesRoute: AuthenticatedAppReavaliacoesRoute,
   AuthenticatedAppRecibosRoute: AuthenticatedAppRecibosRoute,
   AuthenticatedAppRelatoriosRoute: AuthenticatedAppRelatoriosRoute,
+  AuthenticatedAppSelecionarClinicaRoute:
+    AuthenticatedAppSelecionarClinicaRoute,
+  AuthenticatedAppSemClinicaRoute: AuthenticatedAppSemClinicaRoute,
   AuthenticatedAppTemplatesRoute: AuthenticatedAppTemplatesRoute,
   AuthenticatedAppUsuariosRoute: AuthenticatedAppUsuariosRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
