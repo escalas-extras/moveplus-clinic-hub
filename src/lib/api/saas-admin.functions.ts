@@ -151,6 +151,149 @@ async function logAudit(
   }
 }
 
+function toReferenceMonth(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthStart(referenceMonth: string) {
+  return new Date(`${referenceMonth}-01T00:00:00.000Z`);
+}
+
+function addMonths(date: Date, months: number) {
+  const d = new Date(date);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d;
+}
+
+function isoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function planMonthlyValue(plan: any) {
+  return Number(plan?.monthly_price ?? ((plan?.price_cents ?? 0) / 100)) || 0;
+}
+
+function mapPlanStatusToSubscription(status: string | null | undefined) {
+  if (status === "trial") return "trial";
+  if (status === "suspended") return "suspended";
+  if (status === "canceled") return "canceled";
+  return "active";
+}
+
+async function recordBillingEvent(
+  supabaseAdmin: any,
+  userId: string,
+  kind: string,
+  payload: {
+    clinic_id?: string | null;
+    subscription_id?: string | null;
+    invoice_id?: string | null;
+    payment_id?: string | null;
+    amount?: number | null;
+    metadata?: any;
+  },
+) {
+  const admin = supabaseAdmin as any;
+  try {
+    await admin.from("saas_billing_events").insert({
+      clinic_id: payload.clinic_id ?? null,
+      subscription_id: payload.subscription_id ?? null,
+      invoice_id: payload.invoice_id ?? null,
+      payment_id: payload.payment_id ?? null,
+      kind,
+      amount: payload.amount ?? null,
+      metadata: payload.metadata ?? {},
+      created_by: userId,
+    });
+  } catch (e) {
+    console.error("[saas_billing_events]", e);
+  }
+}
+
+async function ensureSaasSubscriptionForClinic(supabaseAdmin: any, clinicId: string, userId?: string) {
+  const admin = supabaseAdmin as any;
+  const { data: clinic, error: clinicErr } = await admin
+    .from("clinics")
+    .select("id, status, active, trial_ends_at")
+    .eq("id", clinicId)
+    .maybeSingle();
+  if (clinicErr) throw new Error(clinicErr.message);
+  if (!clinic) throw new Error("Clínica não encontrada.");
+
+  const { data: currentPlan, error: planErr } = await admin
+    .from("clinic_plans")
+    .select("id, clinic_id, plan_id, status, started_at, trial_ends_at, canceled_at, plans(id, code, name, monthly_price, price_cents)")
+    .eq("clinic_id", clinicId)
+    .in("status", ["active", "trial", "suspended"])
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (planErr) throw new Error(planErr.message);
+  if (!currentPlan?.plan_id) throw new Error("Clínica sem plano operacional ativo para billing.");
+
+  const started = currentPlan.started_at ? new Date(currentPlan.started_at) : new Date();
+  const periodStart = isoDate(started);
+  const periodEnd = isoDate(addMonths(started, 1));
+  const subscriptionStatus = mapPlanStatusToSubscription(currentPlan.status);
+
+  const { data: existing, error: existingErr } = await admin
+    .from("saas_subscriptions")
+    .select("id, status")
+    .eq("clinic_id", clinicId)
+    .in("status", ["trial", "active", "past_due", "suspended"])
+    .maybeSingle();
+  if (existingErr) throw new Error(existingErr.message);
+
+  if (existing) {
+    const { data: updated, error } = await admin
+      .from("saas_subscriptions")
+      .update({
+        plan_id: currentPlan.plan_id,
+        status: subscriptionStatus,
+        current_period_start: periodStart,
+        current_period_end: periodEnd,
+        trial_ends_at: currentPlan.trial_ends_at ?? clinic.trial_ends_at ?? null,
+        canceled_at: currentPlan.canceled_at ?? null,
+        source_clinic_plan_id: currentPlan.id,
+      })
+      .eq("id", existing.id)
+      .select("id, clinic_id, plan_id, status, current_period_end, plans(id, code, name, monthly_price, price_cents)")
+      .single();
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  const { data: created, error } = await admin
+    .from("saas_subscriptions")
+    .insert({
+      clinic_id: clinicId,
+      plan_id: currentPlan.plan_id,
+      status: subscriptionStatus,
+      billing_cycle: "monthly",
+      started_at: currentPlan.started_at ?? new Date().toISOString(),
+      current_period_start: periodStart,
+      current_period_end: periodEnd,
+      trial_ends_at: currentPlan.trial_ends_at ?? clinic.trial_ends_at ?? null,
+      canceled_at: currentPlan.canceled_at ?? null,
+      source_clinic_plan_id: currentPlan.id,
+      notes: "Criada automaticamente a partir de clinic_plans",
+    })
+    .select("id, clinic_id, plan_id, status, current_period_end, plans(id, code, name, monthly_price, price_cents)")
+    .single();
+  if (error) throw new Error(error.message);
+
+  if (userId) {
+    await recordBillingEvent(admin, userId, "subscription_created", {
+      clinic_id: clinicId,
+      subscription_id: created.id,
+      metadata: { source: "ensureSaasSubscriptionForClinic" },
+    });
+  }
+
+  return created;
+}
+
 // ------------------------------------------------------------
 // Dashboard
 // ------------------------------------------------------------
@@ -162,7 +305,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
 
     const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog, allClinicPlans, recentAudit] =
       await Promise.all([
-        supabaseAdmin.from("clinics").select("id,status,created_at,nome,slug,settings_id"),
+        supabaseAdmin.from("clinics").select("id,status,created_at,nome,slug,settings_id,is_test"),
         supabaseAdmin
           .from("clinic_members")
           .select("user_id", { count: "exact", head: false })
@@ -193,6 +336,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
 
     const clinicsRows = (clinics.data ?? []).filter((c: any) => c.status !== "deleted");
     const settingsLookup = await loadClinicSettingsLookup(supabaseAdmin, clinicsRows);
+    const { validBillingClinicIds } = await loadClinicIdSets(supabaseAdmin);
     const isProdClinic = (c: any) =>
       segmentClinic({
         status: c.status,
@@ -211,9 +355,11 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     ).length;
 
     const testClinicIds = new Set(testRows.map((c: any) => c.id));
-    const productionPlanAgg = ((planAgg.data ?? []) as any[]).filter((row) =>
-      prodClinicIds.has(row.clinic_id),
-    );
+    const productionPlanAgg = ((planAgg.data ?? []) as any[]).filter((row) => {
+      if (!prodClinicIds.has(row.clinic_id) || !validBillingClinicIds.has(row.clinic_id)) return false;
+      const clinic = prodRows.find((c: any) => c.id === row.clinic_id);
+      return clinic ? isSaasRevenueEligibleClinic(clinic, settingsLookup, validBillingClinicIds) : false;
+    });
 
     const uniqueUsers = new Set((members.data ?? []).map((m: any) => m.user_id));
 
@@ -664,7 +810,7 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
       await Promise.all([
         supabaseAdmin
           .from("clinics")
-          .select("id, nome, slug, status, active, plan, created_at, updated_at, trial_ends_at, canceled_at, settings_id")
+          .select("id, nome, slug, status, active, plan, created_at, updated_at, trial_ends_at, canceled_at, settings_id, is_test")
           .neq("status", "deleted"),
         supabaseAdmin
           .from("clinic_plans")
@@ -691,13 +837,17 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
 
     const clinics = clinicsRes.data ?? [];
     const settingsLookup = await loadClinicSettingsLookup(supabaseAdmin, clinics);
-    const commercialClinics = clinics.filter((c: any) =>
-      segmentClinic({
-        status: c.status,
-        is_test: !!(c as any).is_test,
-        ...resolveClinicNameFields(c, settingsLookup),
-      }) === "production",
-    );
+    const { validBillingClinicIds } = await loadClinicIdSets(supabaseAdmin);
+    const commercialClinics = clinics.filter((c: any) => {
+      if (!validBillingClinicIds.has(c.id)) return false;
+      return (
+        segmentClinic({
+          status: c.status,
+          is_test: !!(c as any).is_test,
+          ...resolveClinicNameFields(c, settingsLookup),
+        }) === "production"
+      );
+    });
     const commercialClinicIds = new Set(commercialClinics.map((c: any) => c.id));
     const clinicName: Record<string, string> = {};
     for (const c of commercialClinics) clinicName[c.id] = c.nome;
@@ -1759,6 +1909,8 @@ export const assignPlan = createServerFn({ method: "POST" })
       { plan_code: plan.code, notes: data.notes ?? null },
     );
 
+    await ensureSaasSubscriptionForClinic(supabaseAdmin, data.clinic_id, context.userId);
+
     return { ok: true };
   });
 
@@ -1779,6 +1931,975 @@ export const listPlanChangeAudit = createServerFn({ method: "GET" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     return rows ?? [];
+  });
+
+// ------------------------------------------------------------
+// Billing SaaS real
+// ------------------------------------------------------------
+const generateSaasInvoiceInput = z.object({
+  clinic_id: z.string().uuid(),
+  reference_month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  due_date: z.string().optional(),
+  amount: z.number().min(0).optional(),
+  notes: z.string().optional(),
+});
+
+const markSaasInvoicePaidInput = z.object({
+  invoice_id: z.string().uuid(),
+  amount: z.number().positive().optional(),
+  paid_at: z.string().optional(),
+  method: z.enum(["pix", "boleto", "dinheiro", "transferencia", "cartao", "manual", "outro"]).default("manual"),
+  external_id: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const refreshSaasOverdueInput = z.object({
+  grace_days: z.number().int().min(0).max(120).default(7),
+});
+
+const ORPHAN_SAAS_FINANCIAL_CLEANUP_CONFIRMATION = "LIMPAR ORFAOS";
+
+type OrphanSaasFinancialGroup = {
+  table: string;
+  clinic_id: string;
+  record_count: number;
+  total_amount: number;
+  statuses: string[];
+  reference_months: string[];
+  oldest_at: string | null;
+  newest_at: string | null;
+  orphan_reason: "missing_clinic" | "dangling_subscription" | "dangling_invoice";
+};
+
+async function loadClinicIdSets(admin: any) {
+  const { data, error } = await admin.from("clinics").select("id, status");
+  if (error) throw new Error(error.message);
+  const rows = data ?? [];
+  const existingClinicIds = new Set<string>(rows.map((row: any) => row.id));
+  const deletedClinicIds = new Set<string>(
+    rows.filter((row: any) => row.status === "deleted").map((row: any) => row.id),
+  );
+  return {
+    existingClinicIds,
+    deletedClinicIds,
+    validBillingClinicIds: new Set<string>(
+      rows.filter((row: any) => row.status !== "deleted").map((row: any) => row.id),
+    ),
+  };
+}
+
+function isOrphanBillingClinicId(
+  clinicId: string | null | undefined,
+  existingClinicIds: Set<string>,
+  deletedClinicIds: Set<string>,
+) {
+  if (!clinicId) return false;
+  if (!existingClinicIds.has(clinicId)) return true;
+  return deletedClinicIds.has(clinicId);
+}
+
+function isValidBillingClinicId(clinicId: string | null | undefined, validBillingClinicIds: Set<string>) {
+  return !!clinicId && validBillingClinicIds.has(clinicId);
+}
+
+function isSaasRevenueEligibleClinic(
+  clinic: { id: string; status: string; is_test?: boolean | null; nome?: string | null; slug?: string | null; settings_id?: string | null },
+  settingsLookup: ClinicSettingsNameLookup,
+  validBillingClinicIds: Set<string>,
+) {
+  if (!isValidBillingClinicId(clinic.id, validBillingClinicIds)) return false;
+  if (clinic.status !== "active") return false;
+  return (
+    segmentClinic({
+      status: clinic.status,
+      is_test: !!clinic.is_test,
+      ...resolveClinicNameFields(clinic, settingsLookup),
+    }) === "production"
+  );
+}
+
+async function cancelSaasBillingForClinic(admin: any, clinicId: string) {
+  const now = new Date().toISOString();
+  await admin
+    .from("clinic_plans")
+    .update({ status: "canceled", canceled_at: now })
+    .eq("clinic_id", clinicId)
+    .in("status", ["active", "trial", "suspended"]);
+  await admin
+    .from("saas_subscriptions")
+    .update({ status: "canceled", canceled_at: now })
+    .eq("clinic_id", clinicId)
+    .in("status", ["trial", "active", "past_due", "suspended"]);
+  await admin.from("saas_invoices").delete().eq("clinic_id", clinicId).in("status", ["draft", "open", "overdue"]);
+}
+
+function uniqSorted(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort();
+}
+
+function minDate(values: Array<string | null | undefined>) {
+  const stamps = values.filter(Boolean).map((value) => new Date(value as string).getTime()).filter(Number.isFinite);
+  if (!stamps.length) return null;
+  return new Date(Math.min(...stamps)).toISOString();
+}
+
+function maxDate(values: Array<string | null | undefined>) {
+  const stamps = values.filter(Boolean).map((value) => new Date(value as string).getTime()).filter(Number.isFinite);
+  if (!stamps.length) return null;
+  return new Date(Math.max(...stamps)).toISOString();
+}
+
+function pushOrphanGroup(
+  groups: OrphanSaasFinancialGroup[],
+  table: string,
+  clinicId: string,
+  orphanReason: OrphanSaasFinancialGroup["orphan_reason"],
+  partial: {
+    amount?: number;
+    status?: string | null;
+    referenceMonth?: string | null;
+    createdAt?: string | null;
+  },
+) {
+  let group = groups.find((row) => row.table === table && row.clinic_id === clinicId && row.orphan_reason === orphanReason);
+  if (!group) {
+    group = {
+      table,
+      clinic_id: clinicId,
+      record_count: 0,
+      total_amount: 0,
+      statuses: [],
+      reference_months: [],
+      oldest_at: null,
+      newest_at: null,
+      orphan_reason: orphanReason,
+    };
+    groups.push(group);
+  }
+  group.record_count += 1;
+  group.total_amount += partial.amount ?? 0;
+  if (partial.status) group.statuses.push(partial.status);
+  if (partial.referenceMonth) group.reference_months.push(partial.referenceMonth);
+  const dates = [group.oldest_at, group.newest_at, partial.createdAt ?? null].filter(Boolean) as string[];
+  group.oldest_at = minDate(dates);
+  group.newest_at = maxDate(dates);
+  group.statuses = uniqSorted(group.statuses);
+  group.reference_months = uniqSorted(group.reference_months);
+}
+
+async function collectOrphanSaasFinancials(admin: any) {
+  const { existingClinicIds, deletedClinicIds } = await loadClinicIdSets(admin);
+  const [subsRes, invoicesRes, paymentsRes, clinicPlansRes] = await Promise.all([
+    admin
+      .from("saas_subscriptions")
+      .select("id, clinic_id, status, created_at, plans(monthly_price, price_cents)"),
+    admin
+      .from("saas_invoices")
+      .select("id, clinic_id, subscription_id, amount, status, reference_month, created_at"),
+    admin
+      .from("saas_payments")
+      .select("id, invoice_id, amount, created_at, saas_invoices(id, clinic_id, reference_month, status)"),
+    admin
+      .from("clinic_plans")
+      .select("id, clinic_id, status, created_at, plans(monthly_price, price_cents)")
+      .in("status", ["active", "trial", "suspended"]),
+  ]);
+
+  for (const res of [subsRes, invoicesRes, paymentsRes, clinicPlansRes]) {
+    if (res.error) throw new Error(res.error.message);
+  }
+
+  const subscriptions = subsRes.data ?? [];
+  const invoices = invoicesRes.data ?? [];
+  const payments = paymentsRes.data ?? [];
+  const clinicPlans = clinicPlansRes.data ?? [];
+  const subscriptionIds = new Set<string>(subscriptions.map((row: any) => row.id));
+  const invoiceIds = new Set<string>(invoices.map((row: any) => row.id));
+  const groups: OrphanSaasFinancialGroup[] = [];
+
+  const orphanSubscriptionIds: string[] = [];
+  const orphanInvoiceIds: string[] = [];
+  const orphanPaymentIds: string[] = [];
+  const orphanClinicPlanIds: string[] = [];
+  const orphanClinicIds = new Set<string>();
+
+  for (const row of subscriptions) {
+    if (!isOrphanBillingClinicId(row.clinic_id, existingClinicIds, deletedClinicIds)) continue;
+    orphanSubscriptionIds.push(row.id);
+    orphanClinicIds.add(row.clinic_id);
+    pushOrphanGroup(groups, "saas_subscriptions", row.clinic_id, "missing_clinic", {
+      amount: planMonthlyValue(row.plans),
+      status: row.status,
+      createdAt: row.created_at,
+    });
+  }
+
+  for (const row of invoices) {
+    const missingClinic = isOrphanBillingClinicId(row.clinic_id, existingClinicIds, deletedClinicIds);
+    const danglingSubscription = !!row.subscription_id && !subscriptionIds.has(row.subscription_id);
+    if (missingClinic) {
+      orphanInvoiceIds.push(row.id);
+      orphanClinicIds.add(row.clinic_id);
+      pushOrphanGroup(groups, "saas_invoices", row.clinic_id, "missing_clinic", {
+        amount: Number(row.amount ?? 0) || 0,
+        status: row.status,
+        referenceMonth: row.reference_month,
+        createdAt: row.created_at,
+      });
+      continue;
+    }
+    if (danglingSubscription && row.clinic_id) {
+      orphanInvoiceIds.push(row.id);
+      pushOrphanGroup(groups, "saas_invoices", row.clinic_id, "dangling_subscription", {
+        amount: Number(row.amount ?? 0) || 0,
+        status: row.status,
+        referenceMonth: row.reference_month,
+        createdAt: row.created_at,
+      });
+    }
+  }
+
+  for (const row of payments) {
+    const invoice = row.saas_invoices ?? null;
+    const clinicId = invoice?.clinic_id ?? null;
+    const danglingInvoice = !!row.invoice_id && !invoiceIds.has(row.invoice_id);
+    if (danglingInvoice) {
+      orphanPaymentIds.push(row.id);
+      pushOrphanGroup(groups, "saas_payments", clinicId ?? "sem-clinica", "dangling_invoice", {
+        amount: Number(row.amount ?? 0) || 0,
+        status: invoice?.status ?? null,
+        referenceMonth: invoice?.reference_month ?? null,
+        createdAt: row.created_at,
+      });
+      continue;
+    }
+    if (clinicId && isOrphanBillingClinicId(clinicId, existingClinicIds, deletedClinicIds)) {
+      orphanPaymentIds.push(row.id);
+      orphanClinicIds.add(clinicId);
+      pushOrphanGroup(groups, "saas_payments", clinicId, "missing_clinic", {
+        amount: Number(row.amount ?? 0) || 0,
+        status: invoice?.status ?? null,
+        referenceMonth: invoice?.reference_month ?? null,
+        createdAt: row.created_at,
+      });
+    }
+  }
+
+  for (const row of clinicPlans) {
+    if (!isOrphanBillingClinicId(row.clinic_id, existingClinicIds, deletedClinicIds)) continue;
+    orphanClinicPlanIds.push(row.id);
+    orphanClinicIds.add(row.clinic_id);
+    pushOrphanGroup(groups, "clinic_plans", row.clinic_id, "missing_clinic", {
+      amount: planMonthlyValue(row.plans),
+      status: row.status,
+      createdAt: row.created_at,
+    });
+  }
+
+  const danglingChecks = {
+    invoice_subscription_dangling: invoices.filter((row: any) => row.subscription_id && !subscriptionIds.has(row.subscription_id)).length,
+    payment_invoice_dangling: payments.filter((row: any) => row.invoice_id && !invoiceIds.has(row.invoice_id)).length,
+  };
+
+  return {
+    groups: groups.sort((a, b) => a.table.localeCompare(b.table) || a.clinic_id.localeCompare(b.clinic_id)),
+    totals: {
+      groups: groups.length,
+      records:
+        orphanSubscriptionIds.length +
+        orphanInvoiceIds.length +
+        orphanPaymentIds.length +
+        orphanClinicPlanIds.length,
+      amount: groups.reduce((sum, row) => sum + row.total_amount, 0),
+    },
+    orphan_ids: {
+      saas_subscriptions: orphanSubscriptionIds,
+      saas_invoices: orphanInvoiceIds,
+      saas_payments: orphanPaymentIds,
+      clinic_plans: orphanClinicPlanIds,
+      clinic_ids: Array.from(orphanClinicIds),
+    },
+    dangling_checks: danglingChecks,
+  };
+}
+
+const orphanSaasFinancialCleanupInput = z.object({
+  dry_run: z.boolean().default(true),
+  confirm: z.string().optional(),
+});
+
+const TOTAL_SAAS_TEST_FINANCIAL_RESET_CONFIRMATION = "ZERAR SAAS TESTE";
+
+const totalSaasTestFinancialResetInput = z.object({
+  dry_run: z.boolean().default(true),
+  confirm: z.string().optional(),
+});
+
+type TotalSaasTestFinancialResetGroup = {
+  table: string;
+  available: boolean;
+  record_count: number;
+  total_amount: number;
+  oldest_at: string | null;
+  newest_at: string | null;
+  clinics: Array<{ id: string; name: string | null; status: string | null }>;
+};
+
+function normalizeJoinedOne(value: any) {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function dateRangeFromRows(rows: any[], keys: string[]) {
+  const dates = rows.flatMap((row) => keys.map((key) => row?.[key]).filter(Boolean));
+  return {
+    oldest_at: minDate(dates),
+    newest_at: maxDate(dates),
+  };
+}
+
+function clinicSummaryFromRows(rows: any[], clinicAccessor: (row: any) => any) {
+  const map = new Map<string, { id: string; name: string | null; status: string | null }>();
+  for (const row of rows) {
+    const clinic = normalizeJoinedOne(clinicAccessor(row));
+    const clinicId = clinic?.id ?? row.clinic_id ?? null;
+    if (!clinicId || map.has(clinicId)) continue;
+    map.set(clinicId, {
+      id: clinicId,
+      name: clinic?.nome ?? clinic?.name ?? null,
+      status: clinic?.status ?? null,
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
+}
+
+async function optionalSelectAll(admin: any, table: string, select: string) {
+  const { data, error } = await admin.from(table).select(select);
+  if (error) {
+    const message = String(error.message ?? "");
+    if (message.includes("does not exist") || message.includes("Could not find the table") || error.code === "42P01") {
+      return { available: false, rows: [] as any[] };
+    }
+    throw new Error(error.message);
+  }
+  return { available: true, rows: data ?? [] };
+}
+
+async function deleteAllFromOptionalTable(admin: any, table: string) {
+  const { error } = await admin.from(table).delete().not("id", "is", null);
+  if (error) {
+    const message = String(error.message ?? "");
+    if (message.includes("does not exist") || message.includes("Could not find the table") || error.code === "42P01") return;
+    throw new Error(error.message);
+  }
+}
+
+async function collectTotalSaasTestFinancialReset(admin: any) {
+  const [subsRes, invoicesRes, paymentsRes, eventsRes, transactionsRes] = await Promise.all([
+    optionalSelectAll(
+      admin,
+      "saas_subscriptions",
+      "id, clinic_id, status, started_at, current_period_start, current_period_end, created_at, updated_at, plans(monthly_price, price_cents), clinics(id, nome, status)",
+    ),
+    optionalSelectAll(
+      admin,
+      "saas_invoices",
+      "id, clinic_id, subscription_id, due_date, amount, status, paid_at, reference_month, created_at, updated_at, clinics(id, nome, status)",
+    ),
+    optionalSelectAll(
+      admin,
+      "saas_payments",
+      "id, invoice_id, amount, paid_at, created_at, saas_invoices(clinic_id, clinics(id, nome, status))",
+    ),
+    optionalSelectAll(
+      admin,
+      "saas_billing_events",
+      "id, clinic_id, amount, kind, created_at, clinics(id, nome, status)",
+    ),
+    optionalSelectAll(
+      admin,
+      "saas_transactions",
+      "id, clinic_id, amount, status, created_at, clinics(id, nome, status)",
+    ),
+  ]);
+
+  const groups: TotalSaasTestFinancialResetGroup[] = [];
+  const pushGroup = (
+    table: string,
+    result: { available: boolean; rows: any[] },
+    amount: (row: any) => number,
+    dateKeys: string[],
+    clinicAccessor: (row: any) => any = (row) => row.clinics,
+  ) => {
+    const range = dateRangeFromRows(result.rows, dateKeys);
+    groups.push({
+      table,
+      available: result.available,
+      record_count: result.rows.length,
+      total_amount: result.rows.reduce((sum, row) => sum + amount(row), 0),
+      oldest_at: range.oldest_at,
+      newest_at: range.newest_at,
+      clinics: clinicSummaryFromRows(result.rows, clinicAccessor),
+    });
+  };
+
+  pushGroup("saas_subscriptions", subsRes, (row) => planMonthlyValue(row.plans), [
+    "created_at",
+    "updated_at",
+    "started_at",
+    "current_period_start",
+    "current_period_end",
+  ]);
+  pushGroup("saas_invoices", invoicesRes, (row) => Number(row.amount ?? 0) || 0, [
+    "created_at",
+    "updated_at",
+    "due_date",
+    "paid_at",
+  ]);
+  pushGroup(
+    "saas_payments",
+    paymentsRes,
+    (row) => Number(row.amount ?? 0) || 0,
+    ["created_at", "paid_at"],
+    (row) => normalizeJoinedOne(row.saas_invoices)?.clinics,
+  );
+  pushGroup("saas_billing_events", eventsRes, (row) => Number(row.amount ?? 0) || 0, ["created_at"]);
+  pushGroup("saas_transactions", transactionsRes, (row) => Number(row.amount ?? 0) || 0, ["created_at"]);
+
+  return {
+    groups,
+    totals: {
+      tables: groups.filter((group) => group.available).length,
+      records: groups.reduce((sum, group) => sum + group.record_count, 0),
+      amount: groups.reduce((sum, group) => sum + group.total_amount, 0),
+      clinics: new Set(groups.flatMap((group) => group.clinics.map((clinic) => clinic.id))).size,
+    },
+  };
+}
+
+export const getSaasBillingRealCenter = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+
+    const [subsRes, invoicesRes, paymentsRes, eventsRes, clinicsRes] = await Promise.all([
+      admin
+        .from("saas_subscriptions")
+        .select("id, clinic_id, plan_id, status, billing_cycle, started_at, current_period_start, current_period_end, trial_ends_at, canceled_at, plans(id, code, name, monthly_price, price_cents), clinics(id, nome, slug, status, active)")
+        .order("created_at", { ascending: false }),
+      admin
+        .from("saas_invoices")
+        .select("id, clinic_id, subscription_id, due_date, amount, status, paid_at, reference_month, notes, created_at, clinics(id, nome, slug)")
+        .order("due_date", { ascending: false })
+        .limit(200),
+      admin
+        .from("saas_payments")
+        .select("id, invoice_id, amount, paid_at, method, external_id, notes, created_at, saas_invoices(clinic_id, reference_month, clinics(nome))")
+        .order("paid_at", { ascending: false })
+        .limit(200),
+      admin
+        .from("saas_billing_events")
+        .select("id, clinic_id, subscription_id, invoice_id, payment_id, kind, amount, metadata, created_at, clinics(nome)")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      admin
+        .from("clinics")
+        .select("id, nome, slug, status, active, plan, settings_id, is_test")
+        .neq("status", "deleted")
+        .order("nome"),
+    ]);
+
+    for (const res of [subsRes, invoicesRes, paymentsRes, eventsRes, clinicsRes]) {
+      if (res.error) throw new Error(res.error.message);
+    }
+
+    const subscriptionsAll = subsRes.data ?? [];
+    const invoicesAll = invoicesRes.data ?? [];
+    const paymentsAll = paymentsRes.data ?? [];
+    const eventsAll = eventsRes.data ?? [];
+    const clinics = clinicsRes.data ?? [];
+    const { validBillingClinicIds } = await loadClinicIdSets(admin);
+    const settingsLookup = await loadClinicSettingsLookup(admin, clinics);
+    const revenueClinicIds = new Set<string>(
+      clinics
+        .filter((clinic: any) => isSaasRevenueEligibleClinic(clinic, settingsLookup, validBillingClinicIds))
+        .map((clinic: any) => clinic.id),
+    );
+
+    const subscriptions = subscriptionsAll.filter((row: any) => isValidBillingClinicId(row.clinic_id, revenueClinicIds));
+    const invoices = invoicesAll.filter((row: any) => isValidBillingClinicId(row.clinic_id, revenueClinicIds));
+    const payments = paymentsAll.filter((row: any) => {
+      const clinicId = row.saas_invoices?.clinic_id ?? null;
+      return isValidBillingClinicId(clinicId, revenueClinicIds);
+    });
+    const events = eventsAll.filter(
+      (row: any) => !row.clinic_id || isValidBillingClinicId(row.clinic_id, revenueClinicIds),
+    );
+
+    const received = payments.reduce((sum: number, row: any) => sum + (Number(row.amount ?? 0) || 0), 0);
+    const openInvoices = invoices.filter((row: any) => ["open", "overdue"].includes(row.status));
+    const overdueInvoices = invoices.filter((row: any) => row.status === "overdue");
+    const mrr = subscriptions
+      .filter((row: any) => row.status === "active")
+      .reduce((sum: number, row: any) => sum + planMonthlyValue(row.plans), 0);
+
+    return {
+      generated_at: new Date().toISOString(),
+      summary: {
+        subscriptions: subscriptions.length,
+        active_subscriptions: subscriptions.filter((row: any) => row.status === "active").length,
+        trials: subscriptions.filter((row: any) => row.status === "trial").length,
+        suspended: subscriptions.filter((row: any) => row.status === "suspended").length,
+        open_invoices: openInvoices.length,
+        overdue_invoices: overdueInvoices.length,
+        expected_revenue: openInvoices.reduce((sum: number, row: any) => sum + (Number(row.amount ?? 0) || 0), 0),
+        overdue_amount: overdueInvoices.reduce((sum: number, row: any) => sum + (Number(row.amount ?? 0) || 0), 0),
+        received_revenue: received,
+        mrr,
+        arr: mrr * 12,
+        excluded_orphan_records:
+          subscriptionsAll.length -
+          subscriptions.length +
+          (invoicesAll.length - invoices.length) +
+          (paymentsAll.length - payments.length),
+      },
+      clinics: clinics.filter((clinic: any) => isSaasRevenueEligibleClinic(clinic, settingsLookup, validBillingClinicIds)),
+      subscriptions,
+      invoices,
+      payments,
+      events,
+    };
+  });
+
+export const generateSaasInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => generateSaasInvoiceInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const subscription = await ensureSaasSubscriptionForClinic(admin, data.clinic_id, context.userId);
+    const referenceMonth = data.reference_month ?? toReferenceMonth();
+    const dueDate = data.due_date ?? subscription.current_period_end ?? isoDate(addMonths(monthStart(referenceMonth), 1));
+    const amount = data.amount ?? planMonthlyValue(subscription.plans);
+
+    const { data: existing, error: existingErr } = await admin
+      .from("saas_invoices")
+      .select("id, clinic_id, subscription_id, due_date, amount, status, paid_at, reference_month, notes, created_at")
+      .eq("clinic_id", data.clinic_id)
+      .eq("reference_month", referenceMonth)
+      .neq("status", "canceled")
+      .maybeSingle();
+    if (existingErr) throw new Error(existingErr.message);
+    if (existing) return { ok: true, created: false, invoice: existing };
+
+    const { data: invoice, error } = await admin
+      .from("saas_invoices")
+      .insert({
+        clinic_id: data.clinic_id,
+        subscription_id: subscription.id,
+        due_date: dueDate,
+        amount,
+        status: "open",
+        reference_month: referenceMonth,
+        notes: data.notes ?? null,
+        created_by: context.userId,
+      })
+      .select("id, clinic_id, subscription_id, due_date, amount, status, paid_at, reference_month, notes, created_at")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await recordBillingEvent(admin, context.userId, "invoice_generated", {
+      clinic_id: data.clinic_id,
+      subscription_id: subscription.id,
+      invoice_id: invoice.id,
+      amount,
+      metadata: { reference_month: referenceMonth },
+    });
+    await logAudit(admin, context.userId, "saas.invoice_generated", "saas_invoice", invoice.id, null, invoice, data.clinic_id);
+
+    return { ok: true, created: true, invoice };
+  });
+
+export const markSaasInvoicePaid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => markSaasInvoicePaidInput.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+
+    const { data: invoice, error: invoiceErr } = await admin
+      .from("saas_invoices")
+      .select("id, clinic_id, subscription_id, amount, status")
+      .eq("id", data.invoice_id)
+      .maybeSingle();
+    if (invoiceErr) throw new Error(invoiceErr.message);
+    if (!invoice) throw new Error("Mensalidade não encontrada.");
+    if (invoice.status === "paid") throw new Error("Mensalidade já está paga.");
+
+    const paidAt = data.paid_at ?? new Date().toISOString();
+    const amount = data.amount ?? Number(invoice.amount ?? 0);
+    const { data: payment, error: payErr } = await admin
+      .from("saas_payments")
+      .insert({
+        invoice_id: invoice.id,
+        amount,
+        paid_at: paidAt,
+        method: data.method,
+        external_id: data.external_id ?? null,
+        notes: data.notes ?? null,
+        created_by: context.userId,
+      })
+      .select("id, invoice_id, amount, paid_at, method, external_id, notes")
+      .single();
+    if (payErr) throw new Error(payErr.message);
+
+    const { error: updateErr } = await admin
+      .from("saas_invoices")
+      .update({ status: "paid", paid_at: paidAt })
+      .eq("id", invoice.id);
+    if (updateErr) throw new Error(updateErr.message);
+
+    const { count: remainingOverdue } = await admin
+      .from("saas_invoices")
+      .select("id", { count: "exact", head: true })
+      .eq("clinic_id", invoice.clinic_id)
+      .eq("status", "overdue");
+
+    if ((remainingOverdue ?? 0) === 0) {
+      await admin
+        .from("saas_subscriptions")
+        .update({ status: "active" })
+        .eq("id", invoice.subscription_id)
+        .in("status", ["past_due", "suspended"]);
+      await admin
+        .from("clinic_plans")
+        .update({ status: "active" })
+        .eq("clinic_id", invoice.clinic_id)
+        .eq("status", "suspended");
+      await admin
+        .from("clinics")
+        .update({ status: "active", active: true })
+        .eq("id", invoice.clinic_id)
+        .in("status", ["inactive", "suspended"]);
+    }
+
+    await recordBillingEvent(admin, context.userId, "invoice_paid", {
+      clinic_id: invoice.clinic_id,
+      subscription_id: invoice.subscription_id,
+      invoice_id: invoice.id,
+      payment_id: payment.id,
+      amount,
+      metadata: { method: data.method },
+    });
+    await logAudit(admin, context.userId, "saas.invoice_paid", "saas_invoice", invoice.id, invoice, payment, invoice.clinic_id);
+
+    return { ok: true, payment };
+  });
+
+export const refreshSaasOverdueStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => refreshSaasOverdueInput.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const today = isoDate(new Date());
+    const graceDate = new Date();
+    graceDate.setDate(graceDate.getDate() - data.grace_days);
+    const graceLimit = isoDate(graceDate);
+
+    const { data: newlyOverdue, error: overdueLoadErr } = await admin
+      .from("saas_invoices")
+      .select("id, clinic_id, subscription_id, amount, due_date")
+      .eq("status", "open")
+      .lt("due_date", today);
+    if (overdueLoadErr) throw new Error(overdueLoadErr.message);
+
+    const overdueIds = (newlyOverdue ?? []).map((row: any) => row.id);
+    if (overdueIds.length) {
+      const { error } = await admin
+        .from("saas_invoices")
+        .update({ status: "overdue" })
+        .in("id", overdueIds);
+      if (error) throw new Error(error.message);
+      for (const row of newlyOverdue ?? []) {
+        await recordBillingEvent(admin, context.userId, "invoice_overdue", {
+          clinic_id: row.clinic_id,
+          subscription_id: row.subscription_id,
+          invoice_id: row.id,
+          amount: Number(row.amount ?? 0) || 0,
+          metadata: { due_date: row.due_date },
+        });
+      }
+    }
+
+    const { data: suspensionRows, error: suspensionErr } = await admin
+      .from("saas_invoices")
+      .select("clinic_id, subscription_id")
+      .eq("status", "overdue")
+      .lte("due_date", graceLimit);
+    if (suspensionErr) throw new Error(suspensionErr.message);
+
+    const clinicIds = Array.from(new Set((suspensionRows ?? []).map((row: any) => row.clinic_id).filter(Boolean)));
+    const subscriptionIds = Array.from(new Set((suspensionRows ?? []).map((row: any) => row.subscription_id).filter(Boolean)));
+
+    if (subscriptionIds.length) {
+      await admin.from("saas_subscriptions").update({ status: "suspended" }).in("id", subscriptionIds);
+    }
+    if (clinicIds.length) {
+      await admin.from("clinic_plans").update({ status: "suspended" }).in("clinic_id", clinicIds).in("status", ["active", "trial"]);
+      await admin.from("clinics").update({ status: "suspended", active: false }).in("id", clinicIds);
+      for (const clinicId of clinicIds) {
+        await recordBillingEvent(admin, context.userId, "clinic_suspended", {
+          clinic_id: clinicId,
+          metadata: { reason: "overdue", grace_days: data.grace_days },
+        });
+      }
+    }
+
+    return {
+      ok: true,
+      marked_overdue: overdueIds.length,
+      suspended_clinics: clinicIds.length,
+      grace_days: data.grace_days,
+    };
+  });
+
+export const cleanupOrphanSaasFinancialData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => orphanSaasFinancialCleanupInput.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const before = await collectOrphanSaasFinancials(admin);
+
+    const preserved = [
+      "clinics",
+      "users",
+      "plans",
+      "patients",
+      "templates",
+      "document_templates",
+      "financial_entries",
+      "receipts",
+      "saas_billing_events",
+      "saas_audit_log",
+      "dados clínicos",
+    ];
+
+    if (data.dry_run) {
+      return {
+        ok: true,
+        dry_run: true,
+        criteria: [
+          "clinic_id preenchido sem clínica correspondente em clinics",
+          "clinic_id de clínica com status deleted (soft delete)",
+          "invoice com subscription_id inexistente",
+          "payment com invoice_id inexistente",
+          "clinic_plans ativos de clínicas removidas ou inexistentes",
+          "não altera clínicas, usuários, planos SaaS (catálogo), pacientes, templates ou financeiro clínico",
+        ],
+        preserved,
+        groups: before.groups,
+        totals: before.totals,
+        dangling_checks: before.dangling_checks,
+      };
+    }
+
+    if (data.confirm !== ORPHAN_SAAS_FINANCIAL_CLEANUP_CONFIRMATION) {
+      throw new Error(`Confirmação incorreta. Digite exatamente: ${ORPHAN_SAAS_FINANCIAL_CLEANUP_CONFIRMATION}`);
+    }
+
+    if (before.totals.records === 0) {
+      return {
+        ok: true,
+        dry_run: false,
+        deleted: before.totals,
+        groups: before.groups,
+        message: "Nenhum registro financeiro órfão encontrado.",
+      };
+    }
+
+    const paymentIds = before.orphan_ids.saas_payments;
+    const invoiceIds = before.orphan_ids.saas_invoices;
+    const subscriptionIds = before.orphan_ids.saas_subscriptions;
+    const clinicPlanIds = before.orphan_ids.clinic_plans ?? [];
+    const orphanClinicIds = before.orphan_ids.clinic_ids ?? [];
+
+    if (paymentIds.length) {
+      const { error } = await admin.from("saas_payments").delete().in("id", paymentIds);
+      if (error) throw new Error(error.message);
+    }
+    if (invoiceIds.length) {
+      const { error } = await admin.from("saas_invoices").delete().in("id", invoiceIds);
+      if (error) throw new Error(error.message);
+    }
+    if (subscriptionIds.length) {
+      const { error } = await admin.from("saas_subscriptions").delete().in("id", subscriptionIds);
+      if (error) throw new Error(error.message);
+    }
+    if (clinicPlanIds.length) {
+      const now = new Date().toISOString();
+      const { error } = await admin
+        .from("clinic_plans")
+        .update({ status: "canceled", canceled_at: now })
+        .in("id", clinicPlanIds);
+      if (error) throw new Error(error.message);
+    }
+    for (const clinicId of orphanClinicIds) {
+      await cancelSaasBillingForClinic(admin, clinicId);
+    }
+
+    await logAudit(
+      admin,
+      context.userId,
+      "saas.cleanup_orphan_financials",
+      "saas_billing",
+      null,
+      before.totals,
+      {
+        deleted: {
+          saas_payments: paymentIds.length,
+          saas_invoices: invoiceIds.length,
+          saas_subscriptions: subscriptionIds.length,
+          clinic_plans_canceled: clinicPlanIds.length,
+          clinics_reconciled: orphanClinicIds.length,
+        },
+        groups: before.groups,
+      },
+    );
+
+    await recordBillingEvent(admin, context.userId, "manual_adjustment", {
+      amount: before.totals.amount,
+      metadata: {
+        action: "cleanup_orphan_financials",
+        deleted_payments: paymentIds.length,
+        deleted_invoices: invoiceIds.length,
+        deleted_subscriptions: subscriptionIds.length,
+        canceled_clinic_plans: clinicPlanIds.length,
+      },
+    });
+
+    const after = await collectOrphanSaasFinancials(admin);
+
+    return {
+      ok: true,
+      dry_run: false,
+      deleted: before.totals,
+      groups: before.groups,
+      totals_after: after.totals,
+      preserved,
+    };
+  });
+
+export const resetTotalSaasTestFinancialData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => totalSaasTestFinancialResetInput.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const before = await collectTotalSaasTestFinancialReset(admin);
+
+    const preserved = [
+      "clinics",
+      "plans",
+      "clinic_plans",
+      "profiles/users",
+      "patients",
+      "prontuário",
+      "agenda",
+      "clinical_documents",
+      "financial_entries",
+      "receipts",
+      "document_templates",
+      "white label",
+    ];
+
+    const affectedTables = before.groups
+      .filter((group) => group.available && group.record_count > 0)
+      .map((group) => group.table);
+
+    if (data.dry_run) {
+      return {
+        ok: true,
+        dry_run: true,
+        confirmation: TOTAL_SAAS_TEST_FINANCIAL_RESET_CONFIRMATION,
+        criteria: [
+          "remove somente dados financeiros SaaS fictícios de implantação",
+          "não remove clínicas, catálogo de planos, clinic_plans, usuários, pacientes ou financeiro clínico",
+          "após execução, KPIs financeiros SaaS reais ficam zerados enquanto novas mensalidades não forem geradas",
+        ],
+        preserved,
+        groups: before.groups,
+        totals: before.totals,
+        affected_tables: affectedTables,
+      };
+    }
+
+    if (data.confirm !== TOTAL_SAAS_TEST_FINANCIAL_RESET_CONFIRMATION) {
+      throw new Error(`Confirmação incorreta. Digite exatamente: ${TOTAL_SAAS_TEST_FINANCIAL_RESET_CONFIRMATION}`);
+    }
+
+    await logAudit(
+      admin,
+      context.userId,
+      "saas.test_financial_reset.before",
+      "saas_billing",
+      null,
+      null,
+      {
+        totals: before.totals,
+        groups: before.groups,
+        preserved,
+      },
+    );
+
+    await deleteAllFromOptionalTable(admin, "saas_transactions");
+    await deleteAllFromOptionalTable(admin, "saas_billing_events");
+    await deleteAllFromOptionalTable(admin, "saas_payments");
+    await deleteAllFromOptionalTable(admin, "saas_invoices");
+    await deleteAllFromOptionalTable(admin, "saas_subscriptions");
+
+    const after = await collectTotalSaasTestFinancialReset(admin);
+
+    await logAudit(
+      admin,
+      context.userId,
+      "saas.test_financial_reset.after",
+      "saas_billing",
+      null,
+      before.totals,
+      {
+        totals_after: after.totals,
+        groups_before: before.groups,
+        groups_after: after.groups,
+        affected_tables: affectedTables,
+        preserved,
+      },
+    );
+
+    return {
+      ok: true,
+      dry_run: false,
+      deleted: before.totals,
+      groups: before.groups,
+      totals_after: after.totals,
+      groups_after: after.groups,
+      affected_tables: affectedTables,
+      preserved,
+      kpis_after_reset: {
+        mrr: 0,
+        arr: 0,
+        expected_revenue: 0,
+        received_revenue: 0,
+      },
+    };
   });
 
 // ------------------------------------------------------------
@@ -1948,6 +3069,8 @@ export const softDeleteClinic = createServerFn({ method: "POST" })
       .from("clinic_members")
       .update({ active: false })
       .eq("clinic_id", clinic.id);
+
+    await cancelSaasBillingForClinic(supabaseAdmin, clinic.id);
 
     await logAudit(supabaseAdmin, context.userId, "clinic.deleted", "clinic", clinic.id, clinic, {
       docCount,
@@ -2142,6 +3265,270 @@ export const resetMovePlusDemoData = createServerFn({ method: "POST" })
       counts: before.counts,
       counts_after: after.counts,
       preserved_patients: before.patientIds.length,
+    };
+  });
+
+// ------------------------------------------------------------
+// Reset financeiro de clínicas fictícias/teste encerradas
+// ------------------------------------------------------------
+const testClinicsFinancialResetInput = z.object({
+  dry_run: z.boolean().default(true),
+  confirm: z.string().optional(),
+});
+
+const TEST_CLINICS_FINANCIAL_RESET_CONFIRMATION = "LIMPAR TESTES";
+
+const TEST_CLINICS_FINANCIAL_RESET_TABLES = [
+  "receipts",
+  "patient_package_usages",
+  "patient_package_contracts",
+  "financial_entries",
+  "financial_installment_plans",
+] as const;
+
+type TestClinicsFinancialResetTable = (typeof TEST_CLINICS_FINANCIAL_RESET_TABLES)[number];
+type TestClinicsFinancialResetCounts = Record<TestClinicsFinancialResetTable, number>;
+
+function emptyTestClinicsFinancialResetCounts(): TestClinicsFinancialResetCounts {
+  return Object.fromEntries(TEST_CLINICS_FINANCIAL_RESET_TABLES.map((table) => [table, 0])) as TestClinicsFinancialResetCounts;
+}
+
+function isClosedOrInactiveClinic(row: any) {
+  return row.active === false || ["inactive", "suspended", "canceled", "deleted"].includes(row.status);
+}
+
+function isTestFinancialResetCandidate(row: any, settingsLookup: ClinicSettingsNameLookup) {
+  const nameFields = resolveClinicNameFields(row, settingsLookup);
+  if (isProtectedMovePlusClinic(nameFields)) return false;
+  const segment = segmentClinic({
+    status: row.status,
+    is_test: !!row.is_test,
+    ...nameFields,
+  });
+  const testLike = !!row.is_test || segment === "test" || isKnownTestClinicCandidate(nameFields);
+  return testLike && isClosedOrInactiveClinic(row);
+}
+
+async function collectTestClinicFinancialSummary(supabaseAdmin: any, clinic: any) {
+  const counts = emptyTestClinicsFinancialResetCounts();
+  let totalReceivables = 0;
+  let totalPayables = 0;
+  let receiptsTotal = 0;
+  let contractsTotal = 0;
+  let installmentPlansTotal = 0;
+
+  const [entriesRes, receiptsRes, usagesRes, contractsRes, installmentsRes] = await Promise.all([
+    supabaseAdmin
+      .from("financial_entries")
+      .select("id, entry_type, valor")
+      .eq("clinic_id", clinic.id),
+    supabaseAdmin
+      .from("receipts")
+      .select("id, valor")
+      .eq("clinic_id", clinic.id),
+    supabaseAdmin
+      .from("patient_package_usages")
+      .select("id", { count: "exact", head: false })
+      .eq("clinic_id", clinic.id),
+    supabaseAdmin
+      .from("patient_package_contracts")
+      .select("id, contracted_value")
+      .eq("clinic_id", clinic.id),
+    supabaseAdmin
+      .from("financial_installment_plans")
+      .select("id, total_amount")
+      .eq("clinic_id", clinic.id),
+  ]);
+
+  for (const res of [entriesRes, receiptsRes, usagesRes, contractsRes, installmentsRes]) {
+    if (res.error) throw new Error(res.error.message);
+  }
+
+  const entries = entriesRes.data ?? [];
+  counts.financial_entries = entries.length;
+  for (const entry of entries) {
+    const value = Number(entry.valor ?? 0) || 0;
+    if (entry.entry_type === "payable") totalPayables += value;
+    else totalReceivables += value;
+  }
+
+  const receipts = receiptsRes.data ?? [];
+  counts.receipts = receipts.length;
+  receiptsTotal = receipts.reduce((sum: number, row: any) => sum + (Number(row.valor ?? 0) || 0), 0);
+
+  counts.patient_package_usages = usagesRes.data?.length ?? usagesRes.count ?? 0;
+
+  const contracts = contractsRes.data ?? [];
+  counts.patient_package_contracts = contracts.length;
+  contractsTotal = contracts.reduce((sum: number, row: any) => sum + (Number(row.contracted_value ?? 0) || 0), 0);
+
+  const installments = installmentsRes.data ?? [];
+  counts.financial_installment_plans = installments.length;
+  installmentPlansTotal = installments.reduce((sum: number, row: any) => sum + (Number(row.total_amount ?? 0) || 0), 0);
+
+  const totalRecords = Object.values(counts).reduce((sum, count) => sum + count, 0);
+
+  return {
+    clinic_id: clinic.id,
+    nome: clinic.nome,
+    slug: clinic.slug,
+    status: clinic.status,
+    active: clinic.active,
+    plan: clinic.plan ?? null,
+    is_test: !!clinic.is_test,
+    counts,
+    total_records: totalRecords,
+    total_receitas: totalReceivables,
+    total_despesas: totalPayables,
+    total_recibos: receiptsTotal,
+    total_contratos: contractsTotal,
+    total_parcelamentos: installmentPlansTotal,
+  };
+}
+
+async function collectTestClinicsFinancialReset(supabaseAdmin: any) {
+  const { data: clinics, error } = await supabaseAdmin
+    .from("clinics")
+    .select("id, nome, slug, status, active, plan, settings_id, is_test, updated_at")
+    .order("nome");
+  if (error) throw new Error(error.message);
+
+  const rows = clinics ?? [];
+  const settingsLookup = await loadClinicSettingsLookup(supabaseAdmin, rows);
+  const candidates = rows.filter((clinic: any) => isTestFinancialResetCandidate(clinic, settingsLookup));
+  const summaries = [];
+  for (const clinic of candidates) {
+    summaries.push(await collectTestClinicFinancialSummary(supabaseAdmin, clinic));
+  }
+
+  const totals = emptyTestClinicsFinancialResetCounts();
+  let totalRecords = 0;
+  let totalReceitas = 0;
+  let totalDespesas = 0;
+  let totalRecibos = 0;
+  let totalContratos = 0;
+  let totalParcelamentos = 0;
+  for (const row of summaries) {
+    for (const table of TEST_CLINICS_FINANCIAL_RESET_TABLES) {
+      totals[table] += row.counts[table] ?? 0;
+    }
+    totalRecords += row.total_records;
+    totalReceitas += row.total_receitas;
+    totalDespesas += row.total_despesas;
+    totalRecibos += row.total_recibos;
+    totalContratos += row.total_contratos;
+    totalParcelamentos += row.total_parcelamentos;
+  }
+
+  return {
+    clinics: summaries,
+    affected_clinics: summaries.filter((row) => row.total_records > 0),
+    totals,
+    total_records: totalRecords,
+    total_receitas: totalReceitas,
+    total_despesas: totalDespesas,
+    total_recibos: totalRecibos,
+    total_contratos: totalContratos,
+    total_parcelamentos: totalParcelamentos,
+  };
+}
+
+export const resetTestClinicsFinancialData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => testClinicsFinancialResetInput.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const before = await collectTestClinicsFinancialReset(supabaseAdmin);
+
+    const preserved = [
+      "clinics",
+      "users",
+      "clinic_members",
+      "plans",
+      "clinic_plans",
+      "clinic_settings",
+      "document_templates",
+      "patients",
+      "Move+ protegida",
+    ];
+
+    if (data.dry_run) {
+      return {
+        ok: true,
+        dry_run: true,
+        criteria: [
+          "clínica não protegida",
+          "marcada/identificada como teste ou fictícia",
+          "status inactive, suspended, canceled, deleted ou active=false",
+          "Move+ sempre excluída desta rotina",
+        ],
+        preserved,
+        ...before,
+      };
+    }
+
+    if (data.confirm !== TEST_CLINICS_FINANCIAL_RESET_CONFIRMATION) {
+      throw new Error(`Confirmação inválida. Digite exatamente: ${TEST_CLINICS_FINANCIAL_RESET_CONFIRMATION}`);
+    }
+
+    const targetClinicIds = before.affected_clinics.map((clinic) => clinic.clinic_id);
+    if (targetClinicIds.length === 0) {
+      return {
+        ok: true,
+        dry_run: false,
+        criteria: [
+          "clínica não protegida",
+          "marcada/identificada como teste ou fictícia",
+          "status inactive, suspended, canceled, deleted ou active=false",
+          "Move+ sempre excluída desta rotina",
+        ],
+        preserved,
+        ...before,
+        after: before,
+      };
+    }
+
+    for (const clinic of before.affected_clinics) {
+      await deleteByClinic(supabaseAdmin, "receipts", clinic.clinic_id);
+      await deleteByClinic(supabaseAdmin, "patient_package_usages", clinic.clinic_id);
+      await deleteByClinic(supabaseAdmin, "patient_package_contracts", clinic.clinic_id);
+      await deleteByClinic(supabaseAdmin, "financial_entries", clinic.clinic_id);
+      await deleteByClinic(supabaseAdmin, "financial_installment_plans", clinic.clinic_id);
+    }
+
+    const after = await collectTestClinicsFinancialReset(supabaseAdmin);
+
+    for (const clinic of before.affected_clinics) {
+      const afterClinic = after.clinics.find((row) => row.clinic_id === clinic.clinic_id) ?? null;
+      await logAudit(
+        supabaseAdmin,
+        context.userId,
+        "clinic.test_financial_reset",
+        "clinic",
+        clinic.clinic_id,
+        clinic,
+        {
+          counts_after: afterClinic?.counts ?? null,
+          confirmation: TEST_CLINICS_FINANCIAL_RESET_CONFIRMATION,
+          preserved,
+        },
+        clinic.clinic_id,
+      );
+    }
+
+    return {
+      ok: true,
+      dry_run: false,
+      criteria: [
+        "clínica não protegida",
+        "marcada/identificada como teste ou fictícia",
+        "status inactive, suspended, canceled, deleted ou active=false",
+        "Move+ sempre excluída desta rotina",
+      ],
+      preserved,
+      ...before,
+      after,
     };
   });
 

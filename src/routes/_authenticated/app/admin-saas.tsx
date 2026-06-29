@@ -66,6 +66,7 @@ import {
   softDeleteClinic,
   getSaasCommercialCenter,
   resetMovePlusDemoData,
+  resetTestClinicsFinancialData,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
 import { SaasDashboardPanel, SaasDashboardSkeleton } from "@/components/saas/SaasDashboardPanel";
@@ -690,6 +691,7 @@ function ClinicsTab() {
   const cancelOwner = useServerFn(cancelOwnerInvite);
   const changeOwner = useServerFn(changeClinicOwner);
   const resetMovePlus = useServerFn(resetMovePlusDemoData);
+  const resetTestFinancial = useServerFn(resetTestClinicsFinancialData);
   const qc = useQueryClient();
   const [detail, setDetail] = useState<any | null>(null);
   const [changeOwnerFor, setChangeOwnerFor] = useState<any | null>(null);
@@ -697,6 +699,9 @@ function ClinicsTab() {
   const [resetFor, setResetFor] = useState<any | null>(null);
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetReport, setResetReport] = useState<any | null>(null);
+  const [testFinanceResetOpen, setTestFinanceResetOpen] = useState(false);
+  const [testFinanceConfirm, setTestFinanceConfirm] = useState("");
+  const [testFinanceReport, setTestFinanceReport] = useState<any | null>(null);
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [segmentFilter, setSegmentFilter] = useState<ClinicListSegment>("production");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -861,6 +866,27 @@ function ClinicsTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const testFinanceDryRunMut = useMutation({
+    mutationFn: () => resetTestFinancial({ data: { dry_run: true } }),
+    onSuccess: (res: any) => setTestFinanceReport(res),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const testFinanceExecuteMut = useMutation({
+    mutationFn: (confirm: string) =>
+      resetTestFinancial({ data: { dry_run: false, confirm } }),
+    onSuccess: (res: any) => {
+      toast.success("Financeiro das clínicas teste limpo");
+      setTestFinanceReport(res);
+      setTestFinanceConfirm("");
+      qc.invalidateQueries({ queryKey: ["admin-saas-clinics"] });
+      qc.invalidateQueries({ queryKey: ["saas-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["saas-commercial-center"] });
+      qc.invalidateQueries({ queryKey: ["saas-clinic-diagnostic"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
   if (isError) {
     return (
@@ -931,6 +957,20 @@ function ClinicsTab() {
           <p className="text-xs text-muted-foreground ml-auto">
             {(data ?? []).length} clínica(s) · padrão: produção ativa
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setTestFinanceResetOpen(true);
+              setTestFinanceConfirm("");
+              setTestFinanceReport(null);
+              testFinanceDryRunMut.mutate();
+            }}
+          >
+            <FlaskConical className="h-4 w-4 mr-2" />
+            Limpar financeiro de clínicas teste
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="p-0 pt-0">
@@ -1377,7 +1417,200 @@ function ClinicsTab() {
           resetExecuteMut.mutate({ clinic_id: resetFor.id, confirm: resetConfirm });
         }}
       />
+      <TestClinicsFinancialResetDialog
+        open={testFinanceResetOpen}
+        confirm={testFinanceConfirm}
+        onConfirmChange={setTestFinanceConfirm}
+        report={testFinanceReport}
+        isDryRunLoading={testFinanceDryRunMut.isPending}
+        isExecuting={testFinanceExecuteMut.isPending}
+        onOpenChange={(b) => {
+          setTestFinanceResetOpen(b);
+          if (!b) {
+            setTestFinanceConfirm("");
+            setTestFinanceReport(null);
+          }
+        }}
+        onRefreshDryRun={() => testFinanceDryRunMut.mutate()}
+        onExecute={() => testFinanceExecuteMut.mutate(testFinanceConfirm)}
+      />
     </Card>
+  );
+}
+
+function TestClinicsFinancialResetDialog({
+  open,
+  confirm,
+  onConfirmChange,
+  report,
+  isDryRunLoading,
+  isExecuting,
+  onOpenChange,
+  onRefreshDryRun,
+  onExecute,
+}: {
+  open: boolean;
+  confirm: string;
+  onConfirmChange: (value: string) => void;
+  report: any | null;
+  isDryRunLoading: boolean;
+  isExecuting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onRefreshDryRun: () => void;
+  onExecute: () => void;
+}) {
+  const executed = report?.dry_run === false;
+  const rows = report?.clinics ?? [];
+  const affected = report?.affected_clinics ?? [];
+  const totals = report?.totals ?? {};
+  const afterTotals = report?.after?.totals ?? {};
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Limpar financeiro de clínicas teste</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+            Esta rotina considera apenas clínicas não protegidas, identificadas como teste/fictícias
+            e encerradas ou inativas. A Move+ não é tocada por esta ação.
+          </div>
+
+          <div className="grid gap-2 md:grid-cols-4">
+            <Counter label="Clínicas candidatas" value={rows.length} />
+            <Counter label="Com financeiro" value={affected.length} />
+            <Counter label="Registros financeiros" value={report?.total_records ?? 0} />
+            <div className="rounded-md border bg-muted/40 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Receitas / despesas</div>
+              <div className="text-sm font-semibold">
+                {BRL(report?.total_receitas ?? 0)} / {BRL(report?.total_despesas ?? 0)}
+              </div>
+            </div>
+          </div>
+
+          {report?.criteria?.length ? (
+            <div className="rounded-md border p-3">
+              <p className="mb-2 font-medium">Critérios de seleção</p>
+              <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                {report.criteria.map((item: string) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-medium">{executed ? "Relatório pós-limpeza" : "Dry-run"}</p>
+              <p className="text-xs text-muted-foreground">
+                {executed
+                  ? "A limpeza foi executada e a auditoria registrada."
+                  : "Nenhum dado é alterado antes da confirmação forte."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRefreshDryRun}
+              disabled={isDryRunLoading || isExecuting}
+            >
+              {isDryRunLoading ? "Calculando..." : "Atualizar dry-run"}
+            </Button>
+          </div>
+
+          <div className="max-h-72 overflow-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Clínica</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Plano</TableHead>
+                  <TableHead className="text-right">Receitas</TableHead>
+                  <TableHead className="text-right">Despesas</TableHead>
+                  <TableHead className="text-right">Recibos</TableHead>
+                  <TableHead className="text-right">Lançamentos</TableHead>
+                  <TableHead className="text-right">Contratos</TableHead>
+                  <TableHead className="text-right">Parcelas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isDryRunLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
+                      Calculando impacto...
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
+                      Nenhuma clínica teste/encerrada candidata encontrada.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row: any) => (
+                    <TableRow key={row.clinic_id}>
+                      <TableCell>
+                        <div className="font-medium">{row.nome}</div>
+                        <div className="text-xs text-muted-foreground">/{row.slug ?? "sem-slug"}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{STATUS_LABEL[row.status] ?? row.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{row.plan ?? "—"}</TableCell>
+                      <TableCell className="text-right">{BRL(row.total_receitas)}</TableCell>
+                      <TableCell className="text-right">{BRL(row.total_despesas)}</TableCell>
+                      <TableCell className="text-right">{row.counts?.receipts ?? 0}</TableCell>
+                      <TableCell className="text-right">{row.counts?.financial_entries ?? 0}</TableCell>
+                      <TableCell className="text-right">{row.counts?.patient_package_contracts ?? 0}</TableCell>
+                      <TableCell className="text-right">{row.counts?.financial_installment_plans ?? 0}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <p className="mb-2 font-medium">Tabelas afetadas</p>
+            <div className="grid gap-2 text-xs md:grid-cols-5">
+              {["receipts", "patient_package_usages", "patient_package_contracts", "financial_entries", "financial_installment_plans"].map((table) => (
+                <div key={table} className="rounded border bg-muted/30 px-2 py-1.5">
+                  <div className="font-mono">{table}</div>
+                  <div className="text-muted-foreground">
+                    {totals[table] ?? 0} {executed ? `→ ${afterTotals[table] ?? 0}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Digite LIMPAR TESTES para executar</Label>
+            <Input
+              value={confirm}
+              onChange={(e) => onConfirmChange(e.target.value)}
+              placeholder="LIMPAR TESTES"
+              disabled={isExecuting || executed}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onExecute}
+              disabled={confirm !== "LIMPAR TESTES" || isExecuting || executed || affected.length === 0}
+            >
+              {isExecuting ? "Executando..." : "Executar limpeza"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -28,6 +28,15 @@ export {
   BILLING_GATEWAY_READINESS,
   buildBillingCenterProjection,
 } from "./billing-architecture";
+export {
+  PLAN_FEATURES,
+  canUseFeature,
+  getClinicPlanLimits,
+  isFeatureEnabled,
+  normalizePlanModules,
+  type ClinicPlanLimits,
+  type PlanFeature,
+} from "./plan-access";
 export type {
   ExecutiveAttentionItem,
   ExecutiveAuditGroup,
