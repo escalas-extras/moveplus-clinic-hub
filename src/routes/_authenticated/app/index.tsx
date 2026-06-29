@@ -1,10 +1,15 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
+import {
+  EMPTY_DASHBOARD_DETAILS,
+  fetchDashboardCoreStats,
+  fetchDashboardDetailStats,
+  type DashboardStats,
+} from "@/lib/dashboard-stats";
 import { AppShell, ClinicalSkeleton, QueryErrorState } from "@/components/layout";
 import { ClinicHomeDashboard } from "@/components/home";
 import type { AttentionItem } from "@/components/dashboard";
@@ -18,17 +23,6 @@ import {
 import { fmtDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  beforeLoad: async () => {
-    const { data: sess } = await supabase.auth.getUser();
-    if (!sess.user) return;
-    const [rolesRes, supportRes] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
-      supabase.rpc("current_support_session_clinic"),
-    ]);
-    const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
-    const inSupport = !!supportRes.data;
-    if (isSuperAdmin && !inSupport) throw redirect({ to: "/app/admin-saas" });
-  },
   component: PainelClinico,
 });
 
@@ -89,169 +83,44 @@ function PainelClinico() {
     month: "long",
   });
 
-  const stats = useQuery({
-    queryKey: [
-      "painel-clinico",
-      clinicId,
-      todayIso,
-      weekStartIso,
-      weekEndIso,
-      thisMonthIso,
-      prevMonthIso,
-    ],
+  const dateKey = {
+    todayIso,
+    weekStartIso,
+    weekEndIso,
+    thisMonthIso,
+    prevMonthIso,
+  };
+
+  const coreStats = useQuery({
+    queryKey: ["painel-clinico-core", clinicId, todayIso, weekStartIso, weekEndIso, thisMonthIso, prevMonthIso],
     enabled: !!clinicId,
-    queryFn: async () => {
-      const cid = clinicId!;
-      const [
-        pacientesAtivos,
-        pacientesAntes,
-        atendHoje,
-        agendaSemana,
-        docsMes,
-        docsPrev,
-        docsTotal,
-        profissionais,
-        avaliacoes,
-        recibos,
-        reavalPend,
-        docsRascunho,
-        evolSemAssin,
-        hoje,
-        receitaMesRows,
-        recebiveisVencidos,
-        recentDocs,
-        recentPatients,
-      ] = await Promise.all([
-        supabase
-          .from("patients")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .eq("situacao", "ativo"),
-        supabase
-          .from("patients")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .eq("situacao", "ativo")
-          .lt("created_at", thisMonthIso),
-        supabase
-          .from("appointments")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .eq("data", todayIso),
-        supabase
-          .from("appointments")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .gte("data", weekStartIso)
-          .lte("data", weekEndIso),
-        supabase
-          .from("clinical_documents")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .gte("issued_at", thisMonthIso),
-        supabase
-          .from("clinical_documents")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .gte("issued_at", prevMonthIso)
-          .lt("issued_at", thisMonthIso),
-        supabase
-          .from("clinical_documents")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid),
-        supabase
-          .from("professionals")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid),
-        supabase
-          .from("assessments")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid),
-        supabase
-          .from("receipts")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid),
-        supabase
-          .from("reassessment_schedule")
-          .select("id, patient_id, scheduled_for, patients(nome_completo)")
-          .eq("clinic_id", cid)
-          .lte("scheduled_for", todayIso)
-          .is("completed_at", null)
-          .order("scheduled_for")
-          .limit(8),
-        supabase
-          .from("clinical_documents")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .is("locked_at", null),
-        supabase
-          .from("evolutions")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .is("locked_at", null),
-        supabase
-          .from("appointments")
-          .select("id, data, horario, status, observacao, patients(nome_completo), professionals(nome)")
-          .eq("clinic_id", cid)
-          .eq("data", todayIso)
-          .order("horario")
-          .limit(12),
-        supabase
-          .from("financial_entries")
-          .select("valor")
-          .eq("clinic_id", cid)
-          .eq("entry_type", "receivable")
-          .eq("status", "pago")
-          .gte("data", thisMonthIso),
-        supabase
-          .from("financial_entries")
-          .select("id", { count: "exact", head: true })
-          .eq("clinic_id", cid)
-          .eq("entry_type", "receivable")
-          .eq("status", "pendente")
-          .lt("data_vencimento", todayIso),
-        supabase
-          .from("clinical_documents")
-          .select("id, title, doc_type, issued_at, locked_at, patients(nome_completo)")
-          .eq("clinic_id", cid)
-          .order("issued_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("patients")
-          .select("id, nome_completo, created_at, situacao")
-          .eq("clinic_id", cid)
-          .order("created_at", { ascending: false })
-          .limit(5),
-      ]);
-
-      const receitaMes = (receitaMesRows.data ?? []).reduce((sum, r) => sum + Number(r.valor), 0);
-
-      return {
-        pacientesAtivos: pacientesAtivos.count ?? 0,
-        pacientesAntes: pacientesAntes.count ?? 0,
-        atendHoje: atendHoje.count ?? 0,
-        agendaSemana: agendaSemana.count ?? 0,
-        docsMes: docsMes.count ?? 0,
-        docsPrev: docsPrev.count ?? 0,
-        docsTotal: docsTotal.count ?? 0,
-        profissionais: profissionais.count ?? 0,
-        avaliacoes: avaliacoes.count ?? 0,
-        recibos: recibos.count ?? 0,
-        reavalPend: reavalPend.data ?? [],
-        docsRascunho: docsRascunho.count ?? 0,
-        evolSemAssin: evolSemAssin.count ?? 0,
-        hoje: hoje.data ?? [],
-        receitaMes,
-        recebiveisVencidos: recebiveisVencidos.count ?? 0,
-        recentDocs: recentDocs.data ?? [],
-        recentPatients: recentPatients.data ?? [],
-      };
-    },
+    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    queryFn: () => fetchDashboardCoreStats(clinicId!, dateKey),
   });
 
-  const s = stats.data;
+  const detailStats = useQuery({
+    queryKey: ["painel-clinico-details", clinicId, todayIso],
+    enabled: !!clinicId && !!coreStats.data,
+    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    queryFn: () => fetchDashboardDetailStats(clinicId!, todayIso),
+  });
+
+  const s = useMemo((): DashboardStats | undefined => {
+    if (!coreStats.data) return undefined;
+    return {
+      ...EMPTY_DASHBOARD_DETAILS,
+      ...coreStats.data,
+      ...(detailStats.data ?? {}),
+    };
+  }, [coreStats.data, detailStats.data]);
+
   const isNewClinic = !!s && s.pacientesAtivos === 0 && s.docsMes === 0 && s.atendHoje === 0;
-  const loading = stats.isLoading;
+  const loadingCore = coreStats.isLoading;
+  const loadingDetails = detailStats.isLoading && !detailStats.data;
 
   const attentionItems = useMemo((): AttentionItem[] => {
     if (!s) return [];
@@ -322,9 +191,9 @@ function PainelClinico() {
 
   return (
     <AppShell clinical>
-      {stats.isError ? (
-        <QueryErrorState onRetry={() => void stats.refetch()} />
-      ) : loading || !s ? (
+      {coreStats.isError ? (
+        <QueryErrorState onRetry={() => void coreStats.refetch()} />
+      ) : loadingCore || !s ? (
         <ClinicalSkeleton variant="dashboard" kpiCount={4} />
       ) : (
         <ClinicHomeDashboard
@@ -338,6 +207,7 @@ function PainelClinico() {
           attentionItems={attentionItems}
           isNewClinic={isNewClinic}
           logoUploaded={brand.hasOwnLogo}
+          loadingDetails={loadingDetails}
         />
       )}
     </AppShell>

@@ -27,6 +27,7 @@ export {
   BILLING_FINANCIAL_MODEL,
   BILLING_GATEWAY_READINESS,
   buildBillingCenterProjection,
+  buildRealBillingTimeline,
 } from "./billing-architecture";
 export {
   PLAN_FEATURES,
@@ -53,5 +54,6 @@ export type {
   BillingSubscriptionDraft,
   BillingTransactionDraft,
   BillingTransactionStatus,
+  RealBillingCenterSnapshot,
 } from "./billing-architecture";
 export { useClinicOperationalAccess } from "./use-clinic-operational-access";

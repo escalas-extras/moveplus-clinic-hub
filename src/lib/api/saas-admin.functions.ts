@@ -303,7 +303,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
     await assertSuperAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog, allClinicPlans, recentAudit] =
+    const [clinics, members, patients, docs, recentClinics, planAgg, plansCatalog, allClinicPlans, recentAudit, billingSubs] =
       await Promise.all([
         supabaseAdmin.from("clinics").select("id,status,created_at,nome,slug,settings_id,is_test"),
         supabaseAdmin
@@ -332,6 +332,11 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
           .select("id, action, created_at, clinic_id")
           .order("created_at", { ascending: false })
           .limit(8),
+        optionalSelectAll(
+          supabaseAdmin,
+          "saas_subscriptions",
+          "id, clinic_id, status, plans(id,code,name,monthly_price,price_cents)",
+        ),
       ]);
 
     const clinicsRows = (clinics.data ?? []).filter((c: any) => c.status !== "deleted");
@@ -380,12 +385,10 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
       string,
       { code: string; name: string; count: number; mrr: number; trial: number }
     > = {};
-    let mrr = 0;
     let trialCount = 0;
     for (const row of productionPlanAgg) {
       const p = row.plans;
       if (!p) continue;
-      const price = Number(p.monthly_price ?? (p.price_cents ?? 0) / 100) || 0;
       const key = p.code;
       planCounts[key] = planCounts[key] || {
         code: p.code,
@@ -399,12 +402,25 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
         planCounts[key].trial += 1;
         trialCount += 1;
       } else {
-        planCounts[key].mrr += price;
-        mrr += price;
+        planCounts[key].mrr += 0;
       }
     }
 
-    const paidContracts = productionPlanAgg.filter((r: any) => r.status === "active").length;
+    const billingRows = (billingSubs.rows ?? []).filter((row: any) => {
+      if (row.status !== "active") return false;
+      const clinic = prodRows.find((c: any) => c.id === row.clinic_id);
+      return clinic ? isSaasRevenueEligibleClinic(clinic, settingsLookup, validBillingClinicIds) : false;
+    });
+    let mrr = 0;
+    for (const row of billingRows) {
+      const p = row.plans;
+      if (!p) continue;
+      const price = planMonthlyValue(p);
+      mrr += price;
+      if (p.code && planCounts[p.code]) planCounts[p.code].mrr += price;
+    }
+
+    const paidContracts = billingRows.length;
     const trialsExpiring = countTrialsExpiring(
       productionPlanAgg as Array<{
         status: string;
@@ -476,7 +492,7 @@ export const getSaasDashboard = createServerFn({ method: "GET" })
       trial_count: trialCount,
       trials_expiring: trialsExpiring,
       paid_clients: paidContracts,
-      active_plan_contracts: paidContracts + trialCount,
+      active_plan_contracts: productionPlanAgg.length,
       canceled_count: canceledContracts,
       growth,
       plans_catalog_count: (plansCatalog.data ?? []).length,
@@ -806,7 +822,19 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
     last30.setDate(last30.getDate() - 30);
     const now = new Date();
 
-    const [clinicsRes, plansRes, membersRes, patientsRes, docsRes, apptsRes, evolRes, assessRes, auditRes] =
+    const [
+      clinicsRes,
+      plansRes,
+      membersRes,
+      patientsRes,
+      docsRes,
+      apptsRes,
+      evolRes,
+      assessRes,
+      auditRes,
+      billingSubsRes,
+      billingInvoicesRes,
+    ] =
       await Promise.all([
         supabaseAdmin
           .from("clinics")
@@ -829,6 +857,16 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
           .select("id, clinic_id, action, created_at, old_data, new_data")
           .order("created_at", { ascending: false })
           .limit(200),
+        optionalSelectAll(
+          supabaseAdmin,
+          "saas_subscriptions",
+          "id, clinic_id, status, plans(id,code,name,monthly_price,price_cents)",
+        ),
+        optionalSelectAll(
+          supabaseAdmin,
+          "saas_invoices",
+          "id, clinic_id, due_date, amount, status, paid_at, reference_month, created_at",
+        ),
       ]);
 
     for (const res of [clinicsRes, plansRes, membersRes, patientsRes, docsRes, apptsRes, evolRes, assessRes, auditRes]) {
@@ -938,29 +976,29 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
       };
     });
 
-    const competence = monthCompetence(now);
-    const monthlyFees = subscriptions.map((s) => {
-      const dueDays = daysUntil(s.next_due_at);
-      const status =
-        s.plan_status === "trial"
-          ? "trial"
-          : s.plan_status === "canceled"
-            ? "canceled"
-            : s.plan_status === "suspended" || s.clinic_status === "suspended"
-              ? "suspended"
-              : dueDays != null && dueDays < 0
-                ? "overdue"
-                : "open";
-      return {
-        clinic_id: s.clinic_id,
-        clinic_name: s.clinic_name,
-        competence,
-        due_at: s.next_due_at,
-        amount: s.monthly_value,
-        status,
-        source: "derived" as const,
-      };
-    });
+    const activeRevenueClinicIds = new Set(
+      commercialClinics
+        .filter((clinic: any) => isSaasRevenueEligibleClinic(clinic, settingsLookup, validBillingClinicIds))
+        .map((clinic: any) => clinic.id),
+    );
+    const billingSubscriptions = (billingSubsRes.rows ?? []).filter(
+      (row: any) => row.status === "active" && activeRevenueClinicIds.has(row.clinic_id),
+    );
+    const realEstimatedMrr = billingSubscriptions.reduce(
+      (sum: number, row: any) => sum + planMonthlyValue(row.plans),
+      0,
+    );
+    const monthlyFees = (billingInvoicesRes.rows ?? [])
+      .filter((row: any) => activeRevenueClinicIds.has(row.clinic_id))
+      .map((row: any) => ({
+        clinic_id: row.clinic_id,
+        clinic_name: clinicName[row.clinic_id] ?? "Clínica",
+        competence: row.reference_month ?? monthCompetence(now),
+        due_at: row.due_date ?? null,
+        amount: Number(row.amount ?? 0) || 0,
+        status: row.status ?? "open",
+        source: "real" as const,
+      }));
 
     const history = (auditRes.data ?? []).map((row: any) => ({
       id: row.id,
@@ -984,9 +1022,7 @@ export const getSaasCommercialCenter = createServerFn({ method: "GET" })
         average_health_score: subscriptions.length
           ? Math.round(subscriptions.reduce((sum, s) => sum + s.health_score, 0) / subscriptions.length)
           : 0,
-        estimated_mrr: subscriptions
-          .filter((s) => s.plan_status === "active" && s.clinic_status === "active")
-          .reduce((sum, s) => sum + s.monthly_value, 0),
+        estimated_mrr: realEstimatedMrr,
       },
       subscriptions,
       monthly_fees: monthlyFees,

@@ -20,9 +20,8 @@ export function useAuth() {
         // qualquer reuso de contexto de clínica entre usuários no mesmo browser.
         if (prev?.id !== nextUser?.id || event === "SIGNED_IN" || event === "SIGNED_OUT") {
           qc.invalidateQueries({ queryKey: ["user-roles-combined"] });
-          qc.invalidateQueries({ queryKey: ["platform-context"] });
+          qc.invalidateQueries({ queryKey: ["session-bootstrap"] });
           qc.invalidateQueries({ queryKey: ["plan-features"] });
-          qc.invalidateQueries({ queryKey: ["active-clinic"] });
           qc.invalidateQueries({ queryKey: ["branding"] });
         }
 

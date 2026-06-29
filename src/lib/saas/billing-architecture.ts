@@ -241,6 +241,56 @@ function buildInvoiceTransaction(invoice: BillingInvoiceDraft): BillingTransacti
   };
 }
 
+export type RealBillingCenterSnapshot = {
+  invoices: Array<{
+    id: string;
+    clinic_id: string;
+    due_date: string | null;
+    amount: number;
+    reference_month: string;
+    created_at: string;
+    clinics?: { nome?: string | null } | null;
+  }>;
+  events: Array<{
+    id: string;
+    clinic_id: string | null;
+    kind: string;
+    amount: number | null;
+    created_at: string;
+    clinics?: { nome?: string | null } | null;
+  }>;
+};
+
+export function buildRealBillingTimeline(data: RealBillingCenterSnapshot): BillingTransactionDraft[] {
+  const invoiceTransactions: BillingTransactionDraft[] = data.invoices.map((invoice) => ({
+    id: `invoice:${invoice.id}`,
+    clinic_id: invoice.clinic_id,
+    clinic_name: invoice.clinics?.nome ?? null,
+    occurred_at: invoice.due_date ?? invoice.created_at,
+    kind: "monthly_fee",
+    label: `Mensalidade ${invoice.reference_month}`,
+    amount: Number(invoice.amount ?? 0) || 0,
+    status: "planned",
+    source: "derived",
+  }));
+
+  const eventTransactions: BillingTransactionDraft[] = data.events.map((event) => ({
+    id: event.id,
+    clinic_id: event.clinic_id,
+    clinic_name: event.clinics?.nome ?? null,
+    occurred_at: event.created_at,
+    kind: "monthly_fee",
+    label: event.kind,
+    amount: event.amount != null ? Number(event.amount) : null,
+    status: "posted",
+    source: "audit",
+  }));
+
+  return [...eventTransactions, ...invoiceTransactions]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .slice(0, 80);
+}
+
 export function buildBillingCenterProjection(data: SaasCommercialCenterData): BillingCenterProjection {
   const invoices = data.monthly_fees.map(buildInvoice);
   const subscriptions = data.subscriptions.map(buildSubscription);

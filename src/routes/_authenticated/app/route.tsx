@@ -1,25 +1,24 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { ClinicAccessGate } from "@/components/clinic-access-gate";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchSessionBootstrap } from "@/lib/session-bootstrap";
 
 export const Route = createFileRoute("/_authenticated/app")({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const pathname = location.pathname;
     if (pathname === "/app/admin-saas" || pathname.startsWith("/app/admin-saas/")) {
       return;
     }
 
-    const { data: sess } = await supabase.auth.getUser();
-    if (!sess.user) return;
+    const userId = context.user?.id;
+    if (!userId) return;
 
-    const [rolesRes, supportRes] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", sess.user.id),
-      supabase.rpc("current_support_session_clinic"),
-    ]);
-    const isSuperAdmin = (rolesRes.data ?? []).some((r) => r.role === "super_admin");
-    const inSupport = !!supportRes.data;
+    const boot = await context.queryClient.ensureQueryData({
+      queryKey: ["session-bootstrap", userId],
+      queryFn: () => fetchSessionBootstrap(userId),
+      staleTime: 30_000,
+    });
 
-    if (isSuperAdmin && !inSupport) {
+    if (boot.isPlatformAdmin) {
       throw redirect({ to: "/app/admin-saas" });
     }
   },

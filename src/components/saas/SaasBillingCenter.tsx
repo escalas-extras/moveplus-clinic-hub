@@ -26,7 +26,6 @@ import {
   cleanupOrphanSaasFinancialData,
   generateSaasInvoice,
   getSaasBillingRealCenter,
-  getSaasCommercialCenter,
   markSaasInvoicePaid,
   refreshSaasOverdueStatus,
   resetTotalSaasTestFinancialData,
@@ -35,11 +34,10 @@ import {
   BILLING_ENTITY_BLUEPRINT,
   BILLING_FINANCIAL_MODEL,
   BILLING_GATEWAY_READINESS,
-  buildBillingCenterProjection,
+  buildRealBillingTimeline,
   formatSaasMoney,
   SAAS_PLATFORM,
-  type BillingCenterProjection,
-  type SaasCommercialCenterData,
+  type BillingTransactionDraft,
 } from "@/lib/saas";
 import {
   ClinicalSkeleton,
@@ -268,7 +266,6 @@ function moneyFromPlan(plan: SaasBillingRealData["subscriptions"][number]["plans
 export function SaasBillingCenter() {
   const queryClient = useQueryClient();
   const mountedRef = useRef(true);
-  const fetchCommercial = useServerFn(getSaasCommercialCenter);
   const fetchBilling = useServerFn(getSaasBillingRealCenter);
   const createInvoice = useServerFn(generateSaasInvoice);
   const payInvoice = useServerFn(markSaasInvoicePaid);
@@ -297,25 +294,11 @@ export function SaasBillingCenter() {
     };
   }, []);
 
-  const commercialQuery = useQuery({
-    queryKey: ["saas-commercial-center", "billing"],
-    queryFn: () => fetchCommercial(),
-    retry: false,
-  });
-
   const billingQuery = useQuery({
     queryKey: ["saas-billing-real-center"],
     queryFn: () => fetchBilling(),
     retry: false,
   });
-
-  const projection = useMemo(
-    () =>
-      commercialQuery.data
-        ? buildBillingCenterProjection(commercialQuery.data as SaasCommercialCenterData)
-        : null,
-    [commercialQuery.data],
-  );
 
   const real = billingQuery.data as SaasBillingRealData | undefined;
   const billingClinics = useMemo(() => {
@@ -323,22 +306,31 @@ export function SaasBillingCenter() {
     return source.map((clinic) => ({ id: clinic.id, name: clinic.nome })).sort((a, b) => a.name.localeCompare(b.name));
   }, [real?.clinics]);
 
+  const billingTimeline = useMemo(() => {
+    if (!real) return [];
+    return buildRealBillingTimeline({ invoices: real.invoices, events: real.events });
+  }, [real]);
+
   const timelineClinics = useMemo(() => {
-    const rows = projection?.subscriptions ?? [];
-    return rows
-      .map((row) => ({ id: row.clinic_id, name: row.clinic_name }))
+    const ids = new Map<string, string>();
+    for (const row of real?.subscriptions ?? []) {
+      ids.set(row.clinic_id, row.clinics?.nome ?? row.clinic_id);
+    }
+    for (const row of real?.invoices ?? []) {
+      ids.set(row.clinic_id, row.clinics?.nome ?? row.clinic_id);
+    }
+    return Array.from(ids.entries())
+      .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [projection]);
+  }, [real?.invoices, real?.subscriptions]);
 
   const filteredTimeline = useMemo(() => {
-    if (!projection) return [];
-    if (clinicFilter === "all") return projection.transactions;
-    return projection.transactions.filter((item) => item.clinic_id === clinicFilter);
-  }, [clinicFilter, projection]);
+    if (clinicFilter === "all") return billingTimeline;
+    return billingTimeline.filter((item) => item.clinic_id === clinicFilter);
+  }, [billingTimeline, clinicFilter]);
 
   const invalidateBilling = () => {
     void queryClient.invalidateQueries({ queryKey: ["saas-billing-real-center"] });
-    void queryClient.invalidateQueries({ queryKey: ["saas-commercial-center", "billing"] });
     void queryClient.invalidateQueries({ queryKey: ["saas-dashboard"] });
   };
 
@@ -466,8 +458,8 @@ export function SaasBillingCenter() {
     },
   });
 
-  if (commercialQuery.isError || billingQuery.isError) {
-    const error = (billingQuery.error ?? commercialQuery.error) as Error;
+  if (billingQuery.isError) {
+    const error = billingQuery.error as Error;
     return (
       <EmptyState
         icon={AlertTriangle}
@@ -476,7 +468,6 @@ export function SaasBillingCenter() {
         action={{
           label: "Tentar novamente",
           onClick: () => {
-            void commercialQuery.refetch();
             void billingQuery.refetch();
           },
         }}
@@ -484,11 +475,11 @@ export function SaasBillingCenter() {
     );
   }
 
-  if (commercialQuery.isLoading || billingQuery.isLoading) {
+  if (billingQuery.isLoading) {
     return <ClinicalSkeleton variant="dashboard" kpiCount={8} />;
   }
 
-  if (!projection || !real) {
+  if (!real) {
     return (
       <EmptyState
         icon={AlertTriangle}
@@ -497,7 +488,6 @@ export function SaasBillingCenter() {
         action={{
           label: "Tentar novamente",
           onClick: () => {
-            void commercialQuery.refetch();
             void billingQuery.refetch();
           },
         }}
@@ -509,7 +499,6 @@ export function SaasBillingCenter() {
     <>
       <BillingContent
         real={real}
-        projection={projection}
         billingClinics={billingClinics}
         timelineClinics={timelineClinics}
         clinicFilter={clinicFilter}
@@ -627,7 +616,6 @@ export function SaasBillingCenter() {
 
 function BillingContent({
   real,
-  projection,
   billingClinics,
   timelineClinics,
   clinicFilter,
@@ -651,7 +639,6 @@ function BillingContent({
   excludedOrphanRecords,
 }: {
   real: SaasBillingRealData;
-  projection: BillingCenterProjection;
   billingClinics: Array<{ id: string; name: string }>;
   timelineClinics: Array<{ id: string; name: string }>;
   clinicFilter: string;
@@ -665,7 +652,7 @@ function BillingContent({
   onGenerateInvoice: () => void;
   onRefreshOverdue: () => void;
   onOpenPayment: (invoice: InvoiceRow) => void;
-  filteredTimeline: BillingCenterProjection["transactions"];
+  filteredTimeline: BillingTransactionDraft[];
   generatingInvoice: boolean;
   refreshingOverdue: boolean;
   onOpenOrphanDryRun: () => void;
@@ -1007,39 +994,24 @@ function BillingContent({
         </PageSection>
 
         <PageSection
-          icon={Receipt}
-          title="Projeção comercial"
-          description="Leitura derivada dos contratos atuais para comparação com o billing persistido."
+          icon={PlugZap}
+          title="Fonte dos KPIs"
+          description="MRR, ARR e receita prevista usam somente tabelas SaaS persistidas. clinic_plans não compõe estes indicadores."
           contentClassName="pt-0"
         >
-          <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
-                <tr>
-                  <th className="px-3 py-2 text-left">Clínica</th>
-                  <th className="px-3 py-2 text-left">Plano</th>
-                  <th className="px-3 py-2 text-left">Status</th>
-                  <th className="px-3 py-2 text-left">Vencimento</th>
-                  <th className="px-3 py-2 text-right">Mensalidade</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {projection.subscriptions.slice(0, 12).map((row) => (
-                  <tr key={row.clinic_id}>
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-slate-900">{row.clinic_name}</div>
-                      <div className="text-xs text-slate-500">{row.plan_code ?? "sem-codigo"}</div>
-                    </td>
-                    <td className="px-3 py-2">{row.plan_name}</td>
-                    <td className="px-3 py-2">
-                      <StatusBadge variant={statusVariant(row.status)}>{statusLabel(row.status)}</StatusBadge>
-                    </td>
-                    <td className="px-3 py-2">{formatDate(row.next_due_at)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatSaasMoney(row.monthly_value)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-2.5">
+            <div className="rounded-xl border bg-emerald-50/60 p-3 text-xs leading-relaxed text-emerald-900">
+              Após o reset de implantação, os KPIs ficam em R$ 0,00 até novas assinaturas e mensalidades serem geradas nas
+              tabelas <strong>saas_subscriptions</strong> e <strong>saas_invoices</strong>.
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {BILLING_GATEWAY_READINESS.map((gateway) => (
+                <div key={gateway.provider} className="rounded-xl border border-dashed bg-slate-50/70 p-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-700">{gateway.label}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-600">{gateway.notes}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </PageSection>
       </div>
@@ -1047,7 +1019,7 @@ function BillingContent({
       <PageSection
         icon={History}
         title="Timeline financeira por clínica"
-        description="Ledger derivado de invoices projetadas e eventos de auditoria comercial."
+        description="Ledger montado a partir de mensalidades e eventos persistidos nas tabelas SaaS reais."
         actions={
           <select
             value={clinicFilter}

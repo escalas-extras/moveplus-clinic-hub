@@ -7,6 +7,7 @@ import {
   endSupportSession,
 } from "@/lib/api/clinic-ops.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlatformContext } from "@/lib/platform-context";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, LogOut } from "lucide-react";
 import { toast } from "sonner";
@@ -16,21 +17,25 @@ export function SupportBanner() {
   const endFn = useServerFn(endSupportSession);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { isSuperAdmin, loading: platformLoading } = usePlatformContext();
   const [hasSession, setHasSession] = useState(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) =>
-      setHasSession(!!s),
-    );
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setHasSession(!!s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
   const { data } = useQuery({
     queryKey: ["support-session-active"],
     queryFn: () => fetchActive(),
-    refetchInterval: 30_000,
-    enabled: hasSession,
+    enabled: hasSession && isSuperAdmin && !platformLoading,
+    staleTime: 30_000,
+    refetchInterval: (query) => (query.state.data ? 30_000 : false),
     retry: false,
+    refetchOnWindowFocus: false,
   });
+
   const endMut = useMutation({
     mutationFn: () => endFn(),
     onSuccess: async () => {
@@ -41,6 +46,7 @@ export function SupportBanner() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
   if (!data) return null;
   const clinicName = (data as any).clinics?.nome ?? "Clínica";
   return (

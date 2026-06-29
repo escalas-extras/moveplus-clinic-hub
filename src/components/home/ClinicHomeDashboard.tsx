@@ -100,6 +100,7 @@ type ClinicHomeDashboardProps = {
   attentionItems: AttentionItem[];
   isNewClinic: boolean;
   logoUploaded: boolean;
+  loadingDetails?: boolean;
 };
 
 function asArray<T>(value: T[] | null | undefined): T[] {
@@ -172,7 +173,7 @@ function ListRowLink({
   );
 }
 
-function WhatToDoNow({ items }: { items: AttentionItem[] }) {
+function WhatToDoNow({ items, loading }: { items: AttentionItem[]; loading?: boolean }) {
   return (
     <PageSection
       icon={Zap}
@@ -180,7 +181,13 @@ function WhatToDoNow({ items }: { items: AttentionItem[] }) {
       description="Prioridades sugeridas com base na sua rotina de hoje."
       contentClassName="p-0 sm:p-0"
     >
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2 px-3 py-3 sm:px-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted/50" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
         <EmptyState
           icon={Sparkles}
           title="Rotina em dia"
@@ -239,6 +246,7 @@ export function ClinicHomeDashboard({
   attentionItems,
   isNewClinic,
   logoUploaded,
+  loadingDetails = false,
 }: ClinicHomeDashboardProps) {
   const safeStats = {
     pacientesAtivos: asNumber(stats.pacientesAtivos),
@@ -379,7 +387,7 @@ export function ClinicHomeDashboard({
       </KpiGrid>
 
       <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <WhatToDoNow items={attentionItems} />
+        <WhatToDoNow items={attentionItems} loading={loadingDetails} />
 
         <div className="space-y-4">
           <QuickAction

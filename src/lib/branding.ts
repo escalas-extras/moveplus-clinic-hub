@@ -142,7 +142,8 @@ async function loadBranding(cid: string): Promise<Branding> {
   return branding;
 }
 
-export function useBranding(): Branding & { isLoading: boolean } {
+export function useBranding(options?: { disabled?: boolean }): Branding & { isLoading: boolean } {
+  const disabled = options?.disabled ?? false;
   const { clinicId, loading: clinicLoading } = useActiveClinic();
 
   const sessionBrand = clinicId ? brandingSession.get(clinicId) : null;
@@ -151,7 +152,7 @@ export function useBranding(): Branding & { isLoading: boolean } {
 
   const { data, isLoading: brLoading, isFetching: brFetching } = useQuery({
     queryKey: ["branding", clinicId ?? "none"],
-    enabled: !!clinicId,
+    enabled: !disabled && !!clinicId,
     staleTime: BRAND_QUERY_STALE_MS,
     gcTime: 60 * 60_000,
     refetchOnWindowFocus: false,
@@ -184,6 +185,10 @@ export function useBranding(): Branding & { isLoading: boolean } {
   useEffect(() => {
     if (logo) void preloadImageUrl(logo);
   }, [logo]);
+
+  if (disabled) {
+    return { ...DEFAULTS, isLoading: false };
+  }
 
   const metaReady = !!data;
   const logoPending = !!logoPath && logoLoading && !logo;

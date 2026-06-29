@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { usePlatformContext } from "@/lib/platform-context";
+import { useSessionBootstrap } from "@/lib/session-bootstrap";
 
 /**
  * Returns the active feature set (modules) for the user's current clinic.
@@ -9,22 +9,17 @@ import { usePlatformContext } from "@/lib/platform-context";
  */
 export function usePlanFeatures() {
   const { user } = useAuth();
-  const { isSuperAdmin, isPlatformAdmin } = usePlatformContext();
+  const { data: boot, loading: bootLoading } = useSessionBootstrap();
 
-  const { data: features = [], isLoading } = useQuery({
-    queryKey: ["plan-features", user?.id, isSuperAdmin],
-    enabled: !!user?.id,
+  const { data: features = [], isLoading: featuresLoading } = useQuery({
+    queryKey: ["plan-features", boot?.clinicId],
+    enabled: !!user?.id && !!boot && !boot.isSuperAdmin && !!boot.clinicId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      if (isSuperAdmin) return ["*"];
-      const { data: members } = await supabase
-        .from("clinic_members")
-        .select("clinic_id")
-        .eq("user_id", user!.id)
-        .eq("active", true)
-        .order("is_default", { ascending: false })
-        .limit(1);
-      const clinicId = members?.[0]?.clinic_id;
-      if (!clinicId) return [];
+      const clinicId = boot!.clinicId!;
       const { data: cp } = await supabase
         .from("clinic_plans")
         .select("plans(modules)")
@@ -39,13 +34,21 @@ export function usePlanFeatures() {
     },
   });
 
+  const isSuperAdmin = boot?.isSuperAdmin ?? false;
+  const isPlatformAdmin = boot?.isPlatformAdmin ?? false;
+  const resolvedFeatures = isSuperAdmin ? ["*"] : features;
+
   const has = (feature: string) => {
     if (isPlatformAdmin || isSuperAdmin) return true;
-    if (features.includes("*")) return true;
-    return features.includes(feature);
+    if (resolvedFeatures.includes("*")) return true;
+    return resolvedFeatures.includes(feature);
   };
 
-  return { has, features, isLoading };
+  return {
+    has,
+    features: resolvedFeatures,
+    isLoading: bootLoading || (featuresLoading && !isSuperAdmin),
+  };
 }
 
 export const PLAN_FEATURE_LABELS: Record<string, string> = {

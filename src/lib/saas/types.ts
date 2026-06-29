@@ -106,7 +106,7 @@ export type SaasCommercialMonthlyFee = {
   due_at: string | null;
   amount: number;
   status: "trial" | "open" | "overdue" | "suspended" | "canceled";
-  source: "derived";
+  source: "derived" | "real";
 };
 
 export type SaasCommercialHistoryEvent = {

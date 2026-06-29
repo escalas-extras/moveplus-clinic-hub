@@ -304,7 +304,7 @@ export function AppShell({
 
   const isAdminSaasArea = location.pathname.startsWith("/app/admin-saas");
 
-  const clinicBrand = useBranding();
+  const clinicBrand = useBranding({ disabled: isAdminSaasArea });
 
   const brand = isAdminSaasArea ? ADMIN_SAAS_BRAND : clinicBrand;
 
