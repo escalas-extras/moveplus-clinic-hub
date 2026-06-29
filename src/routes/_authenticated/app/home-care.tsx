@@ -22,14 +22,14 @@ type Visit = {
 type Patient = { id: string; nome_completo: string };
 
 function HomeCarePage() {
-  const { clinicId } = useActiveClinic();
+  const { clinicId, supportMode } = useActiveClinic();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<Visit> & { patient_id?: string }>({ visit_date: new Date().toISOString().slice(0, 10) });
 
   async function load() {
-    if (!clinicId) return;
+    if (!clinicId) { setVisits([]); setPatients([]); return; }
     const patientsRes = await supabase.from("patients").select("id,nome_completo").eq("clinic_id", clinicId).order("nome_completo");
     const patientIds = (patientsRes.data ?? []).map((p: any) => p.id);
     const visitsRes = patientIds.length
@@ -42,6 +42,12 @@ function HomeCarePage() {
 
   async function save() {
     if (!form.patient_id) { toast.error("Selecione um paciente"); return; }
+    if (!clinicId) { toast.error("Sem clínica ativa."); return; }
+    if (supportMode) { toast.error("Modo Suporte ativo: somente leitura."); return; }
+    if (!patients.some((p) => p.id === form.patient_id)) {
+      toast.error("Paciente não pertence à clínica ativa.");
+      return;
+    }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("home_care_visits").insert({
       patient_id: form.patient_id,

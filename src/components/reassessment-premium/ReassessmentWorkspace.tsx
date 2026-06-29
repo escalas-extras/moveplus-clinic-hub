@@ -71,6 +71,7 @@ export function ReassessmentWorkspace({ schedule, onClose }: ReassessmentWorkspa
         .from("patients")
         .select("id, nome_completo, data_nascimento, clinic_id")
         .eq("id", patientId)
+        .eq("clinic_id", clinicId!)
         .single();
       return data;
     },

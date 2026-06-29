@@ -54,8 +54,15 @@ function ClinicalDashboard() {
         supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!),
         supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("situacao", "ativo"),
         supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", clinicId!).eq("situacao", "inativo"),
-        supabase.from("assessment_scales").select("scale_type, risk_level, total_score, applied_at").gte("applied_at", monthIso),
-        supabase.from("assessment_goals").select("status, term"),
+        supabase
+          .from("assessment_scales")
+          .select("scale_type, risk_level, total_score, applied_at, patients!inner(clinic_id)")
+          .eq("patients.clinic_id", clinicId!)
+          .gte("applied_at", monthIso),
+        supabase
+          .from("assessment_goals")
+          .select("status, term, patients!inner(clinic_id)")
+          .eq("patients.clinic_id", clinicId!),
         supabase.from("reassessment_schedule").select("id, scheduled_for, completed_at").eq("clinic_id", clinicId!),
       ]);
       return {

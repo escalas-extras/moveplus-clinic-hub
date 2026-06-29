@@ -21,17 +21,20 @@ import {
   ClinicalDialogTitle,
   ClinicalField,
 } from "@/components/layout";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 export function ScalesPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
   const qc = useQueryClient();
+  const { clinicId, supportMode } = useActiveClinic();
   const [open, setOpen] = useState(false);
   const [activeScale, setActiveScale] = useState<ScaleType>("barthel");
 
   const rows = useQuery({
-    queryKey: ["scales", patientId],
+    queryKey: ["scales", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("assessment_scales").select("*").eq("patient_id", patientId)
+        .from("assessment_scales").select("*, patients!inner(clinic_id)").eq("patient_id", patientId).eq("patients.clinic_id", clinicId!)
         .order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -62,7 +65,9 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
                 scaleType={activeScale}
                 patientId={patientId}
                 assessmentId={assessmentId}
-                onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["scales", patientId] }); }}
+                clinicId={clinicId}
+                supportMode={supportMode}
+                onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["scales", clinicId, patientId] }); }}
               />
             </ClinicalDialogBody>
           </ClinicalDialogContent>
@@ -96,7 +101,7 @@ export function ScalesPanel({ patientId, assessmentId }: { patientId: string; as
   );
 }
 
-function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: ScaleType; patientId: string; assessmentId?: string; onDone: () => void }) {
+function ScaleForm({ scaleType, patientId, assessmentId, clinicId, supportMode, onDone }: { scaleType: ScaleType; patientId: string; assessmentId?: string; clinicId: string | null; supportMode: boolean; onDone: () => void }) {
   const cfg = SCALES[scaleType];
   const [items, setItems] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState("");
@@ -104,7 +109,16 @@ function ScaleForm({ scaleType, patientId, assessmentId, onDone }: { scaleType: 
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       const { data: u } = await supabase.auth.getUser();
+      const { data: patient } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("clinic_id", clinicId)
+        .eq("id", patientId)
+        .maybeSingle();
+      if (!patient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("assessment_scales").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
         scale_type: scaleType as any, items,

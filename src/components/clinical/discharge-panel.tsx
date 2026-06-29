@@ -29,7 +29,7 @@ const MOTIVOS = [
 export function DischargePanel({ patientId, patient }: { patientId: string; patient: any }) {
   const qc = useQueryClient();
   const { user } = useAuth();
-  const { clinicId } = useActiveClinic();
+  const { clinicId, supportMode } = useActiveClinic();
   const [form, setForm] = useState({
     data_alta: new Date().toISOString().slice(0, 10),
     motivo: MOTIVOS[0],
@@ -46,8 +46,9 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
     queryFn: async () => {
       const { data, error } = await supabase
         .from("patient_discharges")
-        .select("*, professionals(nome, conselho, registro, profissao)")
+        .select("*, professionals(nome, conselho, registro, profissao), patients!inner(clinic_id)")
         .eq("patient_id", patientId)
+        .eq("patients.clinic_id", clinicId!)
         .order("data_alta", { ascending: false });
       if (error) throw error;
       return data;
@@ -68,7 +69,11 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
 
   const create = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       if (!form.motivo) throw new Error("Informe o motivo da alta");
+      const { data: activePatient } = await supabase.from("patients").select("id").eq("clinic_id", clinicId).eq("id", patientId).maybeSingle();
+      if (!activePatient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("patient_discharges").insert({
         patient_id: patientId,
         professional_id: myProf.data?.id ?? null,
@@ -89,7 +94,8 @@ export function DischargePanel({ patientId, patient }: { patientId: string; pati
 
   const lock = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("patient_discharges").update({ locked_at: new Date().toISOString() }).eq("id", id);
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
+      const { error } = await supabase.from("patient_discharges").update({ locked_at: new Date().toISOString() }).eq("id", id).eq("patient_id", patientId);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Alta assinada"); qc.invalidateQueries({ queryKey: ["discharges", clinicId, patientId] }); },

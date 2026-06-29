@@ -47,7 +47,7 @@ type DischargeWorkspaceProps = {
 };
 
 function DischargeWorkspaceInner({ patient, onClose }: DischargeWorkspaceProps) {
-  const { clinicId } = useActiveClinic();
+  const { clinicId, supportMode } = useActiveClinic();
   const qc = useQueryClient();
   const isDischarged = !!patient.data_alta || patient.situacao === "inativo";
 
@@ -91,8 +91,9 @@ function DischargeWorkspaceInner({ patient, onClose }: DischargeWorkspaceProps) 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("patient_discharges")
-        .select("*, professionals(nome, conselho, registro, profissao)")
+        .select("*, professionals(nome, conselho, registro, profissao), patients!inner(clinic_id)")
         .eq("patient_id", patient.id)
+        .eq("patients.clinic_id", clinicId!)
         .order("data_alta", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -119,10 +120,12 @@ function DischargeWorkspaceInner({ patient, onClose }: DischargeWorkspaceProps) 
 
   const lock = useMutation({
     mutationFn: async (id: string) => {
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       const { error } = await supabase
         .from("patient_discharges")
         .update({ locked_at: new Date().toISOString() })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("patient_id", patient.id);
       if (error) throw error;
     },
     onSuccess: () => {

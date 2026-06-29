@@ -155,12 +155,15 @@ function DocumentosPage() {
   });
 
   const { data: lastDischarge } = useQuery({
-    queryKey: ["patient-discharge", patientId],
-    enabled: !!patientId,
+    queryKey: ["patient-discharge", activeClinicId, patientId],
+    enabled: !!activeClinicId && !!patientId,
     queryFn: async () => {
       const { data } = await supabase
-        .from("patient_discharges").select("*")
-        .eq("patient_id", patientId).order("data_alta", { ascending: false }).limit(1).maybeSingle();
+        .from("patient_discharges")
+        .select("*, patients!inner(clinic_id)")
+        .eq("patient_id", patientId)
+        .eq("patients.clinic_id", activeClinicId!)
+        .order("data_alta", { ascending: false }).limit(1).maybeSingle();
       return data;
     },
   });

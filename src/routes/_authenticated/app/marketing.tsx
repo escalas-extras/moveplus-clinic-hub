@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/app/marketing")({
 type Item = { id: string; scheduled_for: string; title: string; description: string | null; category: string | null; channel: string | null; status: string | null };
 
 function MarketingPage() {
-  const { clinicId } = useActiveClinic();
+  const { clinicId, supportMode } = useActiveClinic();
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Partial<Item>>({ scheduled_for: new Date().toISOString().slice(0, 10), status: "planejado" });
@@ -37,6 +37,7 @@ function MarketingPage() {
   async function save() {
     if (!form.title || !form.scheduled_for) { toast.error("Preencha título e data"); return; }
     if (!clinicId) { toast.error("Sem clínica ativa."); return; }
+    if (supportMode) { toast.error("Modo Suporte ativo: somente leitura."); return; }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("marketing_calendar").insert({
       title: form.title, description: form.description ?? null, scheduled_for: form.scheduled_for,

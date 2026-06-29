@@ -2,14 +2,38 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Download, Users, Activity, Wallet, ClipboardCheck } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  Users,
+  Activity,
+  Wallet,
+  ClipboardCheck,
+  CalendarDays,
+  CalendarRange,
+  CalendarClock,
+  Stethoscope,
+  TrendingUp,
+  Clock,
+  Layers,
+  ShieldAlert,
+  Inbox,
+} from "lucide-react";
+import {
+  AppShell,
+  PageHeader,
+  KpiCard,
+  KpiGrid,
+  InfoCard,
+  EmptyState,
+  FilterField,
+} from "@/components/layout";
 import { brl, fmtDate } from "@/lib/format";
+import { formatPaymentMethod } from "@/lib/finance";
 import { useActiveClinic } from "@/lib/active-clinic";
 
 export const Route = createFileRoute("/_authenticated/app/relatorios")({
@@ -54,12 +78,20 @@ function ReportsPage() {
     queryKey: ["report-clinical", clinicId, from, to],
     enabled: !!clinicId,
     queryFn: async () => {
+      if (!clinicId) {
+        return { pacientesTotal: 0, pacientesAtivos: 0, avaliacoes: 0, evolucoes: 0, atrasadas: 0, proximas: 0, profCounts: {}, riskCounts: {}, scalesRaw: [] };
+      }
       const [pat, assess, evo, scales, reaval] = await Promise.all([
-        supabase.from("patients").select("id, situacao", { count: "exact" }),
-        supabase.from("assessments").select("id, status, clinical_profiles, data").gte("data", from).lte("data", to),
-        supabase.from("evolutions").select("id, data").gte("data", from).lte("data", to),
-        supabase.from("assessment_scales").select("scale_code, risk_level, total_score, applied_at").gte("applied_at", from).lte("applied_at", to + "T23:59:59"),
-        supabase.from("reassessment_schedule").select("id, scheduled_for, completed_at"),
+        supabase.from("patients").select("id, situacao", { count: "exact" }).eq("clinic_id", clinicId),
+        supabase.from("assessments").select("id, status, clinical_profiles, data").eq("clinic_id", clinicId).gte("data", from).lte("data", to),
+        supabase.from("evolutions").select("id, data").eq("clinic_id", clinicId).gte("data", from).lte("data", to),
+        supabase
+          .from("assessment_scales")
+          .select("scale_code, risk_level, total_score, applied_at, patients!inner(clinic_id)")
+          .eq("patients.clinic_id", clinicId)
+          .gte("applied_at", from)
+          .lte("applied_at", to + "T23:59:59"),
+        supabase.from("reassessment_schedule").select("id, scheduled_for, completed_at").eq("clinic_id", clinicId),
       ]);
       const profCounts: Record<string, number> = {};
       (assess.data ?? []).forEach((a: any) => {
@@ -87,9 +119,12 @@ function ReportsPage() {
     queryKey: ["report-operational", clinicId, from, to],
     enabled: !!clinicId,
     queryFn: async () => {
+      if (!clinicId) {
+        return { atendimentos: 0, byStatus: {}, byProf: {}, profissionaisAtivos: 0 };
+      }
       const [appt, prof] = await Promise.all([
-        supabase.from("appointments").select("status, data, professional_id, professionals(nome)").gte("data", from).lte("data", to),
-        supabase.from("professionals").select("id, nome, situacao"),
+        supabase.from("appointments").select("status, data, professional_id, professionals(nome)").eq("clinic_id", clinicId).gte("data", from).lte("data", to),
+        supabase.from("professionals").select("id, nome, situacao").eq("clinic_id", clinicId),
       ]);
       const byStatus: Record<string, number> = {};
       const byProf: Record<string, number> = {};
@@ -141,7 +176,11 @@ function ReportsPage() {
 
 
   const exportPatients = async () => {
-    const { data } = await supabase.from("patients").select("nome_completo, cpf, data_nascimento, sexo, telefone, situacao, created_at");
+    if (!clinicId) return;
+    const { data } = await supabase
+      .from("patients")
+      .select("nome_completo, cpf, data_nascimento, sexo, telefone, situacao, created_at")
+      .eq("clinic_id", clinicId);
     downloadCSV(`pacientes-${from}.csv`, toCSV(data ?? [], [
 
       { key: "nome_completo", label: "Nome" },
@@ -155,9 +194,11 @@ function ReportsPage() {
   };
 
   const exportEvolutions = async () => {
+    if (!clinicId) return;
     const { data } = await supabase
       .from("evolutions")
       .select("data, conduta, intercorrencias, patients(nome_completo), professionals(nome)")
+      .eq("clinic_id", clinicId)
       .gte("data", from).lte("data", to);
     const rows = (data ?? []).map((e: any) => ({
       data: e.data,
@@ -174,6 +215,7 @@ function ReportsPage() {
   };
 
   const exportFinancial = async () => {
+    if (!clinicId) return;
     if (!financial?.entries) return;
     const rows = financial.entries.map((e: any) => ({
       data: e.data,
@@ -181,7 +223,7 @@ function ReportsPage() {
       tipo: e.entry_type === "payable" ? "Despesa" : "Receita",
       valor: e.valor,
       status: e.status,
-      forma_pagamento: e.forma_pagamento ?? "",
+      forma_pagamento: formatPaymentMethod(e.forma_pagamento),
       observacoes: e.observacoes ?? "",
     }));
     downloadCSV(`financeiro-${from}_${to}.csv`, toCSV(rows, [
@@ -195,111 +237,163 @@ function ReportsPage() {
     ]));
   };
 
+  const profCounts = Object.entries(clinical?.profCounts ?? {});
+  const riskCounts = Object.entries(clinical?.riskCounts ?? {});
+  const statusCounts = Object.entries(operational?.byStatus ?? {});
+  const profByCount = Object.entries(operational?.byProf ?? {});
+
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      <header>
-        <h1 className="text-2xl font-semibold">Relatórios Executivos</h1>
-        <p className="text-sm text-muted-foreground">Indicadores consolidados — exporte para Excel/CSV.</p>
-      </header>
+    <AppShell clinical>
+      <PageHeader
+        icon={BarChart3}
+        eyebrow="Relatórios"
+        breadcrumbs={[{ label: "Clínica", to: "/app" }, { label: "Relatórios" }]}
+        title="Relatórios executivos"
+        description="Indicadores consolidados de clínica, operação e financeiro — exporte para Excel/CSV."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportPatients}>
+              <Download className="h-4 w-4 mr-1.5" /> Pacientes
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportEvolutions}>
+              <Download className="h-4 w-4 mr-1.5" /> Evoluções
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportFinancial}>
+              <Download className="h-4 w-4 mr-1.5" /> Financeiro
+            </Button>
+          </div>
+        }
+      />
 
-      <Card className="p-4 flex flex-wrap items-end gap-3">
-        <div>
-          <Label className="text-xs">De</Label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+      {/* Filtro de período — compacto */}
+      <div className="fos-surface-card flex flex-wrap items-end gap-3 rounded-2xl p-3 sm:p-4">
+        <FilterField label="De" htmlFor="rel-from" className="space-y-1.5">
+          <Input
+            id="rel-from"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="h-10 w-[150px]"
+          />
+        </FilterField>
+        <FilterField label="Até" htmlFor="rel-to" className="space-y-1.5">
+          <Input
+            id="rel-to"
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="h-10 w-[150px]"
+          />
+        </FilterField>
+        <div className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,76,92,0.12)] bg-[rgba(15,76,92,0.03)] px-3 py-1.5 text-xs font-medium text-slate-600">
+          <CalendarRange className="h-3.5 w-3.5 text-primary" aria-hidden />
+          {fmtDate(from)} → {fmtDate(to)}
         </div>
-        <div>
-          <Label className="text-xs">Até</Label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
-        </div>
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportPatients}><Download className="h-4 w-4 mr-1" /> Pacientes</Button>
-          <Button variant="outline" size="sm" onClick={exportEvolutions}><Download className="h-4 w-4 mr-1" /> Evoluções</Button>
-          <Button variant="outline" size="sm" onClick={exportFinancial}><Download className="h-4 w-4 mr-1" /> Financeiro</Button>
-        </div>
-      </Card>
+      </div>
 
-      <Tabs defaultValue="clinical">
-        <TabsList>
-          <TabsTrigger value="clinical"><Activity className="h-4 w-4 mr-1" /> Clínico</TabsTrigger>
-          <TabsTrigger value="operational"><ClipboardCheck className="h-4 w-4 mr-1" /> Operacional</TabsTrigger>
-          <TabsTrigger value="financial"><Wallet className="h-4 w-4 mr-1" /> Financeiro</TabsTrigger>
+      <Tabs defaultValue="clinical" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
+          <TabsTrigger value="clinical"><Activity className="h-4 w-4 mr-1.5" /> Clínico</TabsTrigger>
+          <TabsTrigger value="operational"><ClipboardCheck className="h-4 w-4 mr-1.5" /> Operacional</TabsTrigger>
+          <TabsTrigger value="financial"><Wallet className="h-4 w-4 mr-1.5" /> Financeiro</TabsTrigger>
         </TabsList>
 
+        {/* ───────── CLÍNICO ───────── */}
         <TabsContent value="clinical" className="space-y-4">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Kpi icon={<Users className="h-4 w-4" />} label="Pacientes ativos" value={clinical?.pacientesAtivos ?? "—"} />
-            <Kpi label="Avaliações no período" value={clinical?.avaliacoes ?? "—"} />
-            <Kpi label="Evoluções no período" value={clinical?.evolucoes ?? "—"} />
-            <Kpi label="Reavaliações atrasadas" value={clinical?.atrasadas ?? "—"} variant="warn" />
+          <KpiGrid columns={4}>
+            <KpiCard icon={Users} label="Pacientes ativos" value={clinical?.pacientesAtivos ?? "—"} accent="var(--primary)" hideDelta />
+            <KpiCard icon={ClipboardCheck} label="Avaliações no período" value={clinical?.avaliacoes ?? "—"} accent="#0284c7" hideDelta />
+            <KpiCard icon={Activity} label="Evoluções no período" value={clinical?.evolucoes ?? "—"} accent="#059669" hideDelta />
+            <KpiCard icon={CalendarClock} label="Reavaliações atrasadas" value={clinical?.atrasadas ?? "—"} accent="#d97706" tone="warning" hideDelta />
+          </KpiGrid>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <InfoCard icon={Layers} title="Perfis clínicos atendidos" description="Distribuição por perfil no período selecionado.">
+              {profCounts.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {profCounts.map(([k, v]) => (
+                    <Badge key={k} variant="outline" className="text-xs font-medium">
+                      {k}: {v as number}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState icon={Inbox} title="Sem dados no período" description="Nenhum perfil clínico registrado no intervalo selecionado." className="py-10" />
+              )}
+            </InfoCard>
+
+            <InfoCard icon={ShieldAlert} title="Distribuição de risco" description="Estratificação por escalas aplicadas.">
+              {riskCounts.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {riskCounts.map(([k, v]) => (
+                    <Badge key={k} variant={k.includes("alto") ? "destructive" : "secondary"} className="text-xs font-medium">
+                      {k}: {v as number}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState icon={Inbox} title="Sem escalas aplicadas" description="Nenhuma escala foi aplicada no intervalo selecionado." className="py-10" />
+              )}
+            </InfoCard>
           </div>
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">Perfis clínicos atendidos</h3>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(clinical?.profCounts ?? {}).map(([k, v]) => (
-                <Badge key={k} variant="outline">{k}: {v as number}</Badge>
-              ))}
-              {!Object.keys(clinical?.profCounts ?? {}).length && <p className="text-sm text-muted-foreground">Sem dados no período.</p>}
-            </div>
-          </Card>
-          <Card className="p-4">
-            <h3 className="font-semibold mb-2">Distribuição de risco (escalas)</h3>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(clinical?.riskCounts ?? {}).map(([k, v]) => (
-                <Badge key={k} variant={k.includes("alto") ? "destructive" : "secondary"}>{k}: {v as number}</Badge>
-              ))}
-              {!Object.keys(clinical?.riskCounts ?? {}).length && <p className="text-sm text-muted-foreground">Sem escalas aplicadas no período.</p>}
-            </div>
-          </Card>
         </TabsContent>
 
+        {/* ───────── OPERACIONAL ───────── */}
         <TabsContent value="operational" className="space-y-4">
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Kpi label="Atendimentos no período" value={operational?.atendimentos ?? "—"} />
-            <Kpi label="Profissionais ativos" value={operational?.profissionaisAtivos ?? "—"} />
-            <Kpi label="Período" value={`${fmtDate(from)} → ${fmtDate(to)}`} />
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="p-4">
-              <h3 className="font-semibold mb-2">Atendimentos por status</h3>
-              {Object.entries(operational?.byStatus ?? {}).map(([k, v]) => (
-                <div key={k} className="flex justify-between text-sm py-1 border-b last:border-0">
-                  <span className="capitalize">{k}</span><span className="font-medium">{v as number}</span>
+          <KpiGrid columns={3}>
+            <KpiCard icon={CalendarDays} label="Atendimentos no período" value={operational?.atendimentos ?? "—"} accent="var(--primary)" hideDelta />
+            <KpiCard icon={Stethoscope} label="Profissionais ativos" value={operational?.profissionaisAtivos ?? "—"} accent="#0284c7" hideDelta />
+            <KpiCard icon={CalendarRange} label="Período analisado" value={`${fmtDate(from)} → ${fmtDate(to)}`} accent="#64748b" hideDelta />
+          </KpiGrid>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <InfoCard icon={ClipboardCheck} title="Atendimentos por status">
+              {statusCounts.length ? (
+                <div className="space-y-0.5">
+                  {statusCounts.map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm last:border-0">
+                      <span className="capitalize text-slate-700">{k}</span>
+                      <span className="font-semibold tabular-nums text-slate-950">{v as number}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </Card>
-            <Card className="p-4">
-              <h3 className="font-semibold mb-2">Atendimentos por profissional</h3>
-              {Object.entries(operational?.byProf ?? {}).map(([k, v]) => (
-                <div key={k} className="flex justify-between text-sm py-1 border-b last:border-0">
-                  <span>{k}</span><span className="font-medium">{v as number}</span>
+              ) : (
+                <EmptyState icon={Inbox} title="Sem atendimentos" description="Nenhum atendimento no intervalo selecionado." className="py-10" />
+              )}
+            </InfoCard>
+
+            <InfoCard icon={Stethoscope} title="Atendimentos por profissional">
+              {profByCount.length ? (
+                <div className="space-y-0.5">
+                  {profByCount.map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm last:border-0">
+                      <span className="truncate text-slate-700">{k}</span>
+                      <span className="font-semibold tabular-nums text-slate-950">{v as number}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </Card>
+              ) : (
+                <EmptyState icon={Inbox} title="Sem atendimentos" description="Nenhum atendimento por profissional no período." className="py-10" />
+              )}
+            </InfoCard>
           </div>
         </TabsContent>
 
+        {/* ───────── FINANCEIRO ───────── */}
         <TabsContent value="financial" className="space-y-4">
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Kpi label="Recebido" value={brl(financial?.recebido ?? 0)} variant="success" />
-            <Kpi label="A receber (pendente)" value={brl(financial?.pendente ?? 0)} variant="warn" />
-            <Kpi label="Despesas" value={brl(financial?.despesas ?? 0)} />
-          </div>
-          <Card className="p-4 text-sm text-muted-foreground">
-            Módulo financeiro preparado para integração com gateways de pagamento (Stripe, Mercado Pago, Pagar.me) — Backlog Pós-V1.
-          </Card>
+          <KpiGrid columns={3}>
+            <KpiCard icon={TrendingUp} label="Recebido" value={brl(financial?.recebido ?? 0)} accent="#059669" hideDelta />
+            <KpiCard icon={Clock} label="A receber (pendente)" value={brl(financial?.pendente ?? 0)} accent="#d97706" hideDelta />
+            <KpiCard icon={Wallet} label="Despesas" value={brl(financial?.despesas ?? 0)} accent="#e11d48" hideDelta />
+          </KpiGrid>
+
+          <InfoCard icon={Wallet} title="Integração de pagamentos" variant="highlight">
+            <p className="text-sm leading-relaxed text-slate-600">
+              Módulo financeiro preparado para integração com gateways de pagamento (Stripe, Mercado Pago, Pagar.me) — Backlog Pós-V1.
+            </p>
+          </InfoCard>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function Kpi({ icon, label, value, variant }: any) {
-  const color = variant === "warn" ? "text-amber-700" : variant === "success" ? "text-emerald-700" : "text-foreground";
-  return (
-    <Card className="p-4">
-      {icon && <div className="text-muted-foreground mb-1">{icon}</div>}
-      <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
-      <p className={`text-2xl font-semibold mt-1 ${color}`}>{value}</p>
-    </Card>
+    </AppShell>
   );
 }

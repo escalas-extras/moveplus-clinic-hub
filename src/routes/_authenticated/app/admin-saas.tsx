@@ -64,12 +64,19 @@ import {
   changeClinicOwner,
   getClinicCounts,
   softDeleteClinic,
+  getSaasCommercialCenter,
 } from "@/lib/api/saas-admin.functions";
 import { ClinicDetailDialog } from "@/components/clinic-detail-dialog";
+import { SaasDashboardPanel, SaasDashboardSkeleton } from "@/components/saas/SaasDashboardPanel";
 import {
   OPERATIONAL_STATUS_LABEL,
   resolveOperationalStatus,
-} from "@/lib/saas/clinic-operational-status";
+  SAAS_NAV_ITEMS,
+  type SaasDashboardData,
+  type SaasNavTarget,
+  type ClinicListSegment,
+  type SaasCommercialCenterData,
+} from "@/lib/saas";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -95,7 +102,6 @@ import {
   Shield,
   Search,
 } from "lucide-react";
-import type { ClinicListSegment } from "@/lib/saas/clinic-segmentation";
 
 export const Route = createFileRoute("/_authenticated/app/admin-saas")({
   beforeLoad: async () => {
@@ -138,45 +144,53 @@ function AdminSaasPage() {
   const [tab, setTab] = useState("painel");
   const [openNew, setOpenNew] = useState(false);
 
-  return (
-    <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Building2 className="h-6 w-6" /> Painel SaaS
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Gestão comercial de clínicas, planos e operação multi-tenant.
-            </p>
-          </div>
-          <Dialog open={openNew} onOpenChange={setOpenNew}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" /> Nova clínica
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Provisionar nova clínica</DialogTitle>
-              </DialogHeader>
-              <NewClinicForm onDone={() => setOpenNew(false)} />
-            </DialogContent>
-          </Dialog>
-        </div>
+  const handleSaasNav = (target: SaasNavTarget) => {
+    const item = SAAS_NAV_ITEMS.find((entry) => entry.id === target);
+    if (item?.tab) {
+      setTab(item.tab);
+      return;
+    }
+    if (target === "audit") setTab("audit");
+  };
 
+  return (
+    <div className="saas-admin space-y-4">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
-            <TabsTrigger value="painel">Painel</TabsTrigger>
-            <TabsTrigger value="clinics">Clínicas</TabsTrigger>
-            <TabsTrigger value="plans">Planos contratados</TabsTrigger>
-            <TabsTrigger value="catalog">Catálogo de Planos</TabsTrigger>
-            <TabsTrigger value="audit">Auditoria</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList className="h-auto flex-wrap">
+              <TabsTrigger value="painel">Painel</TabsTrigger>
+              <TabsTrigger value="clinics">Clínicas</TabsTrigger>
+              <TabsTrigger value="commercial">Comercial</TabsTrigger>
+              <TabsTrigger value="plans">Planos contratados</TabsTrigger>
+              <TabsTrigger value="catalog">Catálogo de Planos</TabsTrigger>
+              <TabsTrigger value="audit">Auditoria</TabsTrigger>
+            </TabsList>
+            <Dialog open={openNew} onOpenChange={setOpenNew}>
+              <DialogTrigger asChild>
+                <Button className="shrink-0">
+                  <Plus className="h-4 w-4 mr-2" /> Nova clínica
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Provisionar nova clínica</DialogTitle>
+                </DialogHeader>
+                <NewClinicForm onDone={() => setOpenNew(false)} />
+              </DialogContent>
+            </Dialog>
+          </div>
           <TabsContent value="painel" className="mt-4">
-            <DashboardTab />
+            <DashboardTab
+              onNavigate={handleSaasNav}
+              onNewClinic={() => setOpenNew(true)}
+              onOpenAudit={() => setTab("audit")}
+            />
           </TabsContent>
           <TabsContent value="clinics" className="mt-4">
             <ClinicsTab />
+          </TabsContent>
+          <TabsContent value="commercial" className="mt-4">
+            <CommercialTab />
           </TabsContent>
           <TabsContent value="plans" className="mt-4">
             <PlansShowcaseTab />
@@ -214,211 +228,33 @@ type ClinicConfirmAction =
 // ============================================================
 // Dashboard
 // ============================================================
-function DashboardTab() {
+function DashboardTab({
+  onNavigate,
+  onNewClinic,
+  onOpenAudit,
+}: {
+  onNavigate: (target: SaasNavTarget) => void;
+  onNewClinic: () => void;
+  onOpenAudit: () => void;
+}) {
   const fetchDash = useServerFn(getSaasDashboard);
   const { data, isLoading } = useQuery({
     queryKey: ["saas-dashboard"],
     queryFn: () => fetchDash(),
   });
 
-  if (isLoading || !data)
-    return <p className="text-sm text-muted-foreground">Carregando indicadores...</p>;
-
-  const maxGrowth = Math.max(1, ...data.growth.map((g: any) => g.count));
+  if (isLoading || !data) return <SaasDashboardSkeleton />;
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
-        <Kpi
-          icon={<Building2 className="h-4 w-4" />}
-          label="Clínicas ativas (produção)"
-          value={String(data.clinics.active)}
-          hint={`${data.clinics.total} produção · ${data.clinics.test ?? 0} teste`}
-        />
-        <Kpi
-          icon={<Activity className="h-4 w-4" />}
-          label="Trials ativos"
-          value={String(data.trial_count ?? 0)}
-          hint="Somente clínicas de produção"
-        />
-        <Kpi
-          icon={<Power className="h-4 w-4" />}
-          label="Suspensas / inativas"
-          value={String(data.clinics.inactive_or_suspended ?? 0)}
-          hint={`${data.clinics.inactive} inativa(s) · ${data.clinics.suspended ?? 0} suspensa(s)`}
-        />
-        <Kpi
-          icon={<DollarSign className="h-4 w-4" />}
-          label="Receita mensal (MRR)"
-          value={BRL(data.mrr)}
-          hint={`ARR ${BRL(data.arr ?? data.mrr * 12)} · ticket ${BRL(data.avg_ticket ?? 0)}`}
-        />
-        <Kpi
-          icon={<FlaskConical className="h-4 w-4" />}
-          label="Clínicas de teste"
-          value={String(data.clinics.test ?? 0)}
-          hint="Excluídas das métricas de produção"
-        />
-      </div>
-
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <Kpi
-          icon={<TrendingUp className="h-4 w-4" />}
-          label="Novas clínicas (30 dias)"
-          value={String(data.clinics.new_30d ?? 0)}
-          hint={`${data.canceled_count ?? 0} contratos cancelados`}
-        />
-        <Kpi
-          icon={<Users className="h-4 w-4" />}
-          label="Usuários ativos"
-          value={String(data.users.total)}
-        />
-        <Kpi
-          icon={<UserCheck className="h-4 w-4" />}
-          label="Pacientes"
-          value={String(data.patients.total)}
-        />
-        <Kpi
-          icon={<FileText className="h-4 w-4" />}
-          label="Documentos"
-          value={String(data.documents.total)}
-          hint={`${data.documents.this_month} este mês`}
-        />
-        <Kpi
-          icon={<Package className="h-4 w-4" />}
-          label="Planos ativos"
-          value={String(data.active_plan_contracts ?? 0)}
-          hint={`${data.plans_catalog_count ?? 0} no catálogo`}
-        />
-      </div>
-
+      <SaasDashboardPanel
+        data={data as SaasDashboardData}
+        onNavigate={onNavigate}
+        onNewClinic={onNewClinic}
+        onOpenAudit={onOpenAudit}
+      />
       <SaasDiagnosticPanel />
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-4 w-4" /> Distribuição por plano
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.plans.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sem contratos ativos.</p>
-            ) : (
-              <ul className="space-y-2">
-                {data.plans.map((p: any) => (
-                  <li key={p.code} className="text-sm">
-                    <div className="flex justify-between">
-                      <span>{p.name}</span>
-                      <span className="text-muted-foreground">
-                        {p.count} · MRR {BRL(p.mrr)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-muted rounded mt-1">
-                      <div
-                        className="h-1.5 bg-primary rounded"
-                        style={{
-                          width: `${
-                            (p.count /
-                              Math.max(
-                                1,
-                                data.plans.reduce(
-                                  (a: number, x: any) => a + x.count,
-                                  0,
-                                ),
-                              )) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Crescimento de clínicas (6 meses)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2 h-32">
-              {data.growth.map((g: any) => (
-                <div key={g.month} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full bg-primary/80 rounded-t"
-                    style={{ height: `${(g.count / maxGrowth) * 100}%`, minHeight: 2 }}
-                    title={`${g.count} clínica(s)`}
-                  />
-                  <span className="text-[10px] text-muted-foreground">{g.month}</span>
-                  <span className="text-[10px] font-medium">{g.count}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="h-4 w-4" /> Últimas clínicas cadastradas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.recent_clinics.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma clínica cadastrada.</p>
-          ) : (
-            <ul className="divide-y">
-              {data.recent_clinics.map((c: any) => (
-                <li key={c.id} className="py-2 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-sm">{c.nome}</div>
-                    <div className="text-xs text-muted-foreground">/{c.slug}</div>
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <Badge variant="outline">{c.plan ?? "—"}</Badge>
-                    <Badge
-                      variant={c.status === "active" ? "default" : "secondary"}
-                    >
-                      {STATUS_LABEL[c.status] ?? c.status}
-                    </Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
     </div>
-  );
-}
-
-function Kpi({
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <span className="text-muted-foreground">{icon}</span>
-        </div>
-        <div className="text-2xl font-bold mt-1">{value}</div>
-        {hint && <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -528,6 +364,268 @@ function SaasDiagnosticPanel() {
 }
 
 // ============================================================
+// Comercial SaaS
+// ============================================================
+const COMMERCIAL_STATUS_LABEL: Record<string, string> = {
+  active: "Ativa",
+  trial: "Trial",
+  suspended: "Suspensa",
+  canceled: "Cancelada",
+  inactive: "Inativa",
+  none: "Sem plano",
+  open: "Em aberto",
+  overdue: "Vencida",
+};
+
+const RISK_LABEL: Record<string, string> = {
+  baixo: "Baixo",
+  medio: "Médio",
+  alto: "Alto",
+};
+
+function fmtDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function CommercialTab() {
+  const fetchCommercial = useServerFn(getSaasCommercialCenter);
+  const { data, isLoading } = useQuery({
+    queryKey: ["saas-commercial-center"],
+    queryFn: () => fetchCommercial(),
+  });
+
+  if (isLoading || !data) {
+    return <p className="text-sm text-muted-foreground">Carregando estrutura comercial...</p>;
+  }
+
+  const commercial = data as SaasCommercialCenterData;
+  const subscriptions = commercial.subscriptions;
+  const fees = commercial.monthly_fees.slice(0, 12);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-4">
+        <CommercialKpi label="MRR estimado" value={BRL(commercial.summary.estimated_mrr)} hint="Contratos ativos, sem gateway" />
+        <CommercialKpi label="Assinaturas ativas" value={String(commercial.summary.active_subscriptions)} hint={`${commercial.summary.trials} trial(s)`} />
+        <CommercialKpi label="Próximos vencimentos" value={String(commercial.upcoming_due.length)} hint={`${commercial.summary.overdue} vencida(s)`} />
+        <CommercialKpi label="Health médio" value={String(commercial.summary.average_health_score)} hint={`${commercial.summary.at_risk} clínica(s) em risco alto`} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Visão comercial por clínica</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Clínica</TableHead>
+                  <TableHead>Plano</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Health</TableHead>
+                  <TableHead>Risco</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {subscriptions.map((row) => (
+                  <TableRow key={row.clinic_id}>
+                    <TableCell>
+                      <div className="font-medium">{row.clinic_name}</div>
+                      <div className="text-xs text-muted-foreground">/{row.clinic_slug ?? "sem-slug"}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div>{row.plan_name}</div>
+                      <div className="text-xs text-muted-foreground">{row.limits.modules.length} módulo(s)</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={row.plan_status === "active" ? "default" : "secondary"}>
+                        {COMMERCIAL_STATUS_LABEL[row.plan_status] ?? row.plan_status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{fmtDateTime(row.next_due_at)}</TableCell>
+                    <TableCell className="text-right">{BRL(row.monthly_value)}</TableCell>
+                    <TableCell className="text-right">{row.health_score}</TableCell>
+                    <TableCell>
+                      <Badge variant={row.churn_risk === "alto" ? "destructive" : row.churn_risk === "medio" ? "secondary" : "outline"}>
+                        {RISK_LABEL[row.churn_risk]}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Alertas comerciais</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <CommercialAlertList
+              title="Trials vencendo"
+              rows={commercial.trials_expiring.map((r) => ({
+                id: r.clinic_id,
+                title: r.clinic_name,
+                meta: fmtDateTime(r.trial_ends_at),
+              }))}
+            />
+            <CommercialAlertList
+              title="Inadimplência projetada"
+              rows={commercial.overdue.map((r) => ({
+                id: r.clinic_id,
+                title: r.clinic_name,
+                meta: `${BRL(r.amount)} · ${fmtDateTime(r.due_at)}`,
+              }))}
+            />
+            <CommercialAlertList
+              title="Risco de churn"
+              rows={commercial.at_risk.map((r) => ({
+                id: r.clinic_id,
+                title: r.clinic_name,
+                meta: `Health ${r.health_score} · ${r.usage.clinical_activity_30d} atividade(s)`,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Mensalidades SaaS</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Clínica</TableHead>
+                  <TableHead>Competência</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fees.map((fee) => (
+                  <TableRow key={`${fee.clinic_id}-${fee.competence}`}>
+                    <TableCell>{fee.clinic_name}</TableCell>
+                    <TableCell>{fee.competence}</TableCell>
+                    <TableCell>{fmtDateTime(fee.due_at)}</TableCell>
+                    <TableCell>
+                      <Badge variant={fee.status === "overdue" ? "destructive" : "outline"}>
+                        {COMMERCIAL_STATUS_LABEL[fee.status] ?? fee.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{BRL(fee.amount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Histórico comercial recente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {commercial.history.slice(0, 12).map((event) => (
+                <div key={event.id} className="flex items-start justify-between gap-3 border-b py-2 last:border-0">
+                  <div>
+                    <div className="text-sm font-medium">{event.clinic_name ?? "Plataforma"}</div>
+                    <div className="text-xs text-muted-foreground">{event.action}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{fmtDateTime(event.created_at)}</div>
+                </div>
+              ))}
+              {commercial.history.length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhum evento comercial registrado.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Limites e uso por plano</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Clínica</TableHead>
+                <TableHead>Usuários</TableHead>
+                <TableHead>Pacientes</TableHead>
+                <TableHead>Documentos/mês</TableHead>
+                <TableHead>Storage</TableHead>
+                <TableHead>Atividade 30d</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {subscriptions.map((row) => (
+                <TableRow key={`limits-${row.clinic_id}`}>
+                  <TableCell>{row.clinic_name}</TableCell>
+                  <TableCell>{row.usage.users} / {row.limits.max_users ?? "∞"}</TableCell>
+                  <TableCell>{row.usage.patients} / {row.limits.max_patients ?? "∞"}</TableCell>
+                  <TableCell>{row.usage.documents_month} / {row.limits.max_documents_month ?? "∞"}</TableCell>
+                  <TableCell>{row.limits.max_storage_mb ? `${row.limits.max_storage_mb} MB` : "∞"}</TableCell>
+                  <TableCell>{row.usage.clinical_activity_30d}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CommercialKpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="mt-1 text-2xl font-bold">{value}</div>
+        {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CommercialAlertList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ id: string; title: string; meta: string }>;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">{title}</div>
+      {rows.length ? (
+        <div className="space-y-1">
+          {rows.slice(0, 5).map((row) => (
+            <div key={row.id} className="flex justify-between gap-2 rounded-md border px-2 py-1.5">
+              <span className="truncate">{row.title}</span>
+              <span className="shrink-0 text-muted-foreground">{row.meta}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">Sem alertas.</p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Clinics
 // ============================================================
 function ClinicsTab() {
@@ -560,7 +658,7 @@ function ClinicsTab() {
     plan_code: planFilter !== "all" ? planFilter : undefined,
   };
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, isError } = useQuery({
     queryKey: ["admin-saas-clinics", listFilters],
     queryFn: () => fetchClinics({ data: listFilters }),
   });
@@ -688,6 +786,15 @@ function ClinicsTab() {
   });
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="p-4 text-sm text-destructive">
+          Não foi possível carregar clínicas: {(error as Error)?.message ?? "erro desconhecido"}
+        </CardContent>
+      </Card>
+    );
+  }
 
   const planOptions = (plans ?? []).filter((p: any) => p.active);
 

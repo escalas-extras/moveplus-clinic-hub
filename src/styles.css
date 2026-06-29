@@ -770,7 +770,10 @@
 }
 
 .fos-field:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--fos-primary) 14%, transparent);
+  box-shadow:
+    inset 0 1px 2px rgba(15, 76, 92, 0.05),
+    0 0 0 3px color-mix(in oklab, var(--fos-primary) 22%, transparent);
+  border-color: color-mix(in oklab, var(--fos-primary) 72%, #64748b);
 }
 
 .fos-field[aria-invalid="true"]:focus-visible {
@@ -956,15 +959,15 @@ textarea.fos-field,
 .fos-info-card .fos-field,
 .fos-form-section .fos-field,
 .fos-clinical-field .fos-field {
-  background: #eef3f6;
-  border-color: rgba(15, 76, 92, 0.28);
+  background: #ffffff;
+  border-color: rgba(15, 76, 92, 0.42);
 }
 
 .fos-surface-card .fos-field:hover,
 .fos-info-card .fos-field:hover,
 .fos-form-section .fos-field:hover {
-  background: #e8eef2;
-  border-color: rgba(15, 76, 92, 0.4);
+  background: #ffffff;
+  border-color: rgba(15, 76, 92, 0.55);
 }
 
 .fos-surface-card .fos-field:focus-visible,
@@ -974,7 +977,25 @@ textarea.fos-field,
 }
 
 .fos-clinical-dialog [cmdk-input-wrapper] .fos-field {
-  background: #eef3f6;
+  background: #ffffff;
+  border-color: rgba(15, 76, 92, 0.42);
+}
+
+/* Login e telas públicas — mesmo contraste dos formulários clínicos */
+.fos-auth-page .fos-field {
+  background: #ffffff;
+  border-color: rgba(15, 76, 92, 0.42);
+}
+
+.fos-auth-page .fos-field::placeholder {
+  color: rgba(51, 65, 85, 0.72);
+}
+
+.fos-auth-page .fos-field:focus-visible {
+  border-color: rgba(15, 76, 92, 0.72);
+  box-shadow:
+    inset 0 1px 2px rgba(15, 76, 92, 0.05),
+    0 0 0 3px color-mix(in oklab, var(--fos-primary) 22%, transparent);
 }
 
 .fos-scale-form-row {
@@ -1114,6 +1135,21 @@ textarea.fos-field,
   }
 }
 
+/* ── SAAS-01 — Plataforma SaaS ── */
+
+.saas-admin {
+  min-width: 0;
+}
+
+.saas-platform-hero {
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.04), rgba(99, 102, 241, 0.06));
+}
+
+.saas-nav-card:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 2px;
+}
+
 /* ── UX-08 — Pacientes CRM ── */
 
 .patients-crm {
@@ -1194,5 +1230,16 @@ textarea.fos-field,
 
 .fos-info-badge {
   letter-spacing: 0.01em;
+}
+
+/* ── Recibos — painel operacional ── */
+
+.fos-recibos-stat-card {
+  border-color: var(--fos-card-border, hsl(var(--border)));
+}
+
+.fos-recibos-action-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--fos-primary) 22%, transparent);
 }
 

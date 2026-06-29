@@ -22,12 +22,16 @@ export function GenerateDossierButton({ patient, assessments, evolutions }: Gene
     mutationFn: async () => {
       if (!clinicId) throw new Error("Clínica ativa não identificada");
       const patientId = String(patient.id ?? "");
+      if (patient.clinic_id && patient.clinic_id !== clinicId) {
+        throw new Error("Paciente não pertence à clínica ativa.");
+      }
 
       const [dischargesRes, documentsRes, goalsRes] = await Promise.all([
         supabase
           .from("patient_discharges")
-          .select("*, professionals(nome, conselho, registro, profissao)")
+          .select("*, professionals(nome, conselho, registro, profissao), patients!inner(clinic_id)")
           .eq("patient_id", patientId)
+          .eq("patients.clinic_id", clinicId)
           .order("data_alta", { ascending: false }),
         supabase
           .from("clinical_documents")
@@ -37,8 +41,9 @@ export function GenerateDossierButton({ patient, assessments, evolutions }: Gene
           .order("issued_at", { ascending: false }),
         supabase
           .from("assessment_goals")
-          .select("*")
+          .select("*, patients!inner(clinic_id)")
           .eq("patient_id", patientId)
+          .eq("patients.clinic_id", clinicId)
           .order("term")
           .order("created_at", { ascending: false }),
       ]);

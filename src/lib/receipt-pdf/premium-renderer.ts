@@ -10,12 +10,9 @@ import { drawMiniIcon, type IconKind } from "@/lib/pdf-engine/icons";
 import type { ReceiptPdfData, ReceiptPrintMode } from "./types";
 import { valorPorExtenso } from "./extenso";
 
-const PAYMENT_LABEL: Record<string, string> = {
-  pix: "PIX",
-  dinheiro: "Dinheiro",
-  cartao: "Cartão",
-  transferencia: "Transferência",
-};
+import { PAYMENT_METHOD_LABELS } from "@/lib/finance/constants";
+
+const PAYMENT_LABEL: Record<string, string> = PAYMENT_METHOD_LABELS;
 
 type Rgb = [number, number, number];
 

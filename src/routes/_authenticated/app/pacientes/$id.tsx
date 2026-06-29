@@ -7,14 +7,38 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import {
+  AppShell,
+  EmptyState,
+  InfoCard,
+  StatusBadge,
   ClinicalDialogBody,
   ClinicalDialogContent,
   ClinicalDialogHeader,
   ClinicalDialogTitle,
 } from "@/components/layout";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, FileDown, Lock, Eye, Printer, CheckCircle2, Trash2, Pencil } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  FileDown,
+  Lock,
+  Eye,
+  Printer,
+  CheckCircle2,
+  Trash2,
+  Pencil,
+  Phone,
+  ShieldCheck,
+  Stethoscope,
+  Activity,
+  RefreshCw,
+  Gauge,
+  Target,
+  ClipboardList,
+  FileText,
+} from "lucide-react";
 import { calcAge, fmtDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
@@ -25,6 +49,7 @@ import { buildAssessmentPdfOpts, buildEvolutionPdfOpts } from "@/lib/pdf-builder
 import { PdfPreviewDialog } from "@/components/pdf-preview-dialog";
 import { useAuth } from "@/lib/auth";
 import { safeDeletePatient } from "@/lib/patient-delete";
+import { deleteClinicalRecord, type ClinicalRecordTable } from "@/lib/clinical-record-delete";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { ClinicalTabs } from "@/components/clinical/clinical-tabs";
 import { PatientTimeline } from "@/components/clinical/patient-timeline";
@@ -42,8 +67,16 @@ function PatientPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const { clinicId, isAdmin } = useActiveClinic();
+  const { clinicId, isAdmin, supportMode } = useActiveClinic();
   const [editOpen, setEditOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    table: ClinicalRecordTable;
+    rowId: string;
+    title: string;
+    description: string;
+    lockedAt?: string | null;
+    status?: string | null;
+  } | null>(null);
   const [evoOpen, setEvoOpen] = useState(false);
   const [avalOpen, setAvalOpen] = useState(false);
   const [linkedEvoFor, setLinkedEvoFor] = useState<string | null>(null);
@@ -149,15 +182,31 @@ function PatientPage() {
   });
 
   const deleteRecord = useMutation({
-    mutationFn: async ({ table, rowId }: { table: "assessments" | "evolutions"; rowId: string }) => {
-      const { error } = await supabase.from(table).delete().eq("clinic_id", clinicId!).eq("id", rowId);
-      if (error) throw error;
+    mutationFn: async (input: {
+      table: ClinicalRecordTable;
+      rowId: string;
+      lockedAt?: string | null;
+      status?: string | null;
+    }) => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada");
+      await deleteClinicalRecord({
+        clinicId,
+        table: input.table,
+        rowId: input.rowId,
+        supportMode,
+        lockedAt: input.lockedAt,
+        status: input.status,
+      });
+      return input;
     },
-    onSuccess: (_d, v) => {
+    onSuccess: (v) => {
       toast.success("Registro excluído");
-      qc.invalidateQueries({ queryKey: [v.table === "assessments" ? "assessments" : "evolutions", clinicId, id] });
+      setPendingDelete(null);
+      qc.invalidateQueries({ queryKey: [v.table, clinicId, id] });
+      qc.invalidateQueries({ queryKey: ["timeline", clinicId, id] });
+      qc.invalidateQueries({ queryKey: ["patient-clinical-documents", clinicId, id] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const deletePatient = useMutation({
@@ -177,75 +226,143 @@ function PatientPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  if (patient.isLoading || !clinicId) return <div className="text-sm text-muted-foreground">Carregando…</div>;
-  if (!patient.data) return <div>Paciente não encontrado.</div>;
+  if (patient.isLoading || !clinicId) {
+    return (
+      <AppShell clinical>
+        <div className="text-sm text-muted-foreground">Carregando…</div>
+      </AppShell>
+    );
+  }
+  if (!patient.data) {
+    return (
+      <AppShell clinical>
+        <EmptyState
+          icon={ClipboardList}
+          title="Paciente não encontrado"
+          description="O paciente solicitado não existe ou não pertence a esta clínica."
+          action={{ label: "Voltar para pacientes", to: "/app/pacientes" }}
+        />
+      </AppShell>
+    );
+  }
   const p = patient.data;
 
+  const assessmentsList = assessments.data ?? [];
+  const evolutionsList = evolutions.data ?? [];
+  const latestAssessment = assessmentsList[0] as any | undefined;
+  const latestReassessment = assessmentsList.find((a: any) => a.tipo === "reavaliacao") as any | undefined;
+  const latestEvolution = evolutionsList[0] as any | undefined;
+  const professionalName =
+    latestEvolution?.professionals?.nome ?? latestAssessment?.professionals?.nome ?? null;
+  const evaAtual =
+    latestAssessment && latestAssessment.eva != null ? `${latestAssessment.eva}/10` : null;
+  const objetivoPrincipal =
+    latestAssessment?.objetivos || latestAssessment?.queixa_principal || (p as any).cid_principal || null;
+  const isDischarged = !!(p as any).data_alta;
+  const initials = p.nome_completo
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0])
+    .join("")
+    .toUpperCase();
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="sm"><Link to="/app/pacientes"><ArrowLeft className="h-4 w-4 mr-1" />Voltar</Link></Button>
-          <div>
-            <h1 className="text-2xl">{p.nome_completo}</h1>
-            <p className="text-xs text-muted-foreground">
-              {calcAge(p.data_nascimento) ?? "—"} anos · {p.sexo ?? "—"} · {p.cpf ?? "Sem CPF"}
-            </p>
+    <AppShell clinical>
+      <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit text-muted-foreground">
+        <Link to="/app/pacientes"><ArrowLeft className="h-4 w-4 mr-1.5" />Pacientes</Link>
+      </Button>
+
+      {/* Cabeçalho premium do paciente */}
+      <div className="fos-surface-card overflow-hidden rounded-2xl">
+        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-xl font-bold text-primary ring-1 ring-primary/15"
+              aria-hidden
+            >
+              {initials || "?"}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-950">{p.nome_completo}</h1>
+                {isDischarged ? (
+                  <StatusBadge variant="info">Em alta</StatusBadge>
+                ) : p.situacao === "ativo" ? (
+                  <StatusBadge variant="success">Ativo</StatusBadge>
+                ) : (
+                  <StatusBadge variant="neutral">Inativo</StatusBadge>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {calcAge(p.data_nascimento) ?? "—"} anos · {p.sexo ?? "—"} · {p.cpf ?? "Sem CPF"}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <GenerateDossierButton
+              patient={p as Record<string, unknown>}
+              assessments={assessmentsList as Record<string, unknown>[]}
+              evolutions={evolutionsList as Record<string, unknown>[]}
+            />
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild><Button variant="outline"><Pencil className="h-4 w-4 mr-1.5" />Editar dados</Button></DialogTrigger>
+              <ClinicalDialogContent>
+                <ClinicalDialogHeader>
+                  <ClinicalDialogTitle>Editar paciente</ClinicalDialogTitle>
+                </ClinicalDialogHeader>
+                <ClinicalDialogBody>
+                  <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
+                </ClinicalDialogBody>
+              </ClinicalDialogContent>
+            </Dialog>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="text-destructive hover:text-destructive">
+                    <Trash2 className="h-4 w-4 mr-1.5" />Excluir
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se houver histórico clínico, financeiro ou agenda vinculado, o paciente será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <GenerateDossierButton
-            patient={p as Record<string, unknown>}
-            assessments={(assessments.data ?? []) as Record<string, unknown>[]}
-            evolutions={(evolutions.data ?? []) as Record<string, unknown>[]}
-          />
-          <Dialog open={editOpen} onOpenChange={setEditOpen}>
-            <DialogTrigger asChild><Button variant="outline">Editar dados</Button></DialogTrigger>
-            <ClinicalDialogContent>
-              <ClinicalDialogHeader>
-                <ClinicalDialogTitle>Editar paciente</ClinicalDialogTitle>
-              </ClinicalDialogHeader>
-              <ClinicalDialogBody>
-                <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
-              </ClinicalDialogBody>
-            </ClinicalDialogContent>
-          </Dialog>
-          {isAdmin && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="text-destructive hover:text-destructive">
-                  <Trash2 className="h-4 w-4 mr-1" />Excluir paciente
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se houver histórico clínico, financeiro ou agenda vinculado, o paciente será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Confirmar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+
+        <div className="grid grid-cols-2 gap-px border-t border-slate-100 bg-slate-100 sm:grid-cols-3 xl:grid-cols-4">
+          <HeaderStat icon={Phone} label="Telefone" value={p.telefone || p.whatsapp} />
+          <HeaderStat icon={ShieldCheck} label="Convênio" value={(p as any).convenio_nome || "Particular"} />
+          <HeaderStat icon={Stethoscope} label="Profissional" value={professionalName} />
+          <HeaderStat icon={Gauge} label="EVA atual" value={evaAtual} />
+          <HeaderStat icon={Activity} label="Última evolução" value={latestEvolution ? fmtDate(latestEvolution.data) : null} />
+          <HeaderStat icon={RefreshCw} label="Última reavaliação" value={latestReassessment ? fmtDate(latestReassessment.data) : null} />
+          <HeaderStat icon={Target} label="Objetivo principal" value={objetivoPrincipal} className="col-span-2" />
         </div>
       </div>
 
-      <Tabs defaultValue="dados">
-        <TabsList className="flex w-full h-auto flex-wrap justify-start gap-1 sm:w-auto sm:inline-flex sm:flex-nowrap sm:overflow-x-auto">
-          <TabsTrigger value="dados">Dados</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline 360º</TabsTrigger>
-          <TabsTrigger value="avaliacoes">Avaliações</TabsTrigger>
+      <Tabs defaultValue="timeline" className="space-y-4">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 sm:w-auto sm:inline-flex">
+          <TabsTrigger value="timeline"><Activity className="h-4 w-4 mr-1.5" />Timeline</TabsTrigger>
+          <TabsTrigger value="avaliacoes"><ClipboardList className="h-4 w-4 mr-1.5" />Avaliações</TabsTrigger>
           <TabsTrigger value="evolucoes">Evoluções</TabsTrigger>
           <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
           <TabsTrigger value="clinico">Clínico</TabsTrigger>
-          <TabsTrigger value="documentos">Documentos</TabsTrigger>
+          <TabsTrigger value="documentos"><FileText className="h-4 w-4 mr-1.5" />Documentos</TabsTrigger>
           <TabsTrigger value="alta">Alta</TabsTrigger>
+          <TabsTrigger value="dados">Dados</TabsTrigger>
         </TabsList>
 
         <TabsContent value="timeline">
@@ -267,22 +384,25 @@ function PatientPage() {
 
 
         <TabsContent value="dados">
-          <Card className="p-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            <Info label="Data de nascimento" value={fmtDate(p.data_nascimento)} />
-            <Info label="Estado civil" value={p.estado_civil} />
-            <Info label="Profissão" value={p.profissao} />
-            <Info label="Naturalidade" value={p.naturalidade} />
-            <Info label="Telefone" value={p.telefone} />
-            <Info label="WhatsApp" value={p.whatsapp} />
-            <Info label="Endereço residencial" value={p.endereco} />
-            <Info label="Endereço comercial" value={p.endereco_comercial} />
-            <Info label="Bairro" value={p.bairro} />
-            <Info label="Cidade / Estado" value={[p.cidade, p.estado].filter(Boolean).join(" - ")} />
-            <Info label="CEP" value={p.cep} />
-            <Info label="Responsável" value={p.responsavel} />
-            <Info label="Contato p/ recado" value={p.contato_recado} />
-            <Info label="Observações" value={p.observacoes} className="sm:col-span-2 lg:col-span-3" />
-          </Card>
+          <InfoCard icon={ClipboardList} title="Dados cadastrais" description="Informações pessoais e de contato do paciente.">
+            <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <Info label="Data de nascimento" value={fmtDate(p.data_nascimento)} />
+              <Info label="Estado civil" value={p.estado_civil} />
+              <Info label="Profissão" value={p.profissao} />
+              <Info label="Naturalidade" value={p.naturalidade} />
+              <Info label="Telefone" value={p.telefone} />
+              <Info label="WhatsApp" value={p.whatsapp} />
+              <Info label="Convênio" value={[(p as any).convenio_nome, (p as any).convenio_carteirinha].filter(Boolean).join(" · ")} />
+              <Info label="Endereço residencial" value={p.endereco} />
+              <Info label="Endereço comercial" value={p.endereco_comercial} />
+              <Info label="Bairro" value={p.bairro} />
+              <Info label="Cidade / Estado" value={[p.cidade, p.estado].filter(Boolean).join(" - ")} />
+              <Info label="CEP" value={p.cep} />
+              <Info label="Responsável" value={p.responsavel} />
+              <Info label="Contato p/ recado" value={p.contato_recado} />
+              <Info label="Observações" value={p.observacoes} className="sm:col-span-2 lg:col-span-3" />
+            </div>
+          </InfoCard>
         </TabsContent>
 
         <TabsContent value="avaliacoes">
@@ -318,7 +438,15 @@ function PatientPage() {
             </Dialog>
           </div>
           <div className="space-y-3">
-            {!assessments.data?.length && <Card className="p-6 text-sm text-muted-foreground">Sem avaliações registradas.</Card>}
+            {!assessments.data?.length && (
+              <EmptyState
+                icon={ClipboardList}
+                title="Sem avaliações registradas"
+                description="Crie a primeira avaliação fisioterapêutica para iniciar o histórico clínico deste paciente."
+                action={{ label: "Nova avaliação", onClick: () => { setEditMode("wizard"); setAvalOpen(true); } }}
+                className="py-12"
+              />
+            )}
             {assessments.data?.map((a: any) => {
               const linked = evolutions.data?.filter((e: any) => e.assessment_id === a.id) ?? [];
               return (
@@ -351,28 +479,24 @@ function PatientPage() {
                           <Pencil className="h-4 w-4 mr-1" />Editar
                         </Button>
                       )}
-                      {isAdmin && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4 mr-1" />Excluir
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir esta avaliação?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                A avaliação de {fmtDate(a.data)} será removida permanentemente. As evoluções vinculadas permanecerão, mas perderão o vínculo.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteRecord.mutate({ table: "assessments", rowId: a.id })} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                      {isAdmin && !supportMode && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() =>
+                            setPendingDelete({
+                              table: "assessments",
+                              rowId: a.id,
+                              title: "Excluir esta avaliação?",
+                              description: `A avaliação de ${fmtDate(a.data)} será removida permanentemente. As evoluções vinculadas permanecerão, mas perderão o vínculo.`,
+                              lockedAt: a.locked_at,
+                              status: a.status,
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />Excluir
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -481,7 +605,15 @@ function PatientPage() {
             </Dialog>
           </div>
           <div className="space-y-3">
-            {!evolutions.data?.length && <Card className="p-6 text-sm text-muted-foreground">Sem evoluções.</Card>}
+            {!evolutions.data?.length && (
+              <EmptyState
+                icon={Activity}
+                title="Sem evoluções registradas"
+                description="Registre a primeira evolução para acompanhar a progressão clínica do paciente."
+                action={{ label: "Nova evolução", onClick: () => setEvoOpen(true) }}
+                className="py-12"
+              />
+            )}
             {evolutions.data?.map((e: any) => (
               <Card key={e.id} className="p-5">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -497,28 +629,23 @@ function PatientPage() {
                     <Button size="sm" variant="outline" onClick={() => printPdf(buildEvolutionPdfOpts(e, p))}><Printer className="h-4 w-4 mr-1" />Imprimir</Button>
                     {!e.locked_at && <Button size="sm" variant="outline" onClick={() => lock.mutate({ table: "evolutions", rowId: e.id })}><Lock className="h-4 w-4 mr-1" />Assinar</Button>}
                     {e.locked_at && <span className="text-xs text-muted-foreground self-center">Assinada</span>}
-                    {isAdmin && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4 mr-1" />Excluir
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir esta evolução?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              A evolução de {fmtDate(e.data)} será removida permanentemente.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteRecord.mutate({ table: "evolutions", rowId: e.id })} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                    {isAdmin && !supportMode && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setPendingDelete({
+                            table: "evolutions",
+                            rowId: e.id,
+                            title: "Excluir esta evolução?",
+                            description: `A evolução de ${fmtDate(e.data)} será removida permanentemente.`,
+                            lockedAt: e.locked_at,
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />Excluir
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -538,11 +665,69 @@ function PatientPage() {
           <ClinicalTabs patientId={id} />
         </TabsContent>
       </Tabs>
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleteRecord.isPending) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDelete?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{pendingDelete?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteRecord.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteRecord.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                if (!pendingDelete) return;
+                deleteRecord.mutate({
+                  table: pendingDelete.table,
+                  rowId: pendingDelete.rowId,
+                  lockedAt: pendingDelete.lockedAt,
+                  status: pendingDelete.status,
+                });
+              }}
+            >
+              {deleteRecord.isPending ? "Excluindo…" : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <PdfPreviewDialog
         open={!!pdfPreview}
         onOpenChange={(o) => !o && setPdfPreview(null)}
         pdfOpts={pdfPreview}
       />
+    </AppShell>
+  );
+}
+
+function HeaderStat({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon: typeof Phone;
+  label: string;
+  value?: string | null;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex items-start gap-2.5 bg-white px-4 py-3", className)}>
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/[0.07] text-primary">
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-slate-800" title={value || undefined}>
+          {value || "—"}
+        </p>
+      </div>
     </div>
   );
 }

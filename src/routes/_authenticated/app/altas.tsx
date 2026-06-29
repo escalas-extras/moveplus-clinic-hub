@@ -101,12 +101,14 @@ function AltasPage() {
             supabase
               .from("assessments")
               .select("data")
+              .eq("clinic_id", clinicId!)
               .eq("patient_id", pid)
               .order("data", { ascending: true })
               .limit(1),
             supabase
               .from("evolutions")
               .select("id", { count: "exact", head: true })
+              .eq("clinic_id", clinicId!)
               .eq("patient_id", pid),
           ]);
           const start = assess?.[0]?.data ? new Date(assess[0].data) : new Date(d.data_alta);

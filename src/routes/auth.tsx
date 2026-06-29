@@ -74,7 +74,7 @@ function AuthPage() {
   const gradient = `linear-gradient(160deg, ${brand.primaryColor}15 0%, ${brand.secondaryColor}10 60%, ${brand.primaryColor}05 100%)`;
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen grid lg:grid-cols-2 fos-auth-page">
       <div className="hidden lg:flex flex-col justify-between p-12" style={{ background: gradient }}>
         <div>
           <div className="flex items-center gap-3">

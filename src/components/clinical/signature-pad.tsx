@@ -22,7 +22,7 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
   const [doc, setDoc] = useState("");
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
-  const { clinicId } = useActiveClinic();
+  const { clinicId, supportMode } = useActiveClinic();
 
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
@@ -34,7 +34,7 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
     queryKey: ["sigs", clinicId, patientId, documentId, assessmentId],
     enabled: !!clinicId && !!patientId,
     queryFn: async () => {
-      let q = supabase.from("clinical_signatures").select("*").eq("patient_id", patientId);
+      let q = supabase.from("clinical_signatures").select("*, patients!inner(clinic_id)").eq("patient_id", patientId).eq("patients.clinic_id", clinicId!);
       if (documentId) q = q.eq("document_id", documentId);
       else if (assessmentId) q = q.eq("assessment_id", assessmentId);
       const { data, error } = await q.order("signed_at", { ascending: false });
@@ -63,12 +63,16 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       if (!name.trim()) throw new Error("Nome obrigatório");
       const c = canvasRef.current!;
       const empty = !c.getContext("2d")!.getImageData(0,0,c.width,c.height).data.some((v, i) => i % 4 === 3 && v !== 0);
       if (empty) throw new Error("Desenhe a assinatura");
       const png = c.toDataURL("image/png");
       const ua = typeof navigator !== "undefined" ? navigator.userAgent : null;
+      const { data: patient } = await supabase.from("patients").select("id").eq("clinic_id", clinicId).eq("id", patientId).maybeSingle();
+      if (!patient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("clinical_signatures").insert({
         patient_id: patientId, document_id: documentId ?? null, assessment_id: assessmentId ?? null,
         signer_role: role, signer_name: name.trim(), signer_document: doc || null,
@@ -76,13 +80,17 @@ export function SignaturePad({ patientId, documentId, assessmentId }: { patientI
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Assinatura registrada"); clear(); setName(""); setDoc(""); qc.invalidateQueries({ queryKey: ["sigs", patientId, documentId, assessmentId] }); },
+    onSuccess: () => { toast.success("Assinatura registrada"); clear(); setName(""); setDoc(""); qc.invalidateQueries({ queryKey: ["sigs", clinicId, patientId, documentId, assessmentId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("clinical_signatures").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["sigs", patientId, documentId, assessmentId] }),
+    mutationFn: async (id: string) => {
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
+      const { error } = await supabase.from("clinical_signatures").delete().eq("id", id).eq("patient_id", patientId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sigs", clinicId, patientId, documentId, assessmentId] }),
   });
 
   return (

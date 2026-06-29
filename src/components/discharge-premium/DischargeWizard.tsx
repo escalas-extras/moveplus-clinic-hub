@@ -67,7 +67,7 @@ type DischargeWizardProps = {
 };
 
 function DischargeWizardInner({ patientId, patientName, stats, onSuccess, readOnly }: DischargeWizardProps) {
-  const { clinicId } = useActiveClinic();
+  const { clinicId, supportMode } = useActiveClinic();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [form, setForm] = useState<DischargeWizardForm>(() => defaultDischargeForm());
@@ -156,12 +156,16 @@ function DischargeWizardInner({ patientId, patientName, stats, onSuccess, readOn
 
   const create = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       if (!form.motivo) throw new Error("Informe o motivo da alta");
       const hasEncaminhamento = form.motivo.includes("Encaminhamento") || !!form.encaminhamentos.trim();
       if (!isChecklistComplete(form.checklist, hasEncaminhamento)) {
         throw new Error("Complete o checklist clínico antes de registrar a alta");
       }
       const payload = mergeFormForDb(form);
+      const { data: activePatient } = await supabase.from("patients").select("id").eq("clinic_id", clinicId).eq("id", patientId).maybeSingle();
+      if (!activePatient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("patient_discharges").insert({
         patient_id: patientId,
         professional_id: myProf.data?.id ?? null,

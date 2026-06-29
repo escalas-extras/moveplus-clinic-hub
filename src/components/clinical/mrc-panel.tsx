@@ -10,17 +10,20 @@ import { Plus, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import { MRC_GROUPS, MRC_LEVELS, classifyMRC, RISK_COLORS } from "@/lib/clinical-scales";
 import { fmtDate } from "@/lib/format";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 type SideScore = { d?: number; e?: number };
 
 export function MRCPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
   const qc = useQueryClient();
+  const { clinicId, supportMode } = useActiveClinic();
   const [open, setOpen] = useState(false);
 
   const rows = useQuery({
-    queryKey: ["mrc", patientId],
+    queryKey: ["mrc", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("assessment_mrc").select("*").eq("patient_id", patientId).order("applied_at", { ascending: false });
+      const { data, error } = await supabase.from("assessment_mrc").select("*, patients!inner(clinic_id)").eq("patient_id", patientId).eq("patients.clinic_id", clinicId!).order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -34,7 +37,7 @@ export function MRCPanel({ patientId, assessmentId }: { patientId: string; asses
           <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Avaliar força</Button></DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Escala MRC — Força muscular bilateral</DialogTitle></DialogHeader>
-            <MRCForm patientId={patientId} assessmentId={assessmentId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["mrc", patientId] }); }} />
+            <MRCForm patientId={patientId} assessmentId={assessmentId} clinicId={clinicId} supportMode={supportMode} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["mrc", clinicId, patientId] }); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -55,7 +58,7 @@ export function MRCPanel({ patientId, assessmentId }: { patientId: string; asses
   );
 }
 
-function MRCForm({ patientId, assessmentId, onDone }: { patientId: string; assessmentId?: string; onDone: () => void }) {
+function MRCForm({ patientId, assessmentId, clinicId, supportMode, onDone }: { patientId: string; assessmentId?: string; clinicId: string | null; supportMode: boolean; onDone: () => void }) {
   const [meas, setMeas] = useState<Record<string, SideScore>>({});
 
   const totals = useMemo(() => {
@@ -70,7 +73,11 @@ function MRCForm({ patientId, assessmentId, onDone }: { patientId: string; asses
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       const { data: u } = await supabase.auth.getUser();
+      const { data: patient } = await supabase.from("patients").select("id").eq("clinic_id", clinicId).eq("id", patientId).maybeSingle();
+      if (!patient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("assessment_mrc").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
         measurements: meas, total_right: totals.dSum, total_left: totals.eSum,

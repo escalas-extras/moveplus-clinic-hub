@@ -10,17 +10,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Ruler } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 const REGIONS = ["ombro","cotovelo","punho","quadril","joelho","tornozelo","cervical","toracica","lombar"];
 
 export function GoniometryPanel({ patientId, assessmentId }: { patientId: string; assessmentId?: string }) {
   const qc = useQueryClient();
+  const { clinicId, supportMode } = useActiveClinic();
   const [open, setOpen] = useState(false);
 
   const rows = useQuery({
-    queryKey: ["gonio", patientId],
+    queryKey: ["gonio", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("assessment_goniometry").select("*").eq("patient_id", patientId).order("applied_at", { ascending: false });
+      const { data, error } = await supabase.from("assessment_goniometry").select("*, patients!inner(clinic_id)").eq("patient_id", patientId).eq("patients.clinic_id", clinicId!).order("applied_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -34,7 +37,7 @@ export function GoniometryPanel({ patientId, assessmentId }: { patientId: string
           <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Nova goniometria</Button></DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Goniometria — Avaliação bilateral</DialogTitle></DialogHeader>
-            <GoniometryForm patientId={patientId} assessmentId={assessmentId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["gonio", patientId] }); }} />
+            <GoniometryForm patientId={patientId} assessmentId={assessmentId} clinicId={clinicId} supportMode={supportMode} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["gonio", clinicId, patientId] }); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -56,7 +59,7 @@ export function GoniometryPanel({ patientId, assessmentId }: { patientId: string
   );
 }
 
-function GoniometryForm({ patientId, assessmentId, onDone }: { patientId: string; assessmentId?: string; onDone: () => void }) {
+function GoniometryForm({ patientId, assessmentId, clinicId, supportMode, onDone }: { patientId: string; assessmentId?: string; clinicId: string | null; supportMode: boolean; onDone: () => void }) {
   const [region, setRegion] = useState("ombro");
   const [meas, setMeas] = useState<Record<string, { d?: number; e?: number }>>({});
 
@@ -71,7 +74,11 @@ function GoniometryForm({ patientId, assessmentId, onDone }: { patientId: string
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       const { data: u } = await supabase.auth.getUser();
+      const { data: patient } = await supabase.from("patients").select("id").eq("clinic_id", clinicId).eq("id", patientId).maybeSingle();
+      if (!patient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("assessment_goniometry").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
         measurements: meas, created_by: u.user?.id,

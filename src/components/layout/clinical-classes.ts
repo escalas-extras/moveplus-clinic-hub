@@ -10,12 +10,12 @@ export const clinical = {
   pageSectionHeader: "fos-page-section__header",
   pageSectionBody: "fos-page-section__body",
   field:
-    "fos-field block w-full min-w-0 max-w-full box-border rounded-xl border border-[rgba(15,76,92,0.28)] bg-[#eef3f6] px-3.5 text-sm text-slate-900 shadow-[inset_0_1px_2px_rgba(15,76,92,0.06)] transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-slate-400/90 hover:border-[rgba(15,76,92,0.4)] hover:bg-[#e8eef2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:border-primary/55 focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-55 disabled:bg-slate-100 aria-[invalid=true]:border-destructive/70 aria-[invalid=true]:ring-destructive/20 data-[success=true]:border-emerald-500/50 data-[success=true]:ring-emerald-500/20",
+    "fos-field block w-full min-w-0 max-w-full box-border rounded-xl border border-[rgba(15,76,92,0.42)] bg-white px-3.5 text-sm text-slate-900 shadow-[inset_0_1px_2px_rgba(15,76,92,0.05),0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-slate-500/95 hover:border-[rgba(15,76,92,0.55)] hover:bg-white focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(15,76,92,0.22)] focus-visible:border-[rgba(15,76,92,0.72)] focus-visible:bg-white disabled:cursor-not-allowed disabled:opacity-55 disabled:bg-slate-100 aria-[invalid=true]:border-destructive/80 aria-[invalid=true]:ring-destructive/25 data-[success=true]:border-emerald-600/55 data-[success=true]:ring-emerald-500/20",
   input: "fos-field h-11",
   textarea:
     "fos-field w-full min-w-0 min-h-[5.5rem] py-3 leading-relaxed resize-y break-words",
   select:
-    "fos-field flex h-11 w-full min-w-0 max-w-full items-center justify-between gap-2 px-3.5 data-[placeholder]:text-slate-400",
+    "fos-field flex h-11 w-full min-w-0 max-w-full items-center justify-between gap-2 px-3.5 data-[placeholder]:text-slate-500",
   kpiGrid: "grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4",
   kpiCard: "fos-kpi-card fos-surface-kpi rounded-2xl fos-animate-in",
   splitLayout: "grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]",

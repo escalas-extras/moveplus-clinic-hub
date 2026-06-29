@@ -12,6 +12,7 @@ import { Plus, Target, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/format";
 import { useRoles, useAuth } from "@/lib/auth";
+import { useActiveClinic } from "@/lib/active-clinic";
 
 const TERMS = [
   { value: "curto", label: "Curto prazo" },
@@ -30,12 +31,14 @@ export function GoalsPanel({ patientId, assessmentId }: { patientId: string; ass
   const qc = useQueryClient();
   const { user } = useAuth();
   const { isAdmin } = useRoles(user?.id);
+  const { clinicId, supportMode } = useActiveClinic();
   const [open, setOpen] = useState(false);
 
   const rows = useQuery({
-    queryKey: ["goals", patientId],
+    queryKey: ["goals", clinicId, patientId],
+    enabled: !!clinicId && !!patientId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("assessment_goals").select("*").eq("patient_id", patientId).order("term").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("assessment_goals").select("*, patients!inner(clinic_id)").eq("patient_id", patientId).eq("patients.clinic_id", clinicId!).order("term").order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -43,18 +46,20 @@ export function GoalsPanel({ patientId, assessmentId }: { patientId: string; ass
 
   const upd = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: any }) => {
-      const { error } = await supabase.from("assessment_goals").update(patch).eq("id", id);
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
+      const { error } = await supabase.from("assessment_goals").update(patch).eq("id", id).eq("patient_id", patientId);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["goals", patientId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["goals", clinicId, patientId] }),
   });
 
   const del = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("assessment_goals").delete().eq("id", id);
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
+      const { error } = await supabase.from("assessment_goals").delete().eq("id", id).eq("patient_id", patientId);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Objetivo removido"); qc.invalidateQueries({ queryKey: ["goals", patientId] }); },
+    onSuccess: () => { toast.success("Objetivo removido"); qc.invalidateQueries({ queryKey: ["goals", clinicId, patientId] }); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -66,7 +71,7 @@ export function GoalsPanel({ patientId, assessmentId }: { patientId: string; ass
           <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Novo objetivo</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Novo objetivo</DialogTitle></DialogHeader>
-            <GoalForm patientId={patientId} assessmentId={assessmentId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["goals", patientId] }); }} />
+            <GoalForm patientId={patientId} assessmentId={assessmentId} clinicId={clinicId} supportMode={supportMode} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["goals", clinicId, patientId] }); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -104,15 +109,19 @@ export function GoalsPanel({ patientId, assessmentId }: { patientId: string; ass
   );
 }
 
-function GoalForm({ patientId, assessmentId, onDone }: { patientId: string; assessmentId?: string; onDone: () => void }) {
+function GoalForm({ patientId, assessmentId, clinicId, supportMode, onDone }: { patientId: string; assessmentId?: string; clinicId: string | null; supportMode: boolean; onDone: () => void }) {
   const [term, setTerm] = useState("curto");
   const [description, setDescription] = useState("");
   const [targetDate, setTargetDate] = useState("");
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!clinicId) throw new Error("Clínica ativa não identificada.");
+      if (supportMode) throw new Error("Modo Suporte ativo: somente leitura.");
       if (!description.trim()) throw new Error("Descrição obrigatória");
       const { data: u } = await supabase.auth.getUser();
+      const { data: patient } = await supabase.from("patients").select("id").eq("clinic_id", clinicId).eq("id", patientId).maybeSingle();
+      if (!patient) throw new Error("Paciente não pertence à clínica ativa.");
       const { error } = await supabase.from("assessment_goals").insert({
         patient_id: patientId, assessment_id: assessmentId ?? null,
         term: term as "curto" | "medio" | "longo", description: description.trim(), target_date: targetDate || null, created_by: u.user?.id,

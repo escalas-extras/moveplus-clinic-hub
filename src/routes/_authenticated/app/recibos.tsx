@@ -185,8 +185,8 @@ function RecibosPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Recibos — Extra Flow"
-        description="Geração de recibos por fechamento de pagamento. Critério principal: pagamento_id. semana_ref é informativa."
+        title="Recibos — Legado Extra Flow"
+        description="Fluxo legado de recibos por fechamento de pagamento. O caminho canônico de recibos da clínica fica em Financeiro > Recibos."
         eyebrow="Financeiro"
         icon={Receipt}
         actions={
