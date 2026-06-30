@@ -67,11 +67,16 @@ import {
   PageHero,
   ModuleStack,
   PageToolbar,
-  OperationalCard,
-  OperationalCardsGrid,
   ActionButton,
 } from "@/components/ui-system";
 import { AgendaSidePanel } from "@/components/agenda/AgendaSidePanel";
+import {
+  AgendaPremiumHeader,
+  AgendaDayTimeline,
+  AgendaScopeSwitch,
+  AgendaPeriodFilters,
+  getAgendaVisualStatus,
+} from "@/components/agenda";
 import { useBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
@@ -399,22 +404,22 @@ function AgendaPage() {
   const daySummary = useMemo(() => {
     const todays = todayAppointments;
     const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const emAndamento = todays.filter((a) => {
-      if (a.status === "cancelado" || a.status === "realizado") return false;
-      const [h, m] = String(a.horario).slice(0, 5).split(":").map(Number);
-      const start = h * 60 + (m || 0);
-      const end = start + (a.duracao_min || 30);
-      return nowMin >= start && nowMin < end;
-    }).length;
+    const emAndamento = todays.filter(
+      (a) => getAgendaVisualStatus(a, now, todayIso) === "em_atendimento",
+    ).length;
+    const atrasados = todays.filter(
+      (a) => getAgendaVisualStatus(a, now, todayIso) === "atrasado",
+    ).length;
     return {
       total: todays.length,
       confirmado: todays.filter((a) => a.status === "confirmado").length,
       agendado: todays.filter((a) => a.status === "agendado").length,
       cancelado: todays.filter((a) => a.status === "cancelado").length,
+      realizado: todays.filter((a) => a.status === "realizado").length,
       emAndamento,
+      atrasados,
     };
-  }, [todayAppointments]);
+  }, [todayAppointments, todayIso]);
 
   const agendaSideData = useMemo(() => {
     const nowStr = currentHHMM();
@@ -514,6 +519,13 @@ function AgendaPage() {
 
   const hasActiveFilters =
     filterProf !== "all" || filterPatient !== "all" || filterStatus !== "all" || search.trim() !== "";
+
+  const agendaScope = filterProf === "all" ? "clinic" : "professional";
+  const dayAnchorIso = ymd(anchor);
+  const dayViewItems = useMemo(
+    () => filtered.filter((a) => a.data === dayAnchorIso),
+    [filtered, dayAnchorIso],
+  );
 
   const nextAppointment = useMemo(() => agendaSideData.upcoming[0] ?? null, [agendaSideData.upcoming]);
 
@@ -632,90 +644,58 @@ function AgendaPage() {
         <ClinicalSkeleton variant="split" kpiCount={5} />
       ) : (
         <>
-          <OperationalCardsGrid className="agenda-ops-cards xl:grid-cols-5">
-            <OperationalCard
-              compact
-              title="Atendimentos hoje"
-              icon={CalendarDays}
-              value={daySummary.total}
-              context="Total programado para hoje"
-              accent={brand.primaryColor}
-              onClick={() => applyCardFilter("all")}
-            />
-            <OperationalCard
-              compact
-              title="Confirmados"
-              icon={CheckCircle2}
-              value={daySummary.confirmado}
-              context="Pacientes com consulta confirmada"
-              accent="#059669"
-              onClick={() => applyCardFilter("confirmado")}
-            />
-            <OperationalCard
-              compact
-              title="Pendentes"
-              icon={Clock}
-              value={daySummary.agendado}
-              context="Aguardando confirmação"
-              accent="#d97706"
-              alert={daySummary.agendado > 0}
-              onClick={() => applyCardFilter("agendado")}
-            />
-            <OperationalCard
-              compact
-              title="Cancelados"
-              icon={XCircle}
-              value={daySummary.cancelado}
-              context="Cancelamentos registrados hoje"
-              accent="#e11d48"
-              onClick={() => applyCardFilter("cancelado")}
-            />
-            <OperationalCard
-              compact
-              title="Próximo atendimento"
-              icon={Activity}
-              value={
-                nextAppointment
-                  ? String(nextAppointment.horario).slice(0, 5)
-                  : "—"
-              }
-              context={
-                nextAppointment
-                  ? (nextAppointment.patients?.nome_completo ?? "Sem paciente")
-                  : "Nenhum atendimento restante hoje"
-              }
-              accent={brand.secondaryColor}
-              alert={!!nextAppointment && nextAppointment.status === "agendado"}
-              static={!nextAppointment}
-              onClick={
-                nextAppointment
-                  ? () => {
-                      goToToday();
-                      setSelectedAppt(nextAppointment);
-                    }
-                  : undefined
-              }
-            />
-          </OperationalCardsGrid>
-
-          <QuickAgendaFilters
-            onToday={goToToday}
-            onTomorrow={() => {
-              const d = addDays(new Date(), 1);
-              d.setHours(0, 0, 0, 0);
-              setAnchor(d);
-              setView("dia");
-              setShowMobileFilters(false);
-            }}
-            onWeek={() => {
-              goToToday();
-              setView("semana");
-              setShowMobileFilters(false);
-            }}
-            filterStatus={filterStatus}
-            onStatus={setFilterStatus}
+          <AgendaPremiumHeader
+            totalToday={daySummary.total}
+            nextLabel={
+              nextAppointment ? String(nextAppointment.horario).slice(0, 5) : "—"
+            }
+            nextPatient={nextAppointment?.patients?.nome_completo}
+            completed={daySummary.realizado}
+            inProgress={daySummary.emAndamento}
+            overdue={daySummary.atrasados}
             primaryColor={brand.primaryColor}
+            secondaryColor={brand.secondaryColor}
+            onFilterToday={() => applyCardFilter("all")}
+            onSelectNext={
+              nextAppointment
+                ? () => {
+                    goToToday();
+                    setSelectedAppt(nextAppointment);
+                  }
+                : undefined
+            }
           />
+
+          <div className="flex flex-col gap-2.5 sm:gap-3">
+            <AgendaScopeSwitch
+              scope={agendaScope}
+              onScopeChange={(scope) => {
+                if (scope === "clinic") {
+                  setFilterProf("all");
+                } else {
+                  const first = profs.data?.[0]?.id;
+                  if (first) setFilterProf(first);
+                }
+              }}
+              professionals={profs.data ?? []}
+              selectedProfessionalId={filterProf === "all" ? (profs.data?.[0]?.id ?? "") : filterProf}
+              onProfessionalChange={setFilterProf}
+            />
+
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+              <AgendaPeriodFilters
+                view={view}
+                onViewChange={setView}
+                onToday={goToToday}
+                primaryColor={brand.primaryColor}
+              />
+              <QuickAgendaFilters
+                filterStatus={filterStatus}
+                onStatus={setFilterStatus}
+                primaryColor={brand.primaryColor}
+              />
+            </div>
+          </div>
 
           <PageToolbar
             className="agenda-toolbar"
@@ -819,22 +799,35 @@ function AgendaPage() {
           </PageToolbar>
 
           <div className="agenda-main-grid grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-4">
-            <div className="agenda-calendar-col min-w-0">
+            <div className="agenda-calendar-col min-w-0 space-y-3">
               {view === "dia" ? (
-                <DayView
-                  items={filtered}
-                  day={ymd(anchor)}
-                  isToday={ymd(anchor) === todayIso}
-                  onStatus={(id, s) => updateStatus.mutate({ id, status: s })}
-                  onEdit={(a) => setEditing(a)}
-                  onSelect={(a) => setSelectedAppt(a)}
-                  selectedId={selectedAppt?.id}
-                  disabled={supportMode}
-                  onNew={() => openNewSlot(ymd(anchor))}
-                  onSlotClick={(h) => openNewSlot(ymd(anchor), h)}
-                  onReschedule={handleReschedule}
-                  isRescheduling={reschedule.isPending}
-                />
+                <>
+                  <AgendaDayTimeline
+                    items={dayViewItems}
+                    dayIso={dayAnchorIso}
+                    isToday={dayAnchorIso === todayIso}
+                    selectedId={selectedAppt?.id}
+                    disabled={supportMode}
+                    onSelect={setSelectedAppt}
+                    onConfirm={(id) => updateStatus.mutate({ id, status: "confirmado" })}
+                    onReschedule={setEditing}
+                    onNew={() => openNewSlot(dayAnchorIso)}
+                  />
+                  <DayView
+                    items={filtered}
+                    day={dayAnchorIso}
+                    isToday={dayAnchorIso === todayIso}
+                    onStatus={(id, s) => updateStatus.mutate({ id, status: s })}
+                    onEdit={(a) => setEditing(a)}
+                    onSelect={(a) => setSelectedAppt(a)}
+                    selectedId={selectedAppt?.id}
+                    disabled={supportMode}
+                    onNew={() => openNewSlot(dayAnchorIso)}
+                    onSlotClick={(h) => openNewSlot(dayAnchorIso, h)}
+                    onReschedule={handleReschedule}
+                    isRescheduling={reschedule.isPending}
+                  />
+                </>
               ) : view === "semana" ? (
                 <WeekView
                   items={filtered}
@@ -909,16 +902,10 @@ function AgendaPage() {
 }
 
 function QuickAgendaFilters({
-  onToday,
-  onTomorrow,
-  onWeek,
   filterStatus,
   onStatus,
   primaryColor,
 }: {
-  onToday: () => void;
-  onTomorrow: () => void;
-  onWeek: () => void;
   filterStatus: Status | "all";
   onStatus: (status: Status | "all") => void;
   primaryColor: string;
@@ -927,48 +914,30 @@ function QuickAgendaFilters({
     { label: "Todos", value: "all" },
     { label: "Confirmados", value: "confirmado" },
     { label: "Pendentes", value: "agendado" },
+    { label: "Realizados", value: "realizado" },
     { label: "Cancelados", value: "cancelado" },
   ];
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/80 p-2.5 shadow-[var(--fos-card-shadow)] sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap gap-2">
-        <QuickFilterButton label="Hoje" onClick={onToday} color={primaryColor} />
-        <QuickFilterButton label="Amanhã" onClick={onTomorrow} color={primaryColor} />
-        <QuickFilterButton label="Semana" onClick={onWeek} color={primaryColor} />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {statusItems.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => onStatus(item.value)}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-[background-color,border-color,color,transform] hover:-translate-y-px",
-              filterStatus === item.value
-                ? "border-transparent text-white shadow-soft"
-                : "border-[rgba(15,76,92,0.12)] bg-white text-slate-600 hover:border-[rgba(15,76,92,0.24)]",
-            )}
-            style={filterStatus === item.value ? { background: primaryColor } : undefined}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(15,76,92,0.1)] bg-white/80 p-2.5 shadow-[var(--fos-card-shadow)]">
+      <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
+      {statusItems.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          onClick={() => onStatus(item.value)}
+          className={cn(
+            "rounded-full border px-3 py-1.5 text-xs font-semibold transition-[background-color,border-color,color,transform] hover:-translate-y-px",
+            filterStatus === item.value
+              ? "border-transparent text-white shadow-soft"
+              : "border-[rgba(15,76,92,0.12)] bg-white text-slate-600 hover:border-[rgba(15,76,92,0.24)]",
+          )}
+          style={filterStatus === item.value ? { background: primaryColor } : undefined}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
-  );
-}
-
-function QuickFilterButton({ label, onClick, color }: { label: string; onClick: () => void; color: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full border border-[rgba(15,76,92,0.12)] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-[border-color,transform,box-shadow] hover:-translate-y-px hover:shadow-[0_8px_18px_-14px_rgba(15,76,92,0.45)]"
-      style={{ ["--quick-color" as string]: color }}
-    >
-      {label}
-    </button>
   );
 }
 

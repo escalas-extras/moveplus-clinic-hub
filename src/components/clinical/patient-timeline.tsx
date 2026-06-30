@@ -42,7 +42,7 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
     queryKey: ["timeline", clinicId, patientId],
     enabled: !!clinicId && !!patientId,
     queryFn: async (): Promise<TimelineItem[]> => {
-      const [assess, evol, disc, docs] = await Promise.all([
+      const [assess, evol, disc, docs, clinicalDocs] = await Promise.all([
         supabase.from("assessments").select("id, data, tipo, queixa_principal, professionals(nome)").eq("clinic_id", clinicId!).eq("patient_id", patientId),
         supabase.from("evolutions").select("id, data, hora, procedimentos, professionals(nome)").eq("clinic_id", clinicId!).eq("patient_id", patientId),
         supabase
@@ -51,6 +51,12 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
           .eq("patient_id", patientId)
           .eq("patients.clinic_id", clinicId!),
         supabase.from("documents").select("id, tipo, emitido_em, patients!inner(clinic_id)").eq("patient_id", patientId).eq("patients.clinic_id", clinicId!).limit(50),
+        supabase
+          .from("clinical_documents")
+          .select("id, title, doc_type, issued_at, locked_at")
+          .eq("clinic_id", clinicId!)
+          .eq("patient_id", patientId)
+          .limit(50),
       ]);
       const items: TimelineItem[] = [];
       (assess.data ?? []).forEach((a: any) => items.push({
@@ -80,6 +86,13 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
         date: (d.emitido_em ?? "").slice(0, 10),
         kind: "document",
         title: `Documento emitido (${d.tipo})`,
+      }));
+      (clinicalDocs.data ?? []).forEach((d: any) => items.push({
+        id: `cdoc-${d.id}`,
+        date: (d.issued_at ?? "").slice(0, 10),
+        kind: "document",
+        title: d.title || `Documento (${d.doc_type})`,
+        subtitle: d.locked_at ? undefined : "Rascunho",
       }));
       return items.sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : (b.hora ?? "").localeCompare(a.hora ?? "")));
     },
@@ -137,8 +150,8 @@ export function PatientTimeline({ patientId }: { patientId: string }) {
   return (
     <InfoCard
       icon={History}
-      title="Linha do tempo clínica"
-      description={`${items.length} evento${items.length === 1 ? "" : "s"} · do mais recente ao mais antigo`}
+      title="Timeline clínica"
+      description="Avaliações, reavaliações, evoluções, documentos e alta — tudo em ordem cronológica."
     >
       {/* Filtros por categoria (client-side, sem novas queries) */}
       <div className="mb-5 flex flex-wrap gap-1.5">

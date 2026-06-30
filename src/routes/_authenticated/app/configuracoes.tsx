@@ -1040,6 +1040,10 @@ function LoginPreview({
 
 function MyAccountCard() {
   const { user } = useAuth();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+
   const profileQ = useQuery({
     queryKey: ["my-profile", user?.id],
     enabled: !!user?.id,
@@ -1056,12 +1060,89 @@ function MyAccountCard() {
       return data;
     },
   });
+
+  const saveName = useMutation({
+    mutationFn: async (newName: string) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: newName })
+        .eq("id", user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Nome atualizado!");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["my-profile", user?.id] });
+      qc.invalidateQueries({ queryKey: ["home-user-profile", user?.id] });
+      qc.invalidateQueries({ queryKey: ["user-avatar", user?.id] });
+    },
+    onError: (e: any) => toast.error("Falha ao salvar: " + e.message),
+  });
+
+  useEffect(() => {
+    if (profileQ.data?.full_name) {
+      setName(profileQ.data.full_name);
+    }
+  }, [profileQ.data]);
+
   if (!user?.id) return null;
+
   return (
     <InfoCard icon={UserCircle2} title="Minha conta" description="Foto de perfil e identificação do usuário.">
-      <AvatarUploader userId={user.id} initial={(profileQ.data as any)?.avatar_url ?? null} initialLoading={profileQ.isLoading} />
-      <div className="mt-4 text-sm text-muted-foreground">
-        {(profileQ.data as any)?.full_name ?? user.email}
+      <div className="space-y-4">
+        <AvatarUploader userId={user.id} initial={(profileQ.data as any)?.avatar_url ?? null} initialLoading={profileQ.isLoading} />
+        
+        <div className="border-t pt-4">
+          <Label className="text-xs uppercase font-bold text-slate-400">Nome do profissional</Label>
+          {editing ? (
+            <div className="mt-2 flex gap-2">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome completo"
+                className="h-9 rounded-lg"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => saveName.mutate(name)}
+                disabled={saveName.isPending}
+              >
+                {saveName.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditing(false);
+                  setName(profileQ.data?.full_name ?? "");
+                }}
+                disabled={saveName.isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-800">
+                {profileQ.data?.full_name ?? user.email}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setName(profileQ.data?.full_name ?? "");
+                  setEditing(true);
+                }}
+                className="h-8 rounded-lg text-xs"
+              >
+                Alterar nome
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </InfoCard>
   );

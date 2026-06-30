@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Upload, X, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
+import { createSignedStorageUpload, removeStorageObject } from "@/lib/api/storage-upload.functions";
 import {
   AVATAR_BUCKET,
   AVATAR_MAX,
@@ -32,6 +34,8 @@ export function AvatarUploader({
   initialLoading?: boolean;
 }) {
   const qc = useQueryClient();
+  const createSignedUpload = useServerFn(createSignedStorageUpload);
+  const removeStoredObject = useServerFn(removeStorageObject);
   const inputRef = useRef<HTMLInputElement>(null);
   const [path, setPath] = useState<string | null>(initial);
   const [busy, setBusy] = useState(false);
@@ -91,13 +95,16 @@ export function AvatarUploader({
       invalidateSignedAvatarUrl(newPath);
       const objectUrl = URL.createObjectURL(file);
       setLocalPreviewUrl(objectUrl);
+      const signed = await createSignedUpload({
+        data: { bucket: AVATAR_BUCKET, path: newPath, contentType: file.type },
+      });
       const { error: upErr } = await supabase.storage
         .from(AVATAR_BUCKET)
-        .upload(newPath, file, { upsert: true, contentType: file.type });
+        .uploadToSignedUrl(signed.path, signed.token, file);
       if (upErr) throw upErr;
-      await persist(newPath);
-      if (previousPath && previousPath !== newPath && !/^https?:\/\//i.test(previousPath)) {
-        await supabase.storage.from(AVATAR_BUCKET).remove([previousPath]);
+      await persist(signed.path);
+      if (previousPath && previousPath !== signed.path && !/^https?:\/\//i.test(previousPath)) {
+        await removeStoredObject({ data: { bucket: AVATAR_BUCKET, path: previousPath } });
       }
       toast.success("Foto de perfil atualizada.");
     } catch (e: unknown) {
@@ -111,7 +118,7 @@ export function AvatarUploader({
     setBusy(true);
     try {
       if (path && !/^https?:\/\//i.test(path)) {
-        await supabase.storage.from(AVATAR_BUCKET).remove([path]);
+        await removeStoredObject({ data: { bucket: AVATAR_BUCKET, path } });
       }
       setLocalPreviewUrl(null);
       await persist(null);

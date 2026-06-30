@@ -10,7 +10,6 @@ import {
   AppShell,
   EmptyState,
   InfoCard,
-  StatusBadge,
   ClinicalSkeleton,
   ClinicalDialogBody,
   ClinicalDialogContent,
@@ -28,18 +27,11 @@ import {
   CheckCircle2,
   Trash2,
   Pencil,
-  Phone,
-  ShieldCheck,
-  Stethoscope,
-  Activity,
-  RefreshCw,
-  Gauge,
-  Target,
   ClipboardList,
   FileText,
+  Activity,
 } from "lucide-react";
-import { calcAge, fmtDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { fmtDate } from "@/lib/format";
 import { PatientForm } from "@/components/patient-form";
 import { EvolutionForm } from "@/components/evolution-form";
 import { AssessmentForm } from "@/components/assessment-form";
@@ -58,6 +50,17 @@ import { DischargePanel } from "@/components/clinical/discharge-panel";
 import { ReassessmentComparator } from "@/components/clinical/reassessment-comparator";
 import { PatientDocumentsTab } from "@/components/clinical/patient-documents-tab";
 import { GenerateDossierButton } from "@/components/clinical/generate-dossier-button";
+import {
+  Patient360Header,
+  Patient360SummaryCards,
+  Patient360NewSessionBar,
+  Patient360ContinueCare,
+  Patient360RecentDocuments,
+  Patient360Alerts,
+  usePatient360Counts,
+  usePatient360NextSession,
+} from "@/components/patient";
+import { ModuleStack } from "@/components/ui-system";
 
 export const Route = createFileRoute("/_authenticated/app/pacientes/$id")({
   component: PatientPage,
@@ -84,6 +87,7 @@ function PatientPage() {
   const [editAssessment, setEditAssessment] = useState<any | null>(null);
   const [editMode, setEditMode] = useState<"wizard" | "classic">("wizard");
   const [pdfPreview, setPdfPreview] = useState<Parameters<typeof buildPdf>[0] | null>(null);
+  const [activeTab, setActiveTab] = useState("avaliacoes");
 
   const patient = useQuery({
     queryKey: ["patient", clinicId, id],
@@ -227,6 +231,9 @@ function PatientPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const counts360 = usePatient360Counts(id);
+  const nextSession = usePatient360NextSession(id);
+
   if (patient.isLoading || !clinicId) {
     return (
       <AppShell clinical>
@@ -251,124 +258,114 @@ function PatientPage() {
   const assessmentsList = assessments.data ?? [];
   const evolutionsList = evolutions.data ?? [];
   const latestAssessment = assessmentsList[0] as any | undefined;
-  const latestReassessment = assessmentsList.find((a: any) => a.tipo === "reavaliacao") as any | undefined;
   const latestEvolution = evolutionsList[0] as any | undefined;
-  const professionalName =
-    latestEvolution?.professionals?.nome ?? latestAssessment?.professionals?.nome ?? null;
-  const evaAtual =
-    latestAssessment && latestAssessment.eva != null ? `${latestAssessment.eva}/10` : null;
   const objetivoPrincipal =
     latestAssessment?.objetivos || latestAssessment?.queixa_principal || (p as any).cid_principal || null;
-  const isDischarged = !!(p as any).data_alta;
-  const initials = p.nome_completo
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0])
-    .join("")
-    .toUpperCase();
+  const draftAssessmentsCount = assessmentsList.filter((a: any) => a.status !== "finalizada").length;
+  const unsignedEvolutionsCount = evolutionsList.filter((e: any) => !e.locked_at).length;
 
   return (
     <AppShell clinical>
+      <ModuleStack className="patient-360 space-y-5 sm:space-y-6 pb-24 sm:pb-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit text-muted-foreground">
         <Link to="/app/pacientes"><ArrowLeft className="h-4 w-4 mr-1.5" />Pacientes</Link>
       </Button>
 
-      {/* Cabeçalho premium do paciente */}
-      <div className="fos-surface-card overflow-hidden rounded-2xl">
-        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <div
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-xl font-bold text-primary ring-1 ring-primary/15"
-              aria-hidden
-            >
-              {initials || "?"}
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-950">{p.nome_completo}</h1>
-                {isDischarged ? (
-                  <StatusBadge variant="info">Em alta</StatusBadge>
-                ) : p.situacao === "ativo" ? (
-                  <StatusBadge variant="success">Ativo</StatusBadge>
-                ) : (
-                  <StatusBadge variant="neutral">Inativo</StatusBadge>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {calcAge(p.data_nascimento) ?? "—"} anos · {p.sexo ?? "—"} · {p.cpf ?? "Sem CPF"}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <GenerateDossierButton
-              patient={p as Record<string, unknown>}
-              assessments={assessmentsList as Record<string, unknown>[]}
-              evolutions={evolutionsList as Record<string, unknown>[]}
-            />
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-              <DialogTrigger asChild><Button variant="outline"><Pencil className="h-4 w-4 mr-1.5" />Editar dados</Button></DialogTrigger>
-              <ClinicalDialogContent>
-                <ClinicalDialogHeader>
-                  <ClinicalDialogTitle>Editar paciente</ClinicalDialogTitle>
-                </ClinicalDialogHeader>
-                <ClinicalDialogBody>
-                  <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
-                </ClinicalDialogBody>
-              </ClinicalDialogContent>
-            </Dialog>
-            {isAdmin && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="text-destructive hover:text-destructive">
-                    <Trash2 className="h-4 w-4 mr-1.5" />Excluir
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Se houver histórico clínico, financeiro ou agenda vinculado, o paciente será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Confirmar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        </div>
+      <Patient360Header
+        patient={p as any}
+        lastEvolutionDate={latestEvolution?.data ?? null}
+      />
 
-        <div className="grid grid-cols-2 gap-px border-t border-slate-100 bg-slate-100 sm:grid-cols-3 xl:grid-cols-4">
-          <HeaderStat icon={Phone} label="Telefone" value={p.telefone || p.whatsapp} />
-          <HeaderStat icon={ShieldCheck} label="Convênio" value={(p as any).convenio_nome || "Particular"} />
-          <HeaderStat icon={Stethoscope} label="Profissional" value={professionalName} />
-          <HeaderStat icon={Gauge} label="EVA atual" value={evaAtual} />
-          <HeaderStat icon={Activity} label="Última evolução" value={latestEvolution ? fmtDate(latestEvolution.data) : null} />
-          <HeaderStat icon={RefreshCw} label="Última reavaliação" value={latestReassessment ? fmtDate(latestReassessment.data) : null} />
-          <HeaderStat icon={Target} label="Objetivo principal" value={objetivoPrincipal} className="col-span-2" />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <GenerateDossierButton
+          patient={p as Record<string, unknown>}
+          assessments={assessmentsList as Record<string, unknown>[]}
+          evolutions={evolutionsList as Record<string, unknown>[]}
+        />
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogTrigger asChild><Button variant="outline" size="sm"><Pencil className="h-4 w-4 mr-1.5" />Editar dados</Button></DialogTrigger>
+          <ClinicalDialogContent>
+            <ClinicalDialogHeader>
+              <ClinicalDialogTitle>Editar paciente</ClinicalDialogTitle>
+            </ClinicalDialogHeader>
+            <ClinicalDialogBody>
+              <PatientForm defaultValues={p as any} onSubmit={(v) => update.mutate(v)} submitting={update.isPending} />
+            </ClinicalDialogBody>
+          </ClinicalDialogContent>
+        </Dialog>
+        {isAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4 mr-1.5" />Excluir
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir {p.nome_completo}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se houver histórico clínico, financeiro ou agenda vinculado, o paciente será <strong>inativado</strong> (dados preservados). Caso contrário, será excluído definitivamente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deletePatient.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Confirmar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
+
+      <Patient360SummaryCards
+        patientId={id}
+        nextSessionLabel={nextSession.data ?? "Nenhuma sessão agendada"}
+        therapeuticPlan={objetivoPrincipal}
+        documentsCount={counts360.data?.documentsCount ?? 0}
+        financialPendingCount={counts360.data?.financialPendingCount ?? 0}
+        onOpenDocuments={() => setActiveTab("documentos")}
+      />
+
+      <Patient360NewSessionBar onNewSession={() => setEvoOpen(true)} />
+
+      <Patient360Alerts
+        patientId={id}
+        draftAssessments={draftAssessmentsCount}
+        unsignedEvolutions={unsignedEvolutionsCount}
+      />
+
+      <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
+        <PatientTimeline patientId={id} />
+        <div className="space-y-5">
+          <Patient360ContinueCare
+            patientId={id}
+            assessments={assessmentsList as any}
+            evolutions={evolutionsList as any}
+            onNewEvolution={() => setEvoOpen(true)}
+            onEditAssessment={(assessmentId) => {
+              const a = assessmentsList.find((x: any) => x.id === assessmentId);
+              if (a) {
+                setEditMode("wizard");
+                setEditAssessment(a);
+              }
+            }}
+            onGoToTab={setActiveTab}
+          />
+          <Patient360RecentDocuments patientId={id} />
         </div>
       </div>
 
-      <Tabs defaultValue="timeline" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 sm:w-auto sm:inline-flex">
-          <TabsTrigger value="timeline"><Activity className="h-4 w-4 mr-1.5" />Timeline</TabsTrigger>
-          <TabsTrigger value="avaliacoes"><ClipboardList className="h-4 w-4 mr-1.5" />Avaliações</TabsTrigger>
-          <TabsTrigger value="evolucoes">Evoluções</TabsTrigger>
+          <TabsTrigger value="avaliacoes" id="avaliacoes"><ClipboardList className="h-4 w-4 mr-1.5" />Avaliações</TabsTrigger>
+          <TabsTrigger value="evolucoes" id="evolucoes">Evoluções</TabsTrigger>
           <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
           <TabsTrigger value="clinico">Clínico</TabsTrigger>
           <TabsTrigger value="documentos"><FileText className="h-4 w-4 mr-1.5" />Documentos</TabsTrigger>
           <TabsTrigger value="alta">Alta</TabsTrigger>
           <TabsTrigger value="dados">Dados</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="timeline">
-          <PatientTimeline patientId={id} />
-        </TabsContent>
 
         <TabsContent value="reavaliacao">
           <ReassessmentComparator patientId={id} />
@@ -666,6 +663,7 @@ function PatientPage() {
           <ClinicalTabs patientId={id} />
         </TabsContent>
       </Tabs>
+      </ModuleStack>
       <AlertDialog
         open={!!pendingDelete}
         onOpenChange={(open) => {
@@ -704,32 +702,6 @@ function PatientPage() {
         pdfOpts={pdfPreview}
       />
     </AppShell>
-  );
-}
-
-function HeaderStat({
-  icon: Icon,
-  label,
-  value,
-  className,
-}: {
-  icon: typeof Phone;
-  label: string;
-  value?: string | null;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex items-start gap-2.5 bg-white px-4 py-3", className)}>
-      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/[0.07] text-primary">
-        <Icon className="h-3.5 w-3.5" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-slate-800" title={value || undefined}>
-          {value || "—"}
-        </p>
-      </div>
-    </div>
   );
 }
 

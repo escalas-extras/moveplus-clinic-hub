@@ -10,6 +10,12 @@ export { AttentionList, type AttentionItem } from "./AttentionList";
 export { QuickActionCard, type QuickActionItem } from "./QuickActionCard";
 export { AgendaTimeline, type AgendaTimelineItem } from "./AgendaTimeline";
 export { Sparkline, sparkFromTrend } from "./Sparkline";
+export { TodayClinicHeader } from "./TodayClinicHeader";
+export { TodayPremiumCards } from "./TodayPremiumCards";
+export { TodayQuickActions } from "./TodayQuickActions";
+export { TodayAlerts } from "./TodayAlerts";
+export { ContinueWhereLeftOff } from "./ContinueWhereLeftOff";
+export { NextAppointmentsSection } from "./NextAppointmentsSection";
 
 /** Prefer @/components/ui-system */
 export {

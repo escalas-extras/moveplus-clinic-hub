@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useActiveClinic } from "@/lib/active-clinic";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
+import { supabase } from "@/integrations/supabase/client";
 import {
   EMPTY_DASHBOARD_DETAILS,
   fetchDashboardCoreStats,
@@ -12,15 +13,6 @@ import {
 } from "@/lib/dashboard-stats";
 import { AppShell, ClinicalSkeleton, QueryErrorState } from "@/components/layout";
 import { ClinicHomeDashboard } from "@/components/home";
-import type { AttentionItem } from "@/components/dashboard";
-import {
-  CalendarDays,
-  ClipboardList,
-  FileText,
-  RefreshCw,
-  Wallet,
-} from "lucide-react";
-import { fmtDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   component: PainelClinico,
@@ -54,11 +46,45 @@ function getGreeting(hour: number) {
   return "Boa noite";
 }
 
-function getDisplayName(user: ReturnType<typeof useAuth>["user"]) {
-  const meta = user?.user_metadata as { full_name?: string } | undefined;
-  if (meta?.full_name) return meta.full_name.split(" ")[0];
-  if (user?.email) return user.email.split("@")[0];
-  return "";
+type HomeUserProfile = {
+  full_name?: string | null;
+  professional_name?: string | null;
+};
+
+function formatDisplayName(value: string | null | undefined, options?: { allowUsername?: boolean }): string {
+  if (!value) return "";
+  const raw = value.trim();
+  if (!raw || raw.includes("@")) return "";
+
+  let name = raw.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!name) return "";
+  if (!options?.allowUsername && !name.includes(" ") && /\d/.test(name)) return "";
+
+  const firstName = name.split(" ")[0];
+  return firstName
+    .split(" ")
+    .map((part) => {
+      if (!part) return part;
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(" ");
+}
+
+function getDisplayName(user: ReturnType<typeof useAuth>["user"], profile?: HomeUserProfile | null) {
+  const professionalName = formatDisplayName(profile?.professional_name);
+  if (professionalName) return professionalName;
+
+  const profileFullName = formatDisplayName(profile?.full_name);
+  if (profileFullName) return profileFullName;
+
+  const meta = user?.user_metadata as { full_name?: string; name?: string } | undefined;
+  const metadataFullName = formatDisplayName(meta?.full_name);
+  if (metadataFullName) return metadataFullName;
+
+  const metadataName = formatDisplayName(meta?.name);
+  if (metadataName) return metadataName;
+
+  return "Profissional";
 }
 
 function PainelClinico() {
@@ -75,8 +101,36 @@ function PainelClinico() {
   const thisMonthIso = isoDate(thisMonth);
   const prevMonthIso = isoDate(prevMonth);
 
+  const profile = useQuery({
+    queryKey: ["home-user-profile", user?.id, clinicId],
+    enabled: !!user?.id,
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const [profileRes, professionalRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user!.id)
+          .maybeSingle(),
+        clinicId
+          ? supabase
+              .from("professionals")
+              .select("nome")
+              .eq("profile_id", user!.id)
+              .eq("clinic_id", clinicId)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      return {
+        full_name: profileRes.data?.full_name ?? null,
+        professional_name: professionalRes.data?.nome ?? null,
+      };
+    },
+  });
+
   const greeting = getGreeting(today.getHours());
-  const displayName = getDisplayName(user);
+  const displayName = getDisplayName(user, profile.data as HomeUserProfile | null);
   const dateLabel = today.toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "numeric",
@@ -122,73 +176,6 @@ function PainelClinico() {
   const loadingCore = coreStats.isLoading;
   const loadingDetails = detailStats.isLoading && !detailStats.data;
 
-  const attentionItems = useMemo((): AttentionItem[] => {
-    if (!s) return [];
-    const items: AttentionItem[] = [];
-
-    for (const a of s.hoje.slice(0, 3)) {
-      items.push({
-        id: `appt-${a.id}`,
-        icon: CalendarDays,
-        title: a.patients?.nome_completo ?? "Atendimento",
-        subtitle: `${String(a.horario).slice(0, 5)} · ${a.professionals?.nome ?? "Consulta"}`,
-        meta: a.status ?? undefined,
-        to: "/app/agenda",
-        tone: "default",
-      });
-    }
-
-    for (const r of s.reavalPend.slice(0, 3)) {
-      items.push({
-        id: `reaval-${r.id}`,
-        icon: RefreshCw,
-        title: r.patients?.nome_completo ?? "Reavaliação",
-        subtitle: `Vencida em ${fmtDate(r.scheduled_for)}`,
-        meta: "Reavaliação",
-        to: "/app/reavaliacoes",
-        tone: "warning",
-      });
-    }
-
-    if (s.docsRascunho > 0) {
-      items.push({
-        id: "docs-rascunho",
-        icon: FileText,
-        title: "Documentos pendentes de finalização",
-        subtitle: `${s.docsRascunho} rascunho(s) aguardando`,
-        meta: String(s.docsRascunho),
-        to: "/app/documentos",
-        tone: "warning",
-      });
-    }
-
-    if (s.recebiveisVencidos > 0) {
-      items.push({
-        id: "fin-vencidos",
-        icon: Wallet,
-        title: "Recebimentos vencidos",
-        subtitle: "Títulos a receber em atraso",
-        meta: String(s.recebiveisVencidos),
-        to: "/app/financeiro/inadimplencia",
-        tone: "danger",
-      });
-    }
-
-    if (s.evolSemAssin > 0) {
-      items.push({
-        id: "evol-sem-assin",
-        icon: ClipboardList,
-        title: "Evoluções sem assinatura",
-        subtitle: `${s.evolSemAssin} registro(s) pendente(s)`,
-        meta: String(s.evolSemAssin),
-        to: "/app/evolucoes",
-        tone: "warning",
-      });
-    }
-
-    return items.slice(0, 8);
-  }, [s]);
-
   return (
     <AppShell clinical>
       {coreStats.isError ? (
@@ -198,13 +185,12 @@ function PainelClinico() {
       ) : (
         <ClinicHomeDashboard
           greeting={greeting}
-          displayName={displayName || undefined}
+          displayName={displayName}
           clinicName={brand.clinicName}
           dateLabel={dateLabel}
           primaryColor={brand.primaryColor}
           secondaryColor={brand.secondaryColor}
           stats={s}
-          attentionItems={attentionItems}
           isNewClinic={isNewClinic}
           logoUploaded={brand.hasOwnLogo}
           loadingDetails={loadingDetails}

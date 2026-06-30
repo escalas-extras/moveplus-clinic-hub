@@ -72,6 +72,20 @@ import { pcGet, pcSet } from "@/lib/persistent-cache";
 import { AdminSaasShell } from "@/components/admin-saas-shell";
 import { isAdminAppMode } from "@/lib/app-mode";
 
+function cleanName(value: string | null | undefined): string {
+  if (!value) return "";
+  let name = value.trim();
+  if (name.includes("@")) {
+    name = name.split("@")[0];
+  }
+  name = name.replace(/\d+$/, "");
+  const firstWord = name.split(/[\s.\-_]/)[0];
+  if (firstWord) {
+    return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
+  }
+  return "";
+}
+
 const ADMIN_SAAS_BRAND = {
   ...FISIOOS_DEFAULTS,
 
@@ -348,7 +362,11 @@ export function AppShell({
 
     .filter((g) => g.items.length > 0);
 
-  const userName = (user?.user_metadata as any)?.full_name || user?.email?.split("@")[0] || "";
+  const userName =
+    cleanName((profile as any)?.full_name) ||
+    cleanName((user?.user_metadata as any)?.full_name) ||
+    cleanName(user?.email) ||
+    "";
 
   const userRole = roleLabel(clinicRole, isAdmin, isPlatformAdmin);
 
@@ -386,7 +404,7 @@ export function AppShell({
 
         .from("profiles")
 
-        .select("avatar_url")
+        .select("avatar_url, full_name")
 
         .eq("id", user!.id)
 

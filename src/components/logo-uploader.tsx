@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Image, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { createSignedStorageUpload } from "@/lib/api/storage-upload.functions";
 import { invalidateSignedClinicLogoUrl, resolveClinicLogoUrl } from "@/lib/clinic-logo";
 import { cn } from "@/lib/utils";
 import { clinical } from "@/components/layout/clinical-classes";
@@ -11,6 +13,7 @@ import { LogoBox } from "@/components/logo-box";
 
 export const LOGO_MAX = 5 * 1024 * 1024;
 export const LOGO_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
+const LOGO_BUCKET = "clinic-logos";
 
 export async function signedLogoUrl(path: string | null | undefined): Promise<string | null> {
   return resolveClinicLogoUrl(path);
@@ -30,6 +33,7 @@ export function LogoUploader({
   value: string | null;
   onChange: (v: string | null) => void;
 }) {
+  const createSignedUpload = useServerFn(createSignedStorageUpload);
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -64,11 +68,14 @@ export function LogoUploader({
       invalidateSignedClinicLogoUrl(path);
       const objectUrl = URL.createObjectURL(file);
       setLocalPreviewUrl(objectUrl);
+      const signed = await createSignedUpload({
+        data: { bucket: LOGO_BUCKET, path, contentType: file.type },
+      });
       const { error } = await supabase.storage
-        .from("documents")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .from(LOGO_BUCKET)
+        .uploadToSignedUrl(signed.path, signed.token, file);
       if (error) throw error;
-      onChange(path);
+      onChange(signed.path);
       toast.success("Logo enviada. Clique em Salvar para aplicar.");
     } catch (e: unknown) {
       toast.error("Falha no upload: " + errorMessage(e));
