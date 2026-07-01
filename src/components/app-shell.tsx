@@ -60,7 +60,7 @@ import { preloadAvatarUrl } from "@/lib/user-avatar";
 
 import { ClinicLogo } from "@/components/clinic-logo";
 
-import { AppSidebar } from "@/components/sidebar";
+import { AppSidebar } from "@/components/sidebar/AppSidebar";
 
 import { SIDEBAR_LAYOUT } from "@/components/sidebar/sidebar-layout";
 
@@ -362,12 +362,6 @@ export function AppShell({
 
     .filter((g) => g.items.length > 0);
 
-  const userName =
-    cleanName((profile as any)?.full_name) ||
-    cleanName((user?.user_metadata as any)?.full_name) ||
-    cleanName(user?.email) ||
-    "";
-
   const userRole = roleLabel(clinicRole, isAdmin, isPlatformAdmin);
 
   const today = new Date();
@@ -419,6 +413,13 @@ export function AppShell({
 
   const avatarPath = (profile as any)?.avatar_url ?? null;
   const avatarLoading = avatarProfileLoading && !avatarPath;
+  const profileFullName = (profile as any)?.full_name;
+
+  const userName =
+    cleanName(profileFullName) ||
+    cleanName((user?.user_metadata as any)?.full_name) ||
+    cleanName(user?.email) ||
+    "";
 
   useEffect(() => {
     if (brand.logoUrl) void preloadImageUrl(brand.logoUrl);

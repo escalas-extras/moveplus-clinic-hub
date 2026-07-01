@@ -70,13 +70,11 @@ import {
   ActionButton,
 } from "@/components/ui-system";
 import { AgendaSidePanel } from "@/components/agenda/AgendaSidePanel";
-import {
-  AgendaPremiumHeader,
-  AgendaDayTimeline,
-  AgendaScopeSwitch,
-  AgendaPeriodFilters,
-  getAgendaVisualStatus,
-} from "@/components/agenda";
+import { AgendaPremiumHeader } from "@/components/agenda/AgendaPremiumHeader";
+import { AgendaDayTimeline } from "@/components/agenda/AgendaDayTimeline";
+import { AgendaScopeSwitch } from "@/components/agenda/AgendaScopeSwitch";
+import { AgendaPeriodFilters } from "@/components/agenda/AgendaPeriodFilters";
+import { getAgendaVisualStatus } from "@/components/agenda/agenda-visual-status";
 import { useBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 import { SupportGuardButton, SupportGuardClickable } from "@/components/support-guard";
