@@ -108,6 +108,11 @@ const ADMIN_SAAS_BRAND = {
   isLoading: false,
 } as const;
 
+type UserAvatarProfile = {
+  avatar_url: string | null;
+  full_name: string | null;
+};
+
 type NavItemDef = {
   to: string;
 
@@ -376,7 +381,7 @@ export function AppShell({
 
   const avatarGradient = `linear-gradient(135deg, ${brand.primaryColor}, ${brand.secondaryColor})`;
 
-  const { data: profile, isLoading: avatarProfileLoading } = useQuery({
+  const { data: profile, isLoading: avatarProfileLoading } = useQuery<UserAvatarProfile | null>({
     queryKey: ["user-avatar", user?.id],
 
     enabled: !!user?.id,
@@ -390,7 +395,7 @@ export function AppShell({
     refetchOnMount: false,
 
     initialData: user?.id
-      ? (pcGet<{ avatar_url: string | null }>(`fos:profile-avatar:${user.id}`) ?? undefined)
+      ? (pcGet<UserAvatarProfile>(`fos:profile-avatar:${user.id}`) ?? undefined)
       : undefined,
 
     queryFn: async () => {
@@ -404,16 +409,20 @@ export function AppShell({
 
         .maybeSingle();
 
-      if (user?.id)
-        pcSet(`fos:profile-avatar:${user.id}`, data ?? { avatar_url: null }, 24 * 60 * 60_000);
+      const profileData: UserAvatarProfile = {
+        avatar_url: data?.avatar_url ?? null,
+        full_name: data?.full_name ?? null,
+      };
 
-      return data;
+      if (user?.id) pcSet(`fos:profile-avatar:${user.id}`, profileData, 24 * 60 * 60_000);
+
+      return profileData;
     },
   });
 
-  const avatarPath = (profile as any)?.avatar_url ?? null;
+  const avatarPath = profile?.avatar_url ?? null;
   const avatarLoading = avatarProfileLoading && !avatarPath;
-  const profileFullName = (profile as any)?.full_name;
+  const profileFullName = profile?.full_name;
 
   const userName =
     cleanName(profileFullName) ||
